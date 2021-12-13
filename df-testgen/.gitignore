@@ -1,2 +1,5 @@
 /.cargo
 /target/
+
+js_tools/*_output.json
+js_tools/node_modules/

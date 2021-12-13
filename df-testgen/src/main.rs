@@ -1,5 +1,6 @@
 use std::{fs, io, path::PathBuf};
 use structopt::StructOpt;
+use std::process::Command;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -23,6 +24,11 @@ struct Opt {
 fn main() {
 
     let opt = Opt::from_args();
+
+    let output = Command::new("./get_api_specs.sh")
+                     .arg(&opt.lib_name)
+                     .output()
+                     .expect(format!("failed to execute API info gathering process for {:?}", &opt.lib_name).as_str());
 
     println!("{:?}", opt);
 }
