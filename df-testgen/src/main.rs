@@ -2,6 +2,8 @@ use std::{fs, io, path::PathBuf};
 use structopt::StructOpt;
 use std::process::Command;
 
+use df_testgen::discovery::run_discovery_phase;
+
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = "df_testgen_args",
