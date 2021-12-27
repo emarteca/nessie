@@ -3,6 +3,7 @@ use structopt::StructOpt;
 use std::process::Command;
 
 use df_testgen::discovery::run_discovery_phase;
+use df_testgen::module_reps::*; // all the representation structs
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -40,7 +41,12 @@ fn main() {
                      .output()
                      .expect(format!("failed to execute API info gathering process for {:?}", &opt.lib_name).as_str());
 
+    let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
+
+    // if we got to this point, we successfully got the API and can construct the module object
+    let mut mod_rep = NpmModule::from_api_spec(PathBuf::from(api_spec_filename), opt.lib_name);
+
     let num_tests = opt.num_tests;
 
-    println!("{:?}", opt);
+    println!("{:?}", output);
 }

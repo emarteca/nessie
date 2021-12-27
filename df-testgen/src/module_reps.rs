@@ -1,6 +1,9 @@
 /// the data structures representing a module
 
 use std::collections::HashMap;
+use std::{fs, io, path::PathBuf};
+
+use serde::{Deserialize, Serialize};
 
 /// Module class:
 /// - represents the library 
@@ -12,6 +15,24 @@ pub struct NpmModule {
 	/// map of functions making up the module
 	/// indexed by the name of the function
 	fct_list: HashMap<String, ModuleFunction>,
+}
+
+impl NpmModule {
+	pub fn from_api_spec(path: PathBuf, mod_name: String) -> Result<Self, DFError> {
+		let file = fs::File::open(path.clone());
+		if let Err(_) = file {
+			return Err(DFError::SpecFileError);
+		}
+		let file = file.unwrap();
+	    let reader = io::BufReader::new(file);
+
+	    print!("{:?}", reader);
+
+	    Ok(Self{
+	    	name: mod_name,
+	    	fct_list: HashMap::new(),
+	    })
+	}
 }
 
 /// representation of a function in a given module
@@ -73,4 +94,10 @@ pub enum ArgType {
 	ArrayType,
 	/// non-callback, non-array, object
 	ObjectType
+}
+
+/// errors in the DF testgen pipeline
+pub enum DFError {
+	/// error reading some sort of spec file from a previous stage of the pipeline 
+	SpecFileError,
 }
