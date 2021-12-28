@@ -1,7 +1,7 @@
 /// the data structures representing a module
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -34,13 +34,23 @@ struct ModFctAPIJSON {
 /// - represents the library
 /// - composed of a list of functions
 /// - each function is composed of a list of signatures
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct NpmModule {
     /// name of the npm module
     lib: String,
     /// map of functions making up the module
     /// indexed by the name of the function
     fns: HashMap<String, ModuleFunction>,
+}
+
+/// pretty printing for the NpmModule (JSON style)
+impl std::fmt::Debug for NpmModule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match serde_json::to_string_pretty(&self) {
+            Ok(pretty_json) => write!(f, "{}", pretty_json),
+            _ => Err(std::fmt::Error)
+        }
+    }
 }
 
 impl NpmModule {
