@@ -1,8 +1,8 @@
 use std::process::Command;
-use std::{fs, io, path::PathBuf};
+use std::{path::PathBuf};
 use structopt::StructOpt;
 
-use df_testgen::discovery::run_discovery_phase;
+
 use df_testgen::module_reps::*; // all the representation structs
 
 #[derive(Debug, StructOpt)]
@@ -49,10 +49,10 @@ fn main() {
     let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
 
     // if we got to this point, we successfully got the API and can construct the module object
-    let mut mod_rep = NpmModule::from_api_spec(PathBuf::from(api_spec_filename), opt.lib_name);
+    let mod_rep = NpmModule::from_api_spec(PathBuf::from(api_spec_filename), opt.lib_name);
     print!("{:?}", mod_rep);
 
-    let num_tests = opt.num_tests;
+    let _num_tests = opt.num_tests;
 
     println!("{:?}", output);
 }

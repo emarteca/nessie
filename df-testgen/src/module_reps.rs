@@ -1,7 +1,7 @@
 /// the data structures representing a module
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::{fs, io, path::PathBuf};
+use std::{path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -47,14 +47,12 @@ impl NpmModule {
     /// create an NpmModule object from a JSON file resulting from running the api_info
     /// phase: this is just a list of all the functions for a module, without having
     /// run the discovery phase yet (i.e., no arg info yet)
-    pub fn from_api_spec(path: PathBuf, mod_name: String) -> Result<Self, DFError> {
+    pub fn from_api_spec(path: PathBuf, _mod_name: String) -> Result<Self, DFError> {
         let file_conts = std::fs::read_to_string(path);
-        let mut file_conts_string = "".to_string();
-        if let Ok(fcs) = file_conts {
-            file_conts_string = fcs;
-        } else {
-            return Err(DFError::SpecFileError);
-        }
+        let file_conts_string = match file_conts {
+            Ok(fcs) => fcs,
+            _ => return Err(DFError::SpecFileError)
+        };
 
         let mod_json_rep: NpmModuleJSON = match serde_json::from_str(&file_conts_string) {
             Ok(rep) => rep,
@@ -67,7 +65,7 @@ impl NpmModule {
             .fns
             .iter()
             .map(|(name, mod_fct_api)| (name.clone(), ModuleFunction::try_from(mod_fct_api)))
-            .filter(|(name, opt_mod_fct)| matches!(opt_mod_fct, Ok(_)))
+            .filter(|(_name, opt_mod_fct)| matches!(opt_mod_fct, Ok(_)))
             .map(|(name, opt_mod_fct)| (name, opt_mod_fct.unwrap()))
             .collect();
         Ok(Self {
@@ -123,7 +121,7 @@ impl FunctionSignature {
     pub fn get_callback_positions(&self) -> Vec<usize> {
         let mut posns = Vec::new();
         for (pos, arg) in self.arg_list.iter().enumerate() {
-            if (arg.is_callback) {
+            if arg.is_callback {
                 posns.push(pos);
             }
         }
