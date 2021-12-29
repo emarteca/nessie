@@ -48,12 +48,16 @@ impl std::fmt::Debug for NpmModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match serde_json::to_string_pretty(&self) {
             Ok(pretty_json) => write!(f, "{}", pretty_json),
-            _ => Err(std::fmt::Error)
+            _ => Err(std::fmt::Error),
         }
     }
 }
 
 impl NpmModule {
+    pub fn get_mut_fns(&mut self) -> &mut HashMap<String, ModuleFunction> {
+        &mut self.fns
+    }
+
     /// create an NpmModule object from a JSON file resulting from running the api_info
     /// phase: this is just a list of all the functions for a module, without having
     /// run the discovery phase yet (i.e., no arg info yet)
@@ -61,7 +65,7 @@ impl NpmModule {
         let file_conts = std::fs::read_to_string(path);
         let file_conts_string = match file_conts {
             Ok(fcs) => fcs,
-            _ => return Err(DFError::SpecFileError)
+            _ => return Err(DFError::SpecFileError),
         };
 
         let mod_json_rep: NpmModuleJSON = match serde_json::from_str(&file_conts_string) {
@@ -71,6 +75,7 @@ impl NpmModule {
 
         let lib_name = mod_json_rep.lib.clone();
 
+        // convert the api_info into module functions (missing signatures until discovery)
         let fns: HashMap<String, ModuleFunction> = mod_json_rep
             .fns
             .iter()
@@ -82,6 +87,24 @@ impl NpmModule {
             lib: lib_name,
             fns: fns,
         })
+    }
+
+    /// get the variable name corresponding to this module when it's imported in generated tests
+    /// it's just the name of this module, switching hyphens to underscores
+    pub fn get_mod_js_var_name(&self) -> String {
+        str::replace(&self.lib, "-", "_").to_string()
+    }
+
+    /// return JS code to import this module
+    pub fn get_js_for_basic_cjs_import(&self) -> String {
+        [
+            "let ",
+            &self.get_mod_js_var_name(),
+            " = require(\"",
+            &self.lib,
+            "\");",
+        ]
+        .join("")
     }
 }
 
@@ -137,6 +160,11 @@ impl FunctionSignature {
         }
         posns
     }
+
+    /// getter for arg list
+    pub fn get_arg_list(&self) -> &Vec<FunctionArgument> {
+        &self.arg_list
+    }
 }
 
 /// representation of a function argument
@@ -148,6 +176,21 @@ pub struct FunctionArgument {
     is_callback: bool,
     // if tested, list of values tested with
     // TODO figure out how to represent these values
+    string_rep_arg_val: String,
+}
+
+impl FunctionArgument {
+    pub fn new(arg_type: ArgType, is_callback: bool, string_rep_arg_val: String) -> Self {
+        Self {
+            arg_type,
+            is_callback,
+            string_rep_arg_val,
+        }
+    }
+    /// getter for string representation of argument value
+    pub fn get_string_rep_arg_val(&self) -> &String {
+        &self.string_rep_arg_val
+    }
 }
 
 /// list of types being tracked, for arguments
@@ -173,4 +216,10 @@ pub enum ArgType {
 pub enum DFError {
     /// error reading some sort of spec file from a previous stage of the pipeline
     SpecFileError,
+    /// error printing test file
+    WritingTestError,
+    /// error running test
+    TestRunningError,
+    /// error parsing test output
+    TestOutputParseError,
 }

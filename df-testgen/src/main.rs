@@ -1,9 +1,10 @@
+use std::path::PathBuf;
 use std::process::Command;
-use std::{path::PathBuf};
 use structopt::StructOpt;
 
-
 use df_testgen::module_reps::*; // all the representation structs
+
+use df_testgen::discovery::run_discovery_phase;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -49,11 +50,16 @@ fn main() {
     let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
 
     // if we got to this point, we successfully got the API and can construct the module object
-    let mod_rep = match NpmModule::from_api_spec(PathBuf::from(api_spec_filename), opt.lib_name) {
+    let mut mod_rep = match NpmModule::from_api_spec(PathBuf::from(api_spec_filename), opt.lib_name)
+    {
         Ok(mod_rep) => mod_rep,
-        _ => panic!("Error reading the module spec from the api_info file")
+        _ => panic!("Error reading the module spec from the api_info file"),
     };
-    print!("{:?}", mod_rep);
+    // print!("{:?}", mod_rep);
+
+    if let Err(e) = run_discovery_phase(&mut mod_rep) {
+        panic!("Error running discovery phase: {:?}", e);
+    }
 
     let _num_tests = opt.num_tests;
 }
