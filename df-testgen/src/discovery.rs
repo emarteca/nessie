@@ -1,6 +1,6 @@
+use crate::decisions;
 use crate::module_reps::*; // all the representation structs
 use crate::test_bodies::*;
-use crate::decisions;
 
 use serde_json::Value;
 use std::process::Command;
@@ -22,9 +22,10 @@ pub fn run_discovery_phase(mod_rep: &mut NpmModule) -> Result<(), DFError> {
     let base_var_name = mod_rep.get_mod_js_var_name();
 
     for (func_name, func_desc) in mod_rep.get_mut_fns() {
+        let mut cur_cb_position = 0;
         for test_num in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
             let cur_test_file = "js_tools/test.js";
-            let args = gen_args_for_fct(func_desc);
+            let args = gen_args_for_fct_with_cb(func_desc, cur_cb_position);
             let test_call = get_instrumented_function_call(func_name, &base_var_name, &args);
 
             let cur_test = [
@@ -60,11 +61,11 @@ pub fn run_discovery_phase(mod_rep: &mut NpmModule) -> Result<(), DFError> {
 
 // TODO
 // right now just the default: takes one arg and it's a callback
-fn gen_args_for_fct(mod_fct: &ModuleFunction) -> Vec<FunctionArgument> {
+fn gen_args_for_fct_with_cb(mod_fct: &ModuleFunction, cb_position: i32) -> Vec<FunctionArgument> {
     let num_args = mod_fct.get_num_api_args();
     let sigs = mod_fct.get_sigs();
 
-    let cur_sig = decisions::gen_new_sig(num_args, sigs);
+    let cur_sig = decisions::gen_new_sig_with_cb(num_args, sigs, cb_position);
     // TODO get args according to the number of args, and the currently existing signatures
     // args passed in: mod_fct (that has the num_args and the current signatures)
     // and, the callback

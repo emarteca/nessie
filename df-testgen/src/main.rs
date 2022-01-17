@@ -4,8 +4,8 @@ use structopt::StructOpt;
 
 use df_testgen::module_reps::*; // all the representation structs
 
-use df_testgen::discovery::run_discovery_phase;
 use df_testgen::decisions;
+use df_testgen::discovery::run_discovery_phase;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -35,7 +35,7 @@ struct Opt {
 }
 
 /// function to set up a toy filesystem that the generated tests can interact with
-fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error>{
+fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
     let mut toy_fs_paths: Vec<PathBuf> = Vec::new();
 
     for dir in &decisions::SETUP::TOY_FS_DIRS {
@@ -51,7 +51,7 @@ fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error>{
         std::fs::File::create(path_start.to_owned() + "/" + file)?;
         toy_fs_paths.push(cur_path);
     }
- 
+
     Ok(toy_fs_paths)
 }
 
@@ -77,8 +77,9 @@ fn main() {
         Ok(mod_rep) => mod_rep,
         _ => panic!("Error reading the module spec from the api_info file"),
     };
-    
-    let toy_fs_paths = setup_toy_fs("js_tools/toy_fs_dir").expect("Error creating toy filesystem for tests; bailing out.");
+
+    let toy_fs_paths = setup_toy_fs("js_tools/toy_fs_dir")
+        .expect("Error creating toy filesystem for tests; bailing out.");
 
     let mut testgen_db = decisions::TestGenDB::new();
     testgen_db.set_fs_strings(toy_fs_paths);

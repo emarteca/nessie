@@ -24,7 +24,7 @@ struct ModFctAPIJSON {
     /// name of the function
     name: String,
     /// number of arguments
-    num_args: i32,
+    num_args: usize,
     /// indicator of whether or not the API function has a specified
     /// number of args
     used_default_args: Option<bool>,
@@ -117,12 +117,12 @@ pub struct ModuleFunction {
     /// list of valid signatures
     sigs: Vec<FunctionSignature>,
     /// number of arguments according to the API docs
-    num_api_args: Option<i32>,
+    num_api_args: Option<usize>,
 }
 
 impl ModuleFunction {
     /// getter for num_api_args
-    pub fn get_num_api_args(&self) -> Option<i32> {
+    pub fn get_num_api_args(&self) -> Option<usize> {
         self.num_api_args
     }
 
@@ -154,7 +154,7 @@ impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FunctionSignature {
     /// number of arguments
-    num_args: i32,
+    num_args: usize,
     /// is it async? true/false
     is_async: bool,
     /// list of arguments: their type, and value if tested
@@ -163,11 +163,11 @@ pub struct FunctionSignature {
 
 impl FunctionSignature {
     /// constructor
-    pub fn new(num_args: i32, is_async: bool, arg_list: Vec<FunctionArgument>) -> Self {
+    pub fn new(num_args: usize, is_async: bool, arg_list: Vec<FunctionArgument>) -> Self {
         Self {
             num_args,
             is_async,
-            arg_list
+            arg_list,
         }
     }
 
@@ -218,18 +218,18 @@ impl FunctionArgument {
 /// this can be modified for an arbitrary amount of granularity
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ArgType {
-    /// the "any" dynamic type (basically a no-op)
-    AnyType,
     /// number
     NumberType,
     /// string
     StringType,
-    /// callback (TODO maybe more granularity here)
-    CallbackType,
     /// array type
     ArrayType,
     /// non-callback, non-array, object
     ObjectType,
+    /// callback (TODO maybe more granularity here)
+    CallbackType,
+    /// the "any" dynamic type (basically a no-op)
+    AnyType,
 }
 
 /// errors in the DF testgen pipeline
