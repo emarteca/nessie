@@ -186,10 +186,14 @@ impl FunctionSignature {
     pub fn get_arg_list(&self) -> &Vec<FunctionArgument> {
         &self.arg_list
     }
+
+    pub fn get_mut_args(&mut self) -> &mut Vec<FunctionArgument> {
+        &mut self.arg_list
+    }
 }
 
 /// representation of a function argument
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FunctionArgument {
     /// type of the argumnet
     arg_type: ArgType,
@@ -197,11 +201,14 @@ pub struct FunctionArgument {
     is_callback: bool,
     // if tested, list of values tested with
     // TODO figure out how to represent these values
-    string_rep_arg_val: String,
+    string_rep_arg_val: Option<String>,
 }
 
 impl FunctionArgument {
-    pub fn new(arg_type: ArgType, is_callback: bool, string_rep_arg_val: String) -> Self {
+    pub fn new(arg_type: ArgType, is_callback: bool, string_rep_arg_val: Option<String>) -> Self {
+        if (arg_type == ArgType::CallbackType) != is_callback {
+            panic!("If the FunctionArgument is a CallbackType it must also be a callback bool");
+        }
         Self {
             arg_type,
             is_callback,
@@ -209,14 +216,22 @@ impl FunctionArgument {
         }
     }
     /// getter for string representation of argument value
-    pub fn get_string_rep_arg_val(&self) -> &String {
+    pub fn get_string_rep_arg_val(&self) -> &Option<String> {
         &self.string_rep_arg_val
+    }
+
+    pub fn set_string_rep_arg_val(&mut self, rep_arg_val: String) {
+        self.string_rep_arg_val = Some(rep_arg_val.clone())
+    }
+
+    pub fn get_type(&self) -> ArgType {
+        self.arg_type
     }
 }
 
 /// list of types being tracked, for arguments
 /// this can be modified for an arbitrary amount of granularity
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum ArgType {
     /// number
     NumberType,

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use structopt::StructOpt;
 
@@ -58,25 +58,28 @@ fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
 fn main() {
     let opt = Opt::from_args();
 
-    let _output = Command::new("./get_api_specs.sh")
-        .arg(&opt.lib_name)
-        .output()
-        .expect(
-            format!(
-                "failed to execute API info gathering process for {:?}",
-                &opt.lib_name
-            )
-            .as_str(),
-        );
-
+    // is the api spec file already there? if so, don't run
     let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
 
+    if !Path::new(&api_spec_filename).exists() {
+        Command::new("./get_api_specs.sh")
+            .arg(&opt.lib_name)
+            .output()
+            .expect(
+                format!(
+                    "failed to execute API info gathering process for {:?}",
+                    &opt.lib_name
+                )
+                .as_str(),
+            );
+    }
+
     // if we got to this point, we successfully got the API and can construct the module object
-    let mut mod_rep = match NpmModule::from_api_spec(PathBuf::from(api_spec_filename), opt.lib_name)
-    {
-        Ok(mod_rep) => mod_rep,
-        _ => panic!("Error reading the module spec from the api_info file"),
-    };
+    let mut mod_rep =
+        match NpmModule::from_api_spec(PathBuf::from(&api_spec_filename), opt.lib_name) {
+            Ok(mod_rep) => mod_rep,
+            _ => panic!("Error reading the module spec from the api_info file"),
+        };
 
     let toy_fs_paths = setup_toy_fs("js_tools/toy_fs_dir")
         .expect("Error creating toy filesystem for tests; bailing out.");
@@ -84,7 +87,7 @@ fn main() {
     let mut testgen_db = decisions::TestGenDB::new();
     testgen_db.set_fs_strings(toy_fs_paths);
 
-    if let Err(e) = run_discovery_phase(&mut mod_rep) {
+    if let Err(e) = run_discovery_phase(&mut mod_rep, &mut testgen_db) {
         panic!("Error running discovery phase: {:?}", e);
     }
 

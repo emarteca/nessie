@@ -36,7 +36,8 @@ pub fn get_instrumented_function_call(
 ) -> String {
     let args_rep = args
         .iter()
-        .map(|fct_arg| fct_arg.get_string_rep_arg_val().clone())
+        .filter(|fct_arg| !matches!(fct_arg.get_string_rep_arg_val(), None))
+        .map(|fct_arg| fct_arg.get_string_rep_arg_val().as_ref().unwrap().clone())
         .collect::<Vec<String>>()
         .join(", ");
     [

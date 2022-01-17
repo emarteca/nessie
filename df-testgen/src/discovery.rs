@@ -1,4 +1,5 @@
 use crate::decisions;
+use crate::decisions::TestGenDB;
 use crate::module_reps::*; // all the representation structs
 use crate::test_bodies::*;
 
@@ -15,7 +16,10 @@ pub fn basic_callback() -> &'static str {
 /// the instrumented tests output a JSON of information about the dynamic types of args and return
 /// the output of execution is a JSON, which is parsed and then analyzed
 /// then this information is used to construct signatures for the module functions
-pub fn run_discovery_phase(mod_rep: &mut NpmModule) -> Result<(), DFError> {
+pub fn run_discovery_phase(
+    mod_rep: &mut NpmModule,
+    testgen_db: &mut TestGenDB,
+) -> Result<(), DFError> {
     let setup_code = mod_rep.get_js_for_basic_cjs_import();
     let test_header = get_instrumented_header();
     let test_footer = get_instrumented_footer();
@@ -25,7 +29,7 @@ pub fn run_discovery_phase(mod_rep: &mut NpmModule) -> Result<(), DFError> {
         let mut cur_cb_position = 0;
         for test_num in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
             let cur_test_file = "js_tools/test.js";
-            let args = gen_args_for_fct_with_cb(func_desc, cur_cb_position);
+            let args = gen_args_for_fct_with_cb(func_desc, cur_cb_position, testgen_db);
             let test_call = get_instrumented_function_call(func_name, &base_var_name, &args);
 
             let cur_test = [
@@ -61,17 +65,31 @@ pub fn run_discovery_phase(mod_rep: &mut NpmModule) -> Result<(), DFError> {
 
 // TODO
 // right now just the default: takes one arg and it's a callback
-fn gen_args_for_fct_with_cb(mod_fct: &ModuleFunction, cb_position: i32) -> Vec<FunctionArgument> {
+fn gen_args_for_fct_with_cb(
+    mod_fct: &ModuleFunction,
+    cb_position: i32,
+    testgen_db: &mut TestGenDB,
+) -> Vec<FunctionArgument> {
     let num_args = mod_fct.get_num_api_args();
     let sigs = mod_fct.get_sigs();
 
-    let cur_sig = decisions::gen_new_sig_with_cb(num_args, sigs, cb_position);
+    let mut cur_sig = decisions::gen_new_sig_with_cb(num_args, sigs, cb_position, testgen_db);
+    print!("{:?}", &cur_sig);
+    for arg in cur_sig.get_mut_args() {
+        let arg_type = arg.get_type();
+        arg.set_string_rep_arg_val(match arg_type {
+            ArgType::CallbackType => "cb".to_string(),
+            _ => testgen_db.gen_random_value_of_type(arg_type),
+        });
+    }
+    cur_sig.get_arg_list().to_vec()
+    // println!("{:?}", cur_sig);
     // TODO get args according to the number of args, and the currently existing signatures
     // args passed in: mod_fct (that has the num_args and the current signatures)
     // and, the callback
-    vec![FunctionArgument::new(
-        ArgType::CallbackType,
-        true, // is callback
-        "cb".to_string(),
-    )]
+    // vec![FunctionArgument::new(
+    //     ArgType::CallbackType,
+    //     true, // is callback
+    //     Some("cb".to_string()),
+    // )]
 }
