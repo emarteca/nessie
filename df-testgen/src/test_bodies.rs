@@ -42,7 +42,7 @@ pub fn get_instrumented_function_call(
     [
         "try { ",
         &("\tlet ret_val = ".to_owned() + base_var_name + "." + fct_name + "(" + &args_rep + ");"),
-        "\tconsole.log({\"ret_val\": ret_val.toString()});",
+        "\tconsole.log({\"ret_val\": typeof ret_val == \"function\"? \"[function]\" : ret_val.toString()});",
         "\tconsole.log({\"ret_val_type\": typeof ret_val});",
         "} catch(e) {",
         "\tconsole.log({\"error\": true});",

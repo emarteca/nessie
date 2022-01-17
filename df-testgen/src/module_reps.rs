@@ -120,6 +120,18 @@ pub struct ModuleFunction {
     num_api_args: Option<i32>,
 }
 
+impl ModuleFunction {
+    /// getter for num_api_args
+    pub fn get_num_api_args(&self) -> Option<i32> {
+        self.num_api_args
+    }
+
+    /// getter for signatures
+    pub fn get_sigs(&self) -> &Vec<FunctionSignature> {
+        &self.sigs
+    }
+}
+
 /// convert ModFctAPIJSON into a modulefunction
 impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
     type Error = DFError;
@@ -150,6 +162,15 @@ pub struct FunctionSignature {
 }
 
 impl FunctionSignature {
+    /// constructor
+    pub fn new(num_args: i32, is_async: bool, arg_list: Vec<FunctionArgument>) -> Self {
+        Self {
+            num_args,
+            is_async,
+            arg_list
+        }
+    }
+
     /// get the positions of callback arguments for this function
     pub fn get_callback_positions(&self) -> Vec<usize> {
         let mut posns = Vec::new();
