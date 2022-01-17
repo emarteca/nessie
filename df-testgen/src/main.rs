@@ -72,6 +72,12 @@ fn main() {
                 )
                 .as_str(),
             );
+        println!("Generating API spec");
+    } else {
+        println!(
+            "API spec file exists, reading from {:?}",
+            &api_spec_filename
+        );
     }
 
     // if we got to this point, we successfully got the API and can construct the module object

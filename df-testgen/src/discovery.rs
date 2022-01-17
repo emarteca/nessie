@@ -4,6 +4,7 @@ use crate::module_reps::*; // all the representation structs
 use crate::test_bodies::*;
 
 use serde_json::Value;
+use std::convert::TryFrom;
 use std::process::Command;
 
 /// simplest callback: just print that it has executed
@@ -57,6 +58,14 @@ pub fn run_discovery_phase(
                     _ => return Err(DFError::TestOutputParseError),
                 };
             println!("{:?}", output_json);
+            // if we haven't tested the current position with no callbacks, do that
+            // else, move to the next position in the arg list and try with a callback arg
+            if cur_cb_position <= 0 {
+                cur_cb_position =
+                    ((cur_cb_position * (-1)) + 1) % i32::try_from(args.len()).unwrap()
+            } else {
+                cur_cb_position *= -1
+            }
         }
     }
 
@@ -83,13 +92,4 @@ fn gen_args_for_fct_with_cb(
         });
     }
     cur_sig.get_arg_list().to_vec()
-    // println!("{:?}", cur_sig);
-    // TODO get args according to the number of args, and the currently existing signatures
-    // args passed in: mod_fct (that has the num_args and the current signatures)
-    // and, the callback
-    // vec![FunctionArgument::new(
-    //     ArgType::CallbackType,
-    //     true, // is callback
-    //     Some("cb".to_string()),
-    // )]
 }

@@ -3,7 +3,7 @@ use rand::prelude::*;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 1;
+pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 2;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 
