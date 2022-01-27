@@ -7,6 +7,9 @@ pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 2;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 
+pub const MAX_GENERATED_NUM: f64 = 1000.0;
+pub const MAX_GENERATED_ARRAY_LENGTH: usize = 10;
+
 /// metadata for the setup required before tests are generated
 pub mod SETUP {
     pub const TOY_FS_DIRS: [&str; 2] = ["a/b/test/directory", "a/b/test/dir"];
@@ -91,10 +94,42 @@ impl TestGenDB {
         }
     }
 
+    /// generate random value of specified argument type
+    /// return a string representation of the JS equivalent
     pub fn gen_random_value_of_type(&mut self, arg_type: ArgType) -> String {
         match arg_type {
-            ArgType::NumberType => 1.to_string(),
-            _ => "\"a\"".to_string(), // TODO if string, choose something from the self.fs_strings
+            ArgType::NumberType => self.gen_random_number(),
+            ArgType::StringType => self.gen_random_string(),
+            ArgType::ArrayType => {
+                // to keep things simple, we'll only have arrays of strings and/or numbers, like in the original lambdatester
+                // https://github.com/sola-da/LambdaTester/blob/master/utilities/randomGenerator.js#L90
+                let num_elts = self.rng.gen_range(0..MAX_GENERATED_ARRAY_LENGTH);
+                let mut gen_array: Vec<String> = Vec::with_capacity(num_elts);
+                let array_type = self.rng.gen_range(0..3);
+                for _ in 0..num_elts {
+                    gen_array.push(match (array_type, self.rng.gen_range(0..=1) < 1) {
+                        (0, _) | (2, true) => self.gen_random_number(),
+                        _ => self.gen_random_string(),
+                    });
+                }
+                "[".to_owned() + &gen_array.join(", ") + "]"
+            }
+            _ => "\"a\"".to_string(),
         }
+    }
+
+    fn gen_random_number(&mut self) -> String {
+        (self.rng.gen_range(-MAX_GENERATED_NUM..MAX_GENERATED_NUM)).to_string()
+    }
+    fn gen_random_string(&mut self) -> String {
+        // if string, choose something from the self.fs_strings
+        let rand_index = self.rng.gen_range(0..self.fs_strings.len());
+        "\"".to_owned()
+            + &self.fs_strings[rand_index]
+                .clone()
+                .into_os_string()
+                .into_string()
+                .unwrap()
+            + "\""
     }
 }
