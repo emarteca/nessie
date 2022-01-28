@@ -1,5 +1,5 @@
 use crate::module_reps::*; // all the representation structs
-use rand::prelude::*;
+use rand::{distributions::Alphanumeric, prelude::*};
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
@@ -9,6 +9,7 @@ pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 
 pub const MAX_GENERATED_NUM: f64 = 1000.0;
 pub const MAX_GENERATED_ARRAY_LENGTH: usize = 10;
+pub const RANDOM_STRING_LENGTH: usize = 5;
 
 /// metadata for the setup required before tests are generated
 pub mod SETUP {
@@ -118,18 +119,37 @@ impl TestGenDB {
         }
     }
 
+    /// generate a random number
     fn gen_random_number(&mut self) -> String {
         (self.rng.gen_range(-MAX_GENERATED_NUM..MAX_GENERATED_NUM)).to_string()
     }
+    /// generate a random string; since we're working with file systems, these strings should sometimes correspond
+    /// to valid paths in the operating system
     fn gen_random_string(&mut self) -> String {
-        // if string, choose something from the self.fs_strings
-        let rand_index = self.rng.gen_range(0..self.fs_strings.len());
-        "\"".to_owned()
-            + &self.fs_strings[rand_index]
-                .clone()
-                .into_os_string()
-                .into_string()
-                .unwrap()
-            + "\""
+        // if string, choose something from the self.fs_strings half the time
+        let string_choice = self.rng.gen_range(0..=1);
+        match string_choice {
+            0 => {
+                // choose string from the list of valid files
+                let rand_index = self.rng.gen_range(0..self.fs_strings.len());
+                "\"".to_owned()
+                    + &self.fs_strings[rand_index]
+                        .clone()
+                        .into_os_string()
+                        .into_string()
+                        .unwrap()
+                    + "\""
+            }
+            _ => {
+                // choose a random string
+                "\"".to_owned()
+                    + &rand::thread_rng()
+                        .sample_iter(&Alphanumeric)
+                        .take(RANDOM_STRING_LENGTH)
+                        .map(char::from)
+                        .collect::<String>()
+                    + "\""
+            }
+        }
     }
 }
