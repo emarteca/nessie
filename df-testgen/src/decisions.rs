@@ -9,6 +9,7 @@ pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 
 pub const MAX_GENERATED_NUM: f64 = 1000.0;
 pub const MAX_GENERATED_ARRAY_LENGTH: usize = 10;
+pub const MAX_GENERATED_OBJ_LENGTH: usize = 5;
 pub const RANDOM_STRING_LENGTH: usize = 5;
 
 /// metadata for the setup required before tests are generated
@@ -66,14 +67,6 @@ impl TestGenDB {
     /// choose random type for argument
     /// can't have allow_any without allow_cbs
     pub fn choose_random_arg_type(&mut self, allow_cbs: bool, allow_any: bool) -> ArgType {
-        // enum ArgType {
-        //     NumberType,
-        //     StringType,
-        //     ArrayType,
-        //     ObjectType,
-        //     CallbackType,
-        //     AnyType,
-        // }
         let num_arg_types = 4;
         let max_arg_type_count = num_arg_types
             + if allow_cbs {
@@ -98,9 +91,13 @@ impl TestGenDB {
     /// generate random value of specified argument type
     /// return a string representation of the JS equivalent
     pub fn gen_random_value_of_type(&mut self, arg_type: ArgType) -> String {
+        let arg_type = match arg_type {
+            ArgType::AnyType => self.choose_random_arg_type(true, false),
+            _ => arg_type,
+        };
         match arg_type {
             ArgType::NumberType => self.gen_random_number(),
-            ArgType::StringType => self.gen_random_string(),
+            ArgType::StringType => self.gen_random_string(true),
             ArgType::ArrayType => {
                 // to keep things simple, we'll only have arrays of strings and/or numbers, like in the original lambdatester
                 // https://github.com/sola-da/LambdaTester/blob/master/utilities/randomGenerator.js#L90
@@ -110,12 +107,28 @@ impl TestGenDB {
                 for _ in 0..num_elts {
                     gen_array.push(match (array_type, self.rng.gen_range(0..=1) < 1) {
                         (0, _) | (2, true) => self.gen_random_number(),
-                        _ => self.gen_random_string(),
+                        _ => self.gen_random_string(true),
                     });
                 }
                 "[".to_owned() + &gen_array.join(", ") + "]"
             }
-            _ => "\"a\"".to_string(),
+            ArgType::ObjectType => {
+                let num_elts = self.rng.gen_range(0..MAX_GENERATED_OBJ_LENGTH);
+                let mut gen_obj: Vec<String> = Vec::with_capacity(num_elts);
+                for _ in 0..num_elts {
+                    gen_obj.push(
+                        self.gen_random_string(false)
+                            + ": "
+                            + &match self.rng.gen_range(0..=1) < 1 {
+                                true => self.gen_random_number(),
+                                _ => self.gen_random_string(true),
+                            },
+                    );
+                }
+                "{".to_owned() + &gen_obj.join(", ") + "}"
+            }
+            ArgType::CallbackType => self.gen_random_callback(),
+            _ => self.gen_random_string(true),
         }
     }
 
@@ -125,11 +138,11 @@ impl TestGenDB {
     }
     /// generate a random string; since we're working with file systems, these strings should sometimes correspond
     /// to valid paths in the operating system
-    fn gen_random_string(&mut self) -> String {
+    fn gen_random_string(&mut self, include_fs_strings: bool) -> String {
         // if string, choose something from the self.fs_strings half the time
         let string_choice = self.rng.gen_range(0..=1);
-        match string_choice {
-            0 => {
+        match (string_choice, include_fs_strings) {
+            (0, true) => {
                 // choose string from the list of valid files
                 let rand_index = self.rng.gen_range(0..self.fs_strings.len());
                 "\"".to_owned()
@@ -151,5 +164,10 @@ impl TestGenDB {
                     + "\""
             }
         }
+    }
+    /// generate a random callback
+    /// TODO right now there's just one option, a function that prints its arguments
+    fn gen_random_callback(&mut self) -> String {
+        "(...args) => { console.log(args); }".to_string()
     }
 }
