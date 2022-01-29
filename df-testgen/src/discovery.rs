@@ -3,7 +3,7 @@ use crate::decisions::TestGenDB;
 use crate::module_reps::*; // all the representation structs
 use crate::test_bodies::*;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::convert::TryFrom;
 use std::process::Command;
 
@@ -57,7 +57,8 @@ pub fn run_discovery_phase(
                     Ok(output_json) => output_json,
                     _ => return Err(DFError::TestOutputParseError),
                 };
-            println!("{:?}", output_json);
+            let test_result = diagnose_single_callback_correctness(&output_json);
+            println!("{:?}", test_result);
             // if we haven't tested the current position with no callbacks, do that
             // else, move to the next position in the arg list and try with a callback arg
             if cur_cb_position <= 0 {
@@ -72,18 +73,73 @@ pub fn run_discovery_phase(
     Ok(())
 }
 
-// TODO
-// right now just the default: takes one arg and it's a callback
+/// look at the JSON output of running a test with a single call, and determine what that means
+/// for the argument list. This focuses on callback execution: is the callback executed, and
+/// in what order relative to the execution of the main thread of the test? Also, did the call error?
+fn diagnose_single_callback_correctness(output_json: &Value) -> SingleCallCallbackTestResult {
+    let output_vec = match output_json {
+        Value::Array(vec) => vec,
+        _ => return SingleCallCallbackTestResult::ExecutionError,
+    };
+    if matches!(
+        output_vec.iter().position(|r| r == &json!({"error": true})),
+        Some(_)
+    ) {
+        return SingleCallCallbackTestResult::ExecutionError;
+    }
+    // now look through and see if the callback was executed
+    // and if so, whether or not it was executed sequentially
+    let done_pos = output_vec.iter().position(|r| r == &json!({"done": true}));
+    let callback_pos = output_vec
+        .iter()
+        .position(|r| r == &json!({"callback_exec": true}));
+
+    match (done_pos, callback_pos) {
+        (Some(done_index), Some(callback_index)) => {
+            // if test ends before callback is done executing, it's async
+            if done_index < callback_index {
+                SingleCallCallbackTestResult::CallbackCalledAsync
+            }
+            // else it's sync
+            else {
+                SingleCallCallbackTestResult::CallbackCalledSync
+            }
+        }
+        (Some(_), None) => SingleCallCallbackTestResult::NoCallback,
+        // if "done" never prints, there was an error
+        _ => SingleCallCallbackTestResult::ExecutionError,
+    }
+}
+
+/// representation of the different test outcomes we care about
+/// in this case, the only test is only about the callback arguments (whether or not
+/// they were called, and in what order)
+#[derive(Debug, PartialEq, Eq)]
+enum SingleCallCallbackTestResult {
+    /// callback is called and executed synchronously, and test doesn't error
+    CallbackCalledSync,
+    /// callback is called and executed asynchronously, and test doesn't error
+    CallbackCalledAsync,
+    /// callback is not called, and test doesn't error
+    NoCallback,
+    /// there is an error in the execution of the test
+    ExecutionError,
+}
+
+/// generate arguments for a function with a callback at specified position
+/// if the position specified is invalid (i.e., if it's not in the range of valid indices)
+/// then there is no callback argument included
 fn gen_args_for_fct_with_cb(
     mod_fct: &ModuleFunction,
     cb_position: i32,
     testgen_db: &mut TestGenDB,
 ) -> Vec<FunctionArgument> {
     let num_args = mod_fct.get_num_api_args();
+    // TODO in the improved version of the discovery phase, this information will be used
+    // to inform the new signatures generated
     let sigs = mod_fct.get_sigs();
 
     let mut cur_sig = decisions::gen_new_sig_with_cb(num_args, sigs, cb_position, testgen_db);
-    print!("{:?}", &cur_sig);
     for arg in cur_sig.get_mut_args() {
         let arg_type = arg.get_type();
         arg.set_string_rep_arg_val(match arg_type {
