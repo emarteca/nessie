@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use structopt::StructOpt;
@@ -38,7 +39,7 @@ struct Opt {
 fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
     let mut toy_fs_paths: Vec<PathBuf> = Vec::new();
 
-    for dir in &decisions::SETUP::TOY_FS_DIRS {
+    for dir in &decisions::setup::TOY_FS_DIRS {
         let cur_path = PathBuf::from(path_start.to_owned() + "/" + dir);
         std::fs::DirBuilder::new()
             .recursive(true)
@@ -46,7 +47,7 @@ fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
         toy_fs_paths.push(cur_path);
     }
 
-    for file in &decisions::SETUP::TOY_FS_FILES {
+    for file in &decisions::setup::TOY_FS_FILES {
         let cur_path = PathBuf::from(path_start.to_owned() + "/" + file);
         std::fs::File::create(path_start.to_owned() + "/" + file)?;
         toy_fs_paths.push(cur_path);
@@ -58,34 +59,7 @@ fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
 fn main() {
     let opt = Opt::from_args();
 
-    // is the api spec file already there? if so, don't run
-    let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
-
-    if !Path::new(&api_spec_filename).exists() {
-        Command::new("./get_api_specs.sh")
-            .arg(&opt.lib_name)
-            .output()
-            .expect(
-                format!(
-                    "failed to execute API info gathering process for {:?}",
-                    &opt.lib_name
-                )
-                .as_str(),
-            );
-        println!("Generating API spec");
-    } else {
-        println!(
-            "API spec file exists, reading from {:?}",
-            &api_spec_filename
-        );
-    }
-
-    // if we got to this point, we successfully got the API and can construct the module object
-    let mut mod_rep =
-        match NpmModule::from_api_spec(PathBuf::from(&api_spec_filename), opt.lib_name) {
-            Ok(mod_rep) => mod_rep,
-            _ => panic!("Error reading the module spec from the api_info file"),
-        };
+    let discovery_filename = "js_tools/".to_owned() + &opt.lib_name + "_discovery.json";
 
     let toy_fs_paths = setup_toy_fs("js_tools/toy_fs_dir")
         .expect("Error creating toy filesystem for tests; bailing out.");
@@ -93,9 +67,53 @@ fn main() {
     let mut testgen_db = decisions::TestGenDB::new();
     testgen_db.set_fs_strings(toy_fs_paths);
 
-    if let Err(e) = run_discovery_phase(&mut mod_rep, &mut testgen_db) {
-        panic!("Error running discovery phase: {:?}", e);
-    }
+    // if discovery file doesn't already exist
+    let mut mod_rep: NpmModule = if !Path::new(&discovery_filename).exists() {
+        // is the api spec file already there? if so, don't run
+        let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
+
+        if !Path::new(&api_spec_filename).exists() {
+            Command::new("./get_api_specs.sh")
+                .arg(&opt.lib_name)
+                .output()
+                .expect(
+                    format!(
+                        "failed to execute API info gathering process for {:?}",
+                        &opt.lib_name
+                    )
+                    .as_str(),
+                );
+            println!("Generating API spec");
+        } else {
+            println!(
+                "API spec file exists, reading from {:?}",
+                &api_spec_filename
+            );
+        }
+
+        // if we got to this point, we successfully got the API and can construct the module object
+        let mut mod_rep =
+            match NpmModule::from_api_spec(PathBuf::from(&api_spec_filename), opt.lib_name.clone())
+            {
+                Ok(mod_rep) => mod_rep,
+                _ => panic!("Error reading the module spec from the api_info file"),
+            };
+        if let Err(e) = run_discovery_phase(&mut mod_rep, &mut testgen_db) {
+            panic!("Error running discovery phase: {:?}", e);
+        }
+        let mut disc_file =
+            std::fs::File::create(&discovery_filename).expect("Error creating discovery JSON file");
+        // print discovery to a file
+        disc_file
+            .write_all(format!("{:?}", mod_rep).as_bytes())
+            .expect("Error writing to discovery JSON file");
+        mod_rep
+    } else {
+        let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
+        serde_json::from_str(&file_conts_string).unwrap()
+    };
+
+    println!("{}", mod_rep.short_display());
 
     let _num_tests = opt.num_tests;
 }

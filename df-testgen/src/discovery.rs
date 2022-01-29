@@ -28,7 +28,7 @@ pub fn run_discovery_phase(
 
     for (func_name, func_desc) in mod_rep.get_mut_fns() {
         let mut cur_cb_position = 0;
-        for test_num in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
+        for _ in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
             let cur_test_file = "js_tools/test.js";
             let args = gen_args_for_fct_with_cb(func_desc, cur_cb_position, testgen_db);
             let test_call = get_instrumented_function_call(func_name, &base_var_name, &args);
@@ -64,7 +64,7 @@ pub fn run_discovery_phase(
 
             // if we haven't tested the current position with no callbacks, do that
             // else, move to the next position in the arg list and try with a callback arg
-            if cur_cb_position <= 0 {
+            if cur_cb_position <= 0 && args.len() > 0 {
                 cur_cb_position =
                     ((cur_cb_position * (-1)) + 1) % i32::try_from(args.len()).unwrap()
             } else {
@@ -72,8 +72,6 @@ pub fn run_discovery_phase(
             }
         }
     }
-    println!("{}", mod_rep.short_display());
-
     Ok(())
 }
 

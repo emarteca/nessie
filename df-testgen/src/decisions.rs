@@ -3,7 +3,7 @@ use rand::{distributions::Alphanumeric, prelude::*};
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 50;
+pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 2;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 
@@ -11,20 +11,21 @@ pub const MAX_GENERATED_NUM: f64 = 1000.0;
 pub const MAX_GENERATED_ARRAY_LENGTH: usize = 10;
 pub const MAX_GENERATED_OBJ_LENGTH: usize = 5;
 pub const RANDOM_STRING_LENGTH: usize = 5;
+pub const DEFAULT_MAX_ARG_LENGTH: usize = 5;
 
 /// metadata for the setup required before tests are generated
-pub mod SETUP {
+pub mod setup {
     pub const TOY_FS_DIRS: [&str; 2] = ["a/b/test/directory", "a/b/test/dir"];
     pub const TOY_FS_FILES: [&str; 2] = ["a/b/test/directory/file.json", "a/b/file"];
 }
 
 pub fn gen_new_sig_with_cb(
     num_args: Option<usize>,
-    sigs: &Vec<FunctionSignature>, // TODO don't pick a sig we already picked
+    _sigs: &Vec<FunctionSignature>, // TODO don't pick a sig we already picked
     cb_position: i32,
     testgen_db: &mut TestGenDB,
 ) -> FunctionSignature {
-    let num_args = num_args.unwrap_or(5);
+    let num_args = num_args.unwrap_or(DEFAULT_MAX_ARG_LENGTH);
     let mut args: Vec<FunctionArgument> = Vec::with_capacity(num_args);
 
     for arg_index in 0..num_args {
