@@ -3,7 +3,7 @@ use rand::{distributions::Alphanumeric, prelude::*};
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 2;
+pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 50;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 
@@ -41,8 +41,8 @@ pub fn gen_new_sig_with_cb(
     }
 
     FunctionSignature::new(
-        num_args, false, // is async
-        args,  // arguments
+        num_args, args, // arguments
+        None, // no callback result yet since it wasn't run
     )
 }
 

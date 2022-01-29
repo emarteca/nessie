@@ -48,7 +48,6 @@ pub fn run_discovery_phase(
                 Ok(output) => output,
                 _ => return Err(DFError::TestRunningError), // should never crash, everything is in a try-catch
             };
-            // TODO use the output_json information
             let output_json: Value =
                 match serde_json::from_str(match std::str::from_utf8(&output.stdout) {
                     Ok(output_str) => output_str,
@@ -57,8 +56,12 @@ pub fn run_discovery_phase(
                     Ok(output_json) => output_json,
                     _ => return Err(DFError::TestOutputParseError),
                 };
+            // if the test didn't error, then we found a valid signature
             let test_result = diagnose_single_callback_correctness(&output_json);
-            println!("{:?}", test_result);
+            if test_result != SingleCallCallbackTestResult::ExecutionError {
+                func_desc.add_sig(FunctionSignature::try_from((&args, test_result)).unwrap());
+            }
+
             // if we haven't tested the current position with no callbacks, do that
             // else, move to the next position in the arg list and try with a callback arg
             if cur_cb_position <= 0 {
@@ -69,6 +72,7 @@ pub fn run_discovery_phase(
             }
         }
     }
+    println!("{}", mod_rep.short_display());
 
     Ok(())
 }
@@ -109,21 +113,6 @@ fn diagnose_single_callback_correctness(output_json: &Value) -> SingleCallCallba
         // if "done" never prints, there was an error
         _ => SingleCallCallbackTestResult::ExecutionError,
     }
-}
-
-/// representation of the different test outcomes we care about
-/// in this case, the only test is only about the callback arguments (whether or not
-/// they were called, and in what order)
-#[derive(Debug, PartialEq, Eq)]
-enum SingleCallCallbackTestResult {
-    /// callback is called and executed synchronously, and test doesn't error
-    CallbackCalledSync,
-    /// callback is called and executed asynchronously, and test doesn't error
-    CallbackCalledAsync,
-    /// callback is not called, and test doesn't error
-    NoCallback,
-    /// there is an error in the execution of the test
-    ExecutionError,
 }
 
 /// generate arguments for a function with a callback at specified position

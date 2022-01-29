@@ -106,11 +106,32 @@ impl NpmModule {
         ]
         .join("")
     }
+
+    pub fn short_display(&self) -> String {
+        let mut to_print = serde_json::json!({"lib": self.lib});
+        let mut sigs = serde_json::json!({});
+        for (fc_name, fc_obj) in self.fns.clone() {
+            let mut fn_sigs = vec![];
+            let fn_name = fc_name.clone();
+            for sig in fc_obj.get_sigs() {
+                let args: Vec<String> = sig
+                    .get_arg_list()
+                    .iter()
+                    .map(|arg| arg.get_type().to_string())
+                    .collect();
+                fn_sigs.push(serde_json::json!({"args": args.join(", "), "callback_res": sig.get_callback_res()}));
+            }
+            sigs[fn_name] = serde_json::json!(fn_sigs);
+        }
+        to_print["sigs"] = sigs;
+
+        serde_json::to_string_pretty(&to_print).unwrap()
+    }
 }
 
 /// representation of a function in a given module
 /// each function has a list of valid signatures
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModuleFunction {
     /// name of the function
     name: String,
@@ -129,6 +150,16 @@ impl ModuleFunction {
     /// getter for signatures
     pub fn get_sigs(&self) -> &Vec<FunctionSignature> {
         &self.sigs
+    }
+
+    /// add a signature to the list of signatures
+    pub fn add_sig(&mut self, sig: FunctionSignature) {
+        self.sigs.push(sig);
+    }
+
+    // getter for name
+    pub fn get_name(&self) -> String {
+        self.name.clone()
     }
 }
 
@@ -151,23 +182,42 @@ impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
 /// representation of a single signature of a module function
 /// this includes the number and types of arguments, etc
 /// note that functions may have multiple valid signatures
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FunctionSignature {
     /// number of arguments
     num_args: usize,
-    /// is it async? true/false
-    is_async: bool,
     /// list of arguments: their type, and value if tested
     arg_list: Vec<FunctionArgument>,
+    /// callback related result of running this test, if it was run
+    single_callback_test_res: Option<SingleCallCallbackTestResult>,
+}
+
+impl TryFrom<(&Vec<FunctionArgument>, SingleCallCallbackTestResult)> for FunctionSignature {
+    type Error = DFError;
+
+    fn try_from(
+        (arg_list, callback_res): (&Vec<FunctionArgument>, SingleCallCallbackTestResult),
+    ) -> Result<Self, Self::Error> {
+        let num_args = arg_list.len();
+        Ok(Self {
+            num_args,
+            arg_list: arg_list.clone(),
+            single_callback_test_res: Some(callback_res),
+        })
+    }
 }
 
 impl FunctionSignature {
     /// constructor
-    pub fn new(num_args: usize, is_async: bool, arg_list: Vec<FunctionArgument>) -> Self {
+    pub fn new(
+        num_args: usize,
+        arg_list: Vec<FunctionArgument>,
+        single_callback_test_res: Option<SingleCallCallbackTestResult>,
+    ) -> Self {
         Self {
             num_args,
-            is_async,
             arg_list,
+            single_callback_test_res,
         }
     }
 
@@ -187,8 +237,14 @@ impl FunctionSignature {
         &self.arg_list
     }
 
+    /// mutable getter for the arg list
     pub fn get_mut_args(&mut self) -> &mut Vec<FunctionArgument> {
         &mut self.arg_list
+    }
+
+    /// getter for callback res
+    pub fn get_callback_res(&self) -> Option<SingleCallCallbackTestResult> {
+        self.single_callback_test_res
     }
 }
 
@@ -247,6 +303,19 @@ pub enum ArgType {
     AnyType,
 }
 
+impl std::fmt::Display for ArgType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            ArgType::NumberType => write!(f, "num"),
+            ArgType::StringType => write!(f, "string"),
+            ArgType::ArrayType => write!(f, "array"),
+            ArgType::ObjectType => write!(f, "object"),
+            ArgType::CallbackType => write!(f, "function"),
+            ArgType::AnyType => write!(f, "any"),
+        }
+    }
+}
+
 /// errors in the DF testgen pipeline
 #[derive(Debug)]
 pub enum DFError {
@@ -258,4 +327,19 @@ pub enum DFError {
     TestRunningError,
     /// error parsing test output
     TestOutputParseError,
+}
+
+/// representation of the different test outcomes we care about
+/// in this case, the only test is only about the callback arguments (whether or not
+/// they were called, and in what order)
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
+pub enum SingleCallCallbackTestResult {
+    /// callback is called and executed synchronously, and test doesn't error
+    CallbackCalledSync,
+    /// callback is called and executed asynchronously, and test doesn't error
+    CallbackCalledAsync,
+    /// callback is not called, and test doesn't error
+    NoCallback,
+    /// there is an error in the execution of the test
+    ExecutionError,
 }
