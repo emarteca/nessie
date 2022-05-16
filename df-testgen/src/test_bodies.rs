@@ -45,10 +45,12 @@ pub fn get_instrumented_function_call(
         &("\tlet ret_val = ".to_owned() + base_var_name + "." + fct_name + "(" + &args_rep + ");"),
         "\tconsole.log({\"ret_val\": typeof ret_val == \"function\"? \"[function]\" : ret_val.toString()});",
         "\tconsole.log({\"ret_val_type\": typeof ret_val});",
+        // rejected promise
+        "\tPromise.resolve(ret_val).catch(e => { console.log({\"error\": true}); });",
         "} catch(e) {",
         "\tconsole.log({\"error\": true});",
         "}",
-        "\tconsole.log({\"done\": true});",
+        "console.log({\"done\": true});",
     ]
     .join("\n")
 }

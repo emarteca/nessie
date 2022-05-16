@@ -68,7 +68,7 @@ fn main() {
     testgen_db.set_fs_strings(toy_fs_paths);
 
     // if discovery file doesn't already exist
-    let mut mod_rep: NpmModule = if !Path::new(&discovery_filename).exists() {
+    let mut mod_rep: NpmModule = if (!Path::new(&discovery_filename).exists()) || opt.run_discover {
         // is the api spec file already there? if so, don't run
         let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
 
@@ -112,6 +112,8 @@ fn main() {
         let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
         serde_json::from_str(&file_conts_string).unwrap()
     };
+
+    // at this point, the mod_rep has the results from the discovery phase
 
     println!("{}", mod_rep.short_display());
 

@@ -3,7 +3,7 @@ use rand::{distributions::Alphanumeric, prelude::*};
 use std::convert::TryFrom;
 use std::path::PathBuf;
 
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 2;
+pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 100;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 
@@ -141,7 +141,8 @@ impl TestGenDB {
     /// to valid paths in the operating system
     fn gen_random_string(&mut self, include_fs_strings: bool) -> String {
         // if string, choose something from the self.fs_strings half the time
-        let string_choice = self.rng.gen_range(0..=1);
+        // TODO actually, if we're including fs strings, always choose an fs string
+        let string_choice = 0; // self.rng.gen_range(0..=1);
         match (string_choice, include_fs_strings) {
             (0, true) => {
                 // choose string from the list of valid files

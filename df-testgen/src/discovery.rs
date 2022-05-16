@@ -25,11 +25,12 @@ pub fn run_discovery_phase(
     let test_header = get_instrumented_header();
     let test_footer = get_instrumented_footer();
     let base_var_name = mod_rep.get_mod_js_var_name();
+    let mut cur_test_id = 0;
 
     for (func_name, func_desc) in mod_rep.get_mut_fns() {
         let mut cur_cb_position = 0;
         for _ in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
-            let cur_test_file = "js_tools/test.js";
+            let cur_test_file = "js_tools/test".to_owned() + &cur_test_id.to_string() + ".js";
             let args = gen_args_for_fct_with_cb(func_desc, cur_cb_position, testgen_db);
             let test_call = get_instrumented_function_call(func_name, &base_var_name, &args);
 
@@ -44,11 +45,11 @@ pub fn run_discovery_phase(
             if matches!(std::fs::write(&cur_test_file, cur_test), Err(_)) {
                 return Err(DFError::WritingTestError);
             }
-            let output = match Command::new("node").arg(cur_test_file).output() {
+            let output = match Command::new("node").arg(&cur_test_file).output() {
                 Ok(output) => output,
                 _ => return Err(DFError::TestRunningError), // should never crash, everything is in a try-catch
             };
-            let output_json: Value =
+            let output_json: Value = 
                 match serde_json::from_str(match std::str::from_utf8(&output.stdout) {
                     Ok(output_str) => output_str,
                     _ => return Err(DFError::TestOutputParseError),
@@ -60,6 +61,7 @@ pub fn run_discovery_phase(
             let test_result = diagnose_single_callback_correctness(&output_json);
             if test_result != SingleCallCallbackTestResult::ExecutionError {
                 func_desc.add_sig(FunctionSignature::try_from((&args, test_result)).unwrap());
+                print!("{:?}", cur_test_file);
             }
 
             // if we haven't tested the current position with no callbacks, do that
@@ -70,6 +72,7 @@ pub fn run_discovery_phase(
             } else {
                 cur_cb_position *= -1
             }
+            cur_test_id += 1;
         }
     }
     Ok(())
