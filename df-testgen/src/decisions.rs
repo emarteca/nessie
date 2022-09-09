@@ -22,14 +22,14 @@ pub mod setup {
 pub fn gen_new_sig_with_cb(
     num_args: Option<usize>,
     _sigs: &Vec<FunctionSignature>, // TODO don't pick a sig we already picked
-    cb_position: i32,
+    cb_position: Option<i32>,
     testgen_db: &mut TestGenDB,
 ) -> FunctionSignature {
     let num_args = num_args.unwrap_or(DEFAULT_MAX_ARG_LENGTH);
     let mut args: Vec<FunctionArgument> = Vec::with_capacity(num_args);
 
     for arg_index in 0..num_args {
-        args.push(if i32::try_from(arg_index) == Ok(cb_position) {
+        args.push(if cb_position.is_some() && i32::try_from(arg_index) == Ok(cb_position.unwrap()) {
             FunctionArgument::new(ArgType::CallbackType, true, None)
         } else {
             FunctionArgument::new(
@@ -128,7 +128,17 @@ impl TestGenDB {
                 }
                 "{".to_owned() + &gen_obj.join(", ") + "}"
             }
-            ArgType::CallbackType => self.gen_random_callback(),
+            ArgType::CallbackType => {
+            	let num_args = self.rng.gen_range(0..DEFAULT_MAX_ARG_LENGTH);
+            	let cb_position = if num_args == 0 {
+            		None
+            	} else {
+            		Some(i32::try_from(self.rng.gen_range(0..num_args*2)).unwrap()) // x2 means there's a 50% chance of no callback (position never reached)
+            	};
+            	let sigs = Vec::new();
+            	let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
+            	self.gen_random_callback(Some(random_sig))
+            },
             _ => self.gen_random_string(true),
         }
     }
@@ -168,8 +178,12 @@ impl TestGenDB {
         }
     }
     /// generate a random callback
-    /// TODO right now there's just one option, a function that prints its arguments
-    fn gen_random_callback(&mut self) -> String {
+    /// the `opt_sig` signature should be generated based on the function pool etc
+    /// and these should be fields in the generator
+    fn gen_random_callback(&mut self, opt_sig: Option<FunctionSignature>) -> String {
+        if let Some(sig) = opt_sig {
+        	println!("sig: {:?}", sig);
+        }
         "(...args) => { console.log(args); }".to_string()
     }
 }
