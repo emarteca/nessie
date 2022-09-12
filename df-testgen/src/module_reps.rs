@@ -327,6 +327,8 @@ pub enum DFError {
     TestRunningError,
     /// error parsing test output
     TestOutputParseError,
+    /// invalid test extension option
+    InvalidTestExtensionOption,
 }
 
 /// representation of the different test outcomes we care about

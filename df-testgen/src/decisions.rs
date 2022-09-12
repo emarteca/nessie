@@ -1,4 +1,5 @@
-use crate::module_reps::*; // all the representation structs
+use crate::module_reps::*; // all the representation structs for the Npm modules
+use crate::testgen::*; // tests and related structs
 use rand::{distributions::Alphanumeric, prelude::*};
 use std::convert::TryFrom;
 use std::path::PathBuf;
@@ -50,14 +51,24 @@ pub fn gen_new_sig_with_cb(
 pub struct TestGenDB {
     fs_strings: Vec<PathBuf>,
     rng: rand::prelude::ThreadRng,
+    possible_ext_points: Vec<(ExtensionType, (Test, ExtensionPointID))>,
+    cur_test_index: usize,
+    pub test_dir_path: String,
+	pub test_file_prefix: String,
 }
 
+
+// setup, and generate random values of particular types
 impl TestGenDB {
-    pub fn new() -> Self {
+    pub fn new(test_dir_path: String, test_file_prefix: String) -> Self {
         let rng = thread_rng();
         Self {
             fs_strings: Vec::new(),
             rng,
+            possible_ext_points: Vec::new(),
+            cur_test_index: 0,
+            test_dir_path,
+            test_file_prefix,
         }
     }
 
@@ -182,8 +193,31 @@ impl TestGenDB {
     /// and these should be fields in the generator
     fn gen_random_callback(&mut self, opt_sig: Option<FunctionSignature>) -> String {
         if let Some(sig) = opt_sig {
+        	todo!();
         	println!("sig: {:?}", sig);
         }
         "(...args) => { console.log(args); }".to_string()
+    }
+
+    pub fn gen_random_call(&mut self, mod_rep: NpmModule) -> FunctionCall {
+    	todo!();
+    	// also make the functioncall struct
+    	// should have a signature, instances of args, and a function for instantiating everything with var bases (for stringifying)
+    }
+
+    pub fn get_test_to_extend(&mut self, mod_rep: &NpmModule, ext_type: ExtensionType) -> (Test, ExtensionPointID) {
+    	let rel_exts = self.possible_ext_points.iter().filter(|(et, test_with_id)| et == ext_type);
+    	let rand_test = rel_exts.collect::Vec<(ExtensionType, (Test, ExtensionPointID))>().choose(&mut self.rng);
+    	// if there's no valid test to extend yet, then we make a new blank one
+    	if let Some(test_with_id) = rand_test {
+    		test_with_id
+    	} else {
+    		self.cur_test_index = self.cur_test_index + 1;
+    		(Test::new(mod_rep, self.cur_test_index, self.test_dir_path, self.test_file_prefix), 0)
+    	}
+    }
+
+    pub fn add_extension_point(&mut self, ext_type: ExtensionType, test_id: (Test, ExtensionPointID)) {
+    	self.possible_ext_points.push_back((ext_type, test_id));
     }
 }
