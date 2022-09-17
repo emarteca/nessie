@@ -17,8 +17,8 @@ impl TestLocID {
 	pub fn copy_with_new_test_id(&self, new_test_id: usize) -> Self {
 		Self {
 			cur_test_id: new_test_id,
-			test_dir_path: self.test_dir_path,
-			test_file_prefix: self.test_file_prefix,
+			test_dir_path: self.test_dir_path.clone(),
+			test_file_prefix: self.test_file_prefix.clone(),
 		}
 	}
 }
@@ -60,7 +60,7 @@ impl FunctionCall {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Test<'cxt> {
-	mod_rep: NpmModule,
+	mod_rep: &'cxt NpmModule,
 	fct_tree: Tree<FunctionCallNode>,
 	ext_points: Vec<ExtensionPoint<'cxt>>,
 	loc_id: TestLocID,
@@ -69,13 +69,11 @@ pub struct Test<'cxt> {
 pub type ExtensionPointID = usize;
 
 impl<'cxt> Test<'cxt> {
-	pub fn new(mod_rep: NpmModule, cur_test_id: usize, test_dir_path: String, test_file_prefix: String) -> Self {
-		let mut fct_tree: Tree<FunctionCallNode> = Tree::new(FunctionCallNode::Root);
-		let base_ext_point = ExtensionPoint { node: fct_tree.root(), ext_type: ExtensionType::Sequential};
+	pub fn new(mod_rep: &'cxt NpmModule, cur_test_id: usize, test_dir_path: String, test_file_prefix: String) -> Test<'cxt> {
 		Self {
 			mod_rep,
-			fct_tree,
-			ext_points: vec![base_ext_point],
+			fct_tree: Tree::new(FunctionCallNode::Root),
+			ext_points: Vec::new(),
 			loc_id: TestLocID {
 				cur_test_id,
 				test_dir_path,
@@ -84,19 +82,27 @@ impl<'cxt> Test<'cxt> {
 		}
 	}
 
+	fn add_root_to_exts(&'cxt mut self) {
+		self.ext_points.push(ExtensionPoint { node: self.fct_tree.root(), ext_type: ExtensionType::Sequential});
+	}
+
 	// the testgenDB can deal with random function generation, given a module (which has all the functions)
 	// also, the testgenDB will return a test given the extensiontype
-	pub fn extend(mod_rep: NpmModule, testgen_db: &mut TestGenDB, ext_type: ExtensionType, new_test_id: usize) -> Result<Self, DFError> {
-		let (base_test, ext_id) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
+	pub fn extend(mod_rep: &'cxt NpmModule, testgen_db: &mut TestGenDB<'cxt>, ext_type: ExtensionType, new_test_id: usize) -> Result<Self, DFError> {
+		// select random function to call, and create corresponding node
+		let ext_call = testgen_db.gen_random_call(mod_rep);
+		let ext_node: Tree<FunctionCallNode> = Tree::new(FunctionCallNode::Call(ext_call));
+
+		// choose a random test to extend with this new call
+		let (mut base_test, ext_id) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
 		if base_test.is_empty() && ext_type == ExtensionType::Nested {
 			// can't nested extend an empty test
 			return Err(DFError::InvalidTestExtensionOption);
 		}
-		let ext_point_node = base_test.ext_points[ext_id];
 
+		// 
+		let ext_point_node = base_test.ext_points.get_mut(ext_id).unwrap();
 		// do the extension
-		let ext_call = testgen_db.gen_random_call(mod_rep);
-		let ext_node: Tree<FunctionCallNode> = Tree::new(FunctionCallNode::Call(ext_call));
 		ext_point_node.node.push_back(ext_node);
 
 		// return the new test
@@ -123,7 +129,7 @@ impl<'cxt> Test<'cxt> {
 	}
 
 	fn get_file(&self) -> String {
-		[self.loc_id.test_dir_path, self.loc_id.test_file_prefix].join("/") + &self.loc_id.cur_test_id.to_string() + ".js"
+		[self.loc_id.test_dir_path.clone(), self.loc_id.test_file_prefix.clone()].join("/") + &self.loc_id.cur_test_id.to_string() + ".js"
 	}
 
 	fn write_test_to_file(&self) -> Result<String, DFError> {
@@ -175,7 +181,7 @@ pub struct ExtensionPoint<'cxt> {
 	ext_type: ExtensionType,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
 pub enum ExtensionType {
 	Sequential,
 	Nested

@@ -199,9 +199,9 @@ impl<'cxt> TestGenDB<'cxt> {
         "(...args) => { console.log(args); }".to_string()
     }
 
-    pub fn gen_random_call(&mut self, mod_rep: NpmModule) -> FunctionCall {
+    pub fn gen_random_call(&mut self, mod_rep: &NpmModule) -> FunctionCall {
     	let rand_fct_index = mod_rep.get_fns().keys().choose(&mut self.rng).unwrap(); 
-    	let fct_to_call = mod_rep.get_fns()[rand_fct_index];
+    	let fct_to_call = &mod_rep.get_fns()[rand_fct_index];
     	// TODO! use the fct_to_call.get_sigs() to make a good signature
     	let fct_name = fct_to_call.get_name();
     	let num_args = if let Some(api_args) = fct_to_call.get_num_api_args() { api_args } else { 0 };
@@ -212,24 +212,24 @@ impl<'cxt> TestGenDB<'cxt> {
     	};
     	let random_sig = gen_new_sig_with_cb(fct_to_call.get_num_api_args(), fct_to_call.get_sigs(), cb_position, self);
     	let mut ret_call = FunctionCall::new(fct_name, random_sig);
-    	ret_call.init_args_with_random(&mut self);
+    	ret_call.init_args_with_random(self);
     	ret_call
     }
 
-    pub fn get_test_to_extend(&mut self, mod_rep: &NpmModule, ext_type: ExtensionType) -> (Test, ExtensionPointID) {
-    	let rel_exts = self.possible_ext_points.iter().filter(|(et, test_with_id)| et == &ext_type);
-    	let rand_test = rel_exts.collect::<Vec<&(ExtensionType, (Test, ExtensionPointID))>>().choose(&mut self.rng);
+    pub fn get_test_to_extend(&mut self, mod_rep: &'cxt NpmModule, ext_type: ExtensionType) -> (Test, ExtensionPointID) {
+    	let rel_exts = self.possible_ext_points.iter().filter(|(et, test_with_id)| et == &ext_type).collect::<Vec<&(ExtensionType, (Test, ExtensionPointID))>>();
+    	let rand_test = rel_exts.choose(&mut self.rng);
     	// if there's no valid test to extend yet, then we make a new blank one
     	if let Some(test_with_id) = rand_test {
-    		test_with_id.1
+    		test_with_id.1.clone()
     	} else {
     		self.cur_test_index = self.cur_test_index + 1;
     		let ext_point_id: ExtensionPointID = 0;
-    		(Test::new(*mod_rep, self.cur_test_index, self.test_dir_path, self.test_file_prefix), ext_point_id)
+    		(Test::new(mod_rep, self.cur_test_index, self.test_dir_path.clone(), self.test_file_prefix.clone()), ext_point_id)
     	}
     }
 
-    pub fn add_extension_point(&mut self, ext_type: ExtensionType, test_id: (Test, ExtensionPointID)) {
+    pub fn add_extension_point(&mut self, ext_type: ExtensionType, test_id: (Test<'cxt>, ExtensionPointID)) {
     	self.possible_ext_points.push((ext_type, test_id));
     }
 }
