@@ -34,6 +34,7 @@ pub fn get_instrumented_function_call(
     base_var_name: &str,
     args: &Vec<FunctionArgument>,
 ) -> String {
+    let ret_val_basename = "ret_val_".to_owned() + base_var_name;
     let args_rep = args
         .iter()
         .filter(|fct_arg| !matches!(fct_arg.get_string_rep_arg_val(), None))
@@ -42,11 +43,13 @@ pub fn get_instrumented_function_call(
         .join(", ");
     [
         "try { ",
-        &("\tlet ret_val = ".to_owned() + base_var_name + "." + fct_name + "(" + &args_rep + ");"),
-        "\tconsole.log({\"ret_val\": typeof ret_val == \"function\"? \"[function]\" : ret_val.toString()});",
-        "\tconsole.log({\"ret_val_type\": typeof ret_val});",
+        &("\tlet ".to_owned() + &ret_val_basename + " = " + base_var_name + "." + fct_name + "(" + &args_rep + ");"),
+        &("\tconsole.log({\"".to_owned() 
+            + &ret_val_basename + "\": typeof " + &ret_val_basename + " == \"function\"? \"[function]\" : " 
+            + &ret_val_basename + ".toString()});"),
+        &("\tconsole.log({\"ret_val_type\": typeof ".to_owned() + &ret_val_basename + "});"),
         // rejected promise
-        "\tPromise.resolve(ret_val).catch(e => { console.log({\"error\": true}); });",
+        &("\tPromise.resolve(".to_owned() + &ret_val_basename + ").catch(e => { console.log({\"error\": true}); });"),
         "} catch(e) {",
         "\tconsole.log({\"error\": true});",
         "}",

@@ -34,7 +34,7 @@ struct ModFctAPIJSON {
 /// - represents the library
 /// - composed of a list of functions
 /// - each function is composed of a list of signatures
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct NpmModule {
     /// name of the npm module
     lib: String,
@@ -57,6 +57,10 @@ impl NpmModule {
     pub fn get_mut_fns(&mut self) -> &mut HashMap<String, ModuleFunction> {
         &mut self.fns
     }
+
+    pub fn get_fns(&self) -> &HashMap<String, ModuleFunction> {
+        &self.fns
+    } 
 
     /// create an NpmModule object from a JSON file resulting from running the api_info
     /// phase: this is just a list of all the functions for a module, without having
@@ -131,7 +135,7 @@ impl NpmModule {
 
 /// representation of a function in a given module
 /// each function has a list of valid signatures
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct ModuleFunction {
     /// name of the function
     name: String,
@@ -182,27 +186,27 @@ impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
 /// representation of a single signature of a module function
 /// this includes the number and types of arguments, etc
 /// note that functions may have multiple valid signatures
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FunctionSignature {
     /// number of arguments
     num_args: usize,
     /// list of arguments: their type, and value if tested
     arg_list: Vec<FunctionArgument>,
     /// callback related result of running this test, if it was run
-    single_callback_test_res: Option<SingleCallCallbackTestResult>,
+    call_test_result: Option<FunctionCallResult>,
 }
 
-impl TryFrom<(&Vec<FunctionArgument>, SingleCallCallbackTestResult)> for FunctionSignature {
+impl TryFrom<(&Vec<FunctionArgument>, FunctionCallResult)> for FunctionSignature {
     type Error = DFError;
 
     fn try_from(
-        (arg_list, callback_res): (&Vec<FunctionArgument>, SingleCallCallbackTestResult),
+        (arg_list, callback_res): (&Vec<FunctionArgument>, FunctionCallResult),
     ) -> Result<Self, Self::Error> {
         let num_args = arg_list.len();
         Ok(Self {
             num_args,
             arg_list: arg_list.clone(),
-            single_callback_test_res: Some(callback_res),
+            call_test_result: Some(callback_res),
         })
     }
 }
@@ -212,12 +216,12 @@ impl FunctionSignature {
     pub fn new(
         num_args: usize,
         arg_list: Vec<FunctionArgument>,
-        single_callback_test_res: Option<SingleCallCallbackTestResult>,
+        call_test_result: Option<FunctionCallResult>,
     ) -> Self {
         Self {
             num_args,
             arg_list,
-            single_callback_test_res,
+            call_test_result,
         }
     }
 
@@ -243,13 +247,13 @@ impl FunctionSignature {
     }
 
     /// getter for callback res
-    pub fn get_callback_res(&self) -> Option<SingleCallCallbackTestResult> {
-        self.single_callback_test_res
+    pub fn get_callback_res(&self) -> Option<FunctionCallResult> {
+        self.call_test_result
     }
 }
 
 /// representation of a function argument
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FunctionArgument {
     /// type of the argumnet
     arg_type: ArgType,
@@ -336,12 +340,18 @@ pub enum DFError {
 /// they were called, and in what order)
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
 pub enum SingleCallCallbackTestResult {
-    /// callback is called and executed synchronously, and test doesn't error
+    /// callback is called and executed synchronously, and no error
     CallbackCalledSync,
-    /// callback is called and executed asynchronously, and test doesn't error
+    /// callback is called and executed asynchronously, and no error
     CallbackCalledAsync,
-    /// callback is not called, and test doesn't error
-    NoCallback,
-    /// there is an error in the execution of the test
+    /// callback is not called, and no error
+    NoCallbackCalled,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
+pub enum FunctionCallResult {
+    SingleCallback(SingleCallCallbackTestResult),
+    /// there is an error in the execution of the function
     ExecutionError,
+    // TODO MultiCallback
 }

@@ -48,10 +48,10 @@ pub fn gen_new_sig_with_cb(
     )
 }
 
-pub struct TestGenDB {
+pub struct TestGenDB<'cxt> {
     fs_strings: Vec<PathBuf>,
     rng: rand::prelude::ThreadRng,
-    possible_ext_points: Vec<(ExtensionType, (Test, ExtensionPointID))>,
+    possible_ext_points: Vec<(ExtensionType, (Test<'cxt>, ExtensionPointID))>,
     cur_test_index: usize,
     pub test_dir_path: String,
 	pub test_file_prefix: String,
@@ -59,7 +59,7 @@ pub struct TestGenDB {
 
 
 // setup, and generate random values of particular types
-impl TestGenDB {
+impl<'cxt> TestGenDB<'cxt> {
     pub fn new(test_dir_path: String, test_file_prefix: String) -> Self {
         let rng = thread_rng();
         Self {
@@ -193,31 +193,43 @@ impl TestGenDB {
     /// and these should be fields in the generator
     fn gen_random_callback(&mut self, opt_sig: Option<FunctionSignature>) -> String {
         if let Some(sig) = opt_sig {
-        	todo!();
         	println!("sig: {:?}", sig);
+        	todo!();
         }
         "(...args) => { console.log(args); }".to_string()
     }
 
     pub fn gen_random_call(&mut self, mod_rep: NpmModule) -> FunctionCall {
-    	todo!();
-    	// also make the functioncall struct
-    	// should have a signature, instances of args, and a function for instantiating everything with var bases (for stringifying)
+    	let rand_fct_index = mod_rep.get_fns().keys().choose(&mut self.rng).unwrap(); 
+    	let fct_to_call = mod_rep.get_fns()[rand_fct_index];
+    	// TODO! use the fct_to_call.get_sigs() to make a good signature
+    	let fct_name = fct_to_call.get_name();
+    	let num_args = if let Some(api_args) = fct_to_call.get_num_api_args() { api_args } else { 0 };
+    	let cb_position = if num_args == 0 {
+    		None
+    	} else {
+    		Some(i32::try_from(self.rng.gen_range(0..num_args*2)).unwrap()) // x2 means there's a 50% chance of no callback (position never reached)
+    	};
+    	let random_sig = gen_new_sig_with_cb(fct_to_call.get_num_api_args(), fct_to_call.get_sigs(), cb_position, self);
+    	let mut ret_call = FunctionCall::new(fct_name, random_sig);
+    	ret_call.init_args_with_random(&mut self);
+    	ret_call
     }
 
     pub fn get_test_to_extend(&mut self, mod_rep: &NpmModule, ext_type: ExtensionType) -> (Test, ExtensionPointID) {
-    	let rel_exts = self.possible_ext_points.iter().filter(|(et, test_with_id)| et == ext_type);
-    	let rand_test = rel_exts.collect::Vec<(ExtensionType, (Test, ExtensionPointID))>().choose(&mut self.rng);
+    	let rel_exts = self.possible_ext_points.iter().filter(|(et, test_with_id)| et == &ext_type);
+    	let rand_test = rel_exts.collect::<Vec<&(ExtensionType, (Test, ExtensionPointID))>>().choose(&mut self.rng);
     	// if there's no valid test to extend yet, then we make a new blank one
     	if let Some(test_with_id) = rand_test {
-    		test_with_id
+    		test_with_id.1
     	} else {
     		self.cur_test_index = self.cur_test_index + 1;
-    		(Test::new(mod_rep, self.cur_test_index, self.test_dir_path, self.test_file_prefix), 0)
+    		let ext_point_id: ExtensionPointID = 0;
+    		(Test::new(*mod_rep, self.cur_test_index, self.test_dir_path, self.test_file_prefix), ext_point_id)
     	}
     }
 
     pub fn add_extension_point(&mut self, ext_type: ExtensionType, test_id: (Test, ExtensionPointID)) {
-    	self.possible_ext_points.push_back((ext_type, test_id));
+    	self.possible_ext_points.push((ext_type, test_id));
     }
 }

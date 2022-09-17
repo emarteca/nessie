@@ -59,7 +59,7 @@ pub fn run_discovery_phase(
                 };
             // if the test didn't error, then we found a valid signature
             let test_result = diagnose_single_callback_correctness(&output_json);
-            if test_result != SingleCallCallbackTestResult::ExecutionError {
+            if test_result != FunctionCallResult::ExecutionError {
                 func_desc.add_sig(FunctionSignature::try_from((&args, test_result)).unwrap());
             }
 
@@ -80,16 +80,16 @@ pub fn run_discovery_phase(
 /// look at the JSON output of running a test with a single call, and determine what that means
 /// for the argument list. This focuses on callback execution: is the callback executed, and
 /// in what order relative to the execution of the main thread of the test? Also, did the call error?
-fn diagnose_single_callback_correctness(output_json: &Value) -> SingleCallCallbackTestResult {
+fn diagnose_single_callback_correctness(output_json: &Value) -> FunctionCallResult {
     let output_vec = match output_json {
         Value::Array(vec) => vec,
-        _ => return SingleCallCallbackTestResult::ExecutionError,
+        _ => return FunctionCallResult::ExecutionError,
     };
     if matches!(
         output_vec.iter().position(|r| r == &json!({"error": true})),
         Some(_)
     ) {
-        return SingleCallCallbackTestResult::ExecutionError;
+        return FunctionCallResult::ExecutionError;
     }
     // now look through and see if the callback was executed
     // and if so, whether or not it was executed sequentially
@@ -102,16 +102,16 @@ fn diagnose_single_callback_correctness(output_json: &Value) -> SingleCallCallba
         (Some(done_index), Some(callback_index)) => {
             // if test ends before callback is done executing, it's async
             if done_index < callback_index {
-                SingleCallCallbackTestResult::CallbackCalledAsync
+                FunctionCallResult::SingleCallback(SingleCallCallbackTestResult::CallbackCalledAsync)
             }
             // else it's sync
             else {
-                SingleCallCallbackTestResult::CallbackCalledSync
+                FunctionCallResult::SingleCallback(SingleCallCallbackTestResult::CallbackCalledSync)
             }
         }
-        (Some(_), None) => SingleCallCallbackTestResult::NoCallback,
+        (Some(_), None) => FunctionCallResult::SingleCallback(SingleCallCallbackTestResult::NoCallbackCalled),
         // if "done" never prints, there was an error
-        _ => SingleCallCallbackTestResult::ExecutionError,
+        _ => FunctionCallResult::ExecutionError,
     }
 }
 
