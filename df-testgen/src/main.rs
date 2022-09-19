@@ -64,7 +64,9 @@ fn main() {
     let toy_fs_paths = setup_toy_fs("js_tools/toy_fs_dir")
         .expect("Error creating toy filesystem for tests; bailing out.");
 
-    let mut testgen_db = decisions::TestGenDB::new();
+    let test_dir_path = "js_tools";
+    let test_file_prefix = "test";
+    let mut testgen_db = decisions::TestGenDB::new(test_dir_path.to_string(), test_file_prefix.to_string());
     testgen_db.set_fs_strings(toy_fs_paths);
 
     // if discovery file doesn't already exist

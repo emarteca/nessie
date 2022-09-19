@@ -2,8 +2,8 @@ use crate::module_reps::*; // the representation structs, for components
 use crate::test_bodies::*;
 use crate::decisions::TestGenDB;
 
+use indextree::Arena;
 use std::process::Command;
-use trees::{Tree, Node};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,12 +28,6 @@ pub struct FunctionCall {
 	name: String,
 	// signature has the arguments
 	sig: FunctionSignature,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum FunctionCallNode {
-	Call(FunctionCall),
-	Root,
 }
 
 impl FunctionCall {
@@ -61,18 +55,18 @@ impl FunctionCall {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Test<'cxt> {
 	mod_rep: &'cxt NpmModule,
-	fct_tree: Tree<FunctionCallNode>,
-	ext_points: Vec<ExtensionPoint<'cxt>>,
+	fct_tree: Arena<FunctionCall>,
+	ext_points: Vec<ExtensionPoint>,
 	loc_id: TestLocID,
 }
 
-pub type ExtensionPointID = usize;
+pub type ExtensionPointID = indextree::NodeId;
 
 impl<'cxt> Test<'cxt> {
 	pub fn new(mod_rep: &'cxt NpmModule, cur_test_id: usize, test_dir_path: String, test_file_prefix: String) -> Test<'cxt> {
 		Self {
 			mod_rep,
-			fct_tree: Tree::new(FunctionCallNode::Root),
+			fct_tree: Arena::new(),
 			ext_points: Vec::new(),
 			loc_id: TestLocID {
 				cur_test_id,
@@ -82,29 +76,34 @@ impl<'cxt> Test<'cxt> {
 		}
 	}
 
-	fn add_root_to_exts(&'cxt mut self) {
-		self.ext_points.push(ExtensionPoint { node: self.fct_tree.root(), ext_type: ExtensionType::Sequential});
-	}
-
 	// the testgenDB can deal with random function generation, given a module (which has all the functions)
 	// also, the testgenDB will return a test given the extensiontype
 	pub fn extend(mod_rep: &'cxt NpmModule, testgen_db: &mut TestGenDB<'cxt>, ext_type: ExtensionType, new_test_id: usize) -> Result<Self, DFError> {
 		// select random function to call, and create corresponding node
 		let ext_call = testgen_db.gen_random_call(mod_rep);
-		let ext_node: Tree<FunctionCallNode> = Tree::new(FunctionCallNode::Call(ext_call));
-
+		
 		// choose a random test to extend with this new call
 		let (mut base_test, ext_id) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
-		if base_test.is_empty() && ext_type == ExtensionType::Nested {
+		if (base_test.is_empty() || ext_id.is_none()) && ext_type == ExtensionType::Nested {
 			// can't nested extend an empty test
 			return Err(DFError::InvalidTestExtensionOption);
 		}
+		let ext_id = ext_id.unwrap();
 
-		// 
-		let ext_point_node = base_test.ext_points.get_mut(ext_id).unwrap();
-		// do the extension
-		ext_point_node.node.push_back(ext_node);
+		let ext_node = base_test.fct_tree.new_node(ext_call);
 
+		// do the extension 
+		match ext_type {
+			ExtensionType::Nested => {
+				ext_id.append(ext_node, &mut base_test.fct_tree);
+			},
+			ExtensionType::Sequential => {
+				// FIXME ellen! make sure this doesn't break if the parent is tree root
+				let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap();
+				ext_point_parent.append(ext_node, &mut base_test.fct_tree);
+			}
+		}
+	
 		// return the new test
 		Ok(Self{
 			mod_rep,
@@ -115,8 +114,7 @@ impl<'cxt> Test<'cxt> {
 	}
 
 	pub fn is_empty(&self) -> bool {
-		// tree is empty if there are no child nodes
-		self.fct_tree.degree() == 0
+		self.fct_tree.count() == 0
 	}
 
 	fn get_code(&self) -> String {
@@ -170,14 +168,14 @@ impl<'cxt> Test<'cxt> {
 // should somehow return a tree of results, that corresponds to the test tree itself
 // we can use this to build a list of extension points
 // note: we should only extend a test if it has no execution errors
-fn diagnose_test_correctness(output_json: &Value) -> Tree<FunctionCallResult> {
+fn diagnose_test_correctness(output_json: &Value) -> Arena<FunctionCallResult> {
 	todo!();
 }
 
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct ExtensionPoint<'cxt> {
-	node: &'cxt Node<FunctionCallNode>,
+pub struct ExtensionPoint {
+	node_id: ExtensionPointID,
 	ext_type: ExtensionType,
 }
 

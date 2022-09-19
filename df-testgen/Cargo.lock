@@ -53,6 +53,7 @@ dependencies = [
 name = "df-testgen"
 version = "0.1.0"
 dependencies = [
+ "indextree",
  "rand",
  "serde",
  "serde_json",
@@ -87,6 +88,12 @@ checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "indextree"
+version = "4.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "497f036ac2fae75c34224648a77802e5dd4e9cfb56f4713ab6b12b7160a0523b"
 
 [[package]]
 name = "itoa"

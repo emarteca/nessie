@@ -51,7 +51,7 @@ pub fn gen_new_sig_with_cb(
 pub struct TestGenDB<'cxt> {
     fs_strings: Vec<PathBuf>,
     rng: rand::prelude::ThreadRng,
-    possible_ext_points: Vec<(ExtensionType, (Test<'cxt>, ExtensionPointID))>,
+    possible_ext_points: Vec<(ExtensionType, (Test<'cxt>, Option<ExtensionPointID>))>,
     cur_test_index: usize,
     pub test_dir_path: String,
 	pub test_file_prefix: String,
@@ -216,20 +216,19 @@ impl<'cxt> TestGenDB<'cxt> {
     	ret_call
     }
 
-    pub fn get_test_to_extend(&mut self, mod_rep: &'cxt NpmModule, ext_type: ExtensionType) -> (Test, ExtensionPointID) {
-    	let rel_exts = self.possible_ext_points.iter().filter(|(et, test_with_id)| et == &ext_type).collect::<Vec<&(ExtensionType, (Test, ExtensionPointID))>>();
+    pub fn get_test_to_extend(&mut self, mod_rep: &'cxt NpmModule, ext_type: ExtensionType) -> (Test, Option<ExtensionPointID>) {
+    	let rel_exts = self.possible_ext_points.iter().filter(|(et, test_with_id)| et == &ext_type).collect::<Vec<&(ExtensionType, (Test, Option<ExtensionPointID>))>>();
     	let rand_test = rel_exts.choose(&mut self.rng);
     	// if there's no valid test to extend yet, then we make a new blank one
     	if let Some(test_with_id) = rand_test {
     		test_with_id.1.clone()
     	} else {
     		self.cur_test_index = self.cur_test_index + 1;
-    		let ext_point_id: ExtensionPointID = 0;
-    		(Test::new(mod_rep, self.cur_test_index, self.test_dir_path.clone(), self.test_file_prefix.clone()), ext_point_id)
+    		(Test::new(mod_rep, self.cur_test_index, self.test_dir_path.clone(), self.test_file_prefix.clone()), None)
     	}
     }
 
-    pub fn add_extension_point(&mut self, ext_type: ExtensionType, test_id: (Test<'cxt>, ExtensionPointID)) {
+    pub fn add_extension_point(&mut self, ext_type: ExtensionType, test_id: (Test<'cxt>, Option<ExtensionPointID>)) {
     	self.possible_ext_points.push((ext_type, test_id));
     }
 }
