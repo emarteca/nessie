@@ -66,7 +66,8 @@ fn main() {
 
     let test_dir_path = "js_tools";
     let test_file_prefix = "test";
-    let mut testgen_db = decisions::TestGenDB::new(test_dir_path.to_string(), test_file_prefix.to_string());
+    let mut testgen_db =
+        decisions::TestGenDB::new(test_dir_path.to_string(), test_file_prefix.to_string());
     testgen_db.set_fs_strings(toy_fs_paths);
 
     // if discovery file doesn't already exist
@@ -117,7 +118,7 @@ fn main() {
 
     // at this point, the mod_rep has the results from the discovery phase
 
-    println!("{}", mod_rep.short_display());
+    println!("Discovery phase returns: {}", mod_rep.short_display());
 
-    let _num_tests = opt.num_tests;
+    let num_tests = opt.num_tests;
 }

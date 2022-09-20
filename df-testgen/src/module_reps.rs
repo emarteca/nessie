@@ -60,7 +60,7 @@ impl NpmModule {
 
     pub fn get_fns(&self) -> &HashMap<String, ModuleFunction> {
         &self.fns
-    } 
+    }
 
     /// create an NpmModule object from a JSON file resulting from running the api_info
     /// phase: this is just a list of all the functions for a module, without having

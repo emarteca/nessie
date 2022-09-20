@@ -1,5 +1,10 @@
 use crate::module_reps::*; // all the representation structs
 
+/// simplest callback: just print that it has executed
+pub fn basic_callback() -> &'static str {
+    r#"let cb = function() { console.log({"callback_exec": true}); }"#
+}
+
 /// returns a string of JS code that redefines the console.log
 /// printing function so that it pushes the argument to console.log
 /// onto an array.
@@ -43,13 +48,27 @@ pub fn get_instrumented_function_call(
         .join(", ");
     [
         "try { ",
-        &("\tlet ".to_owned() + &ret_val_basename + " = " + base_var_name + "." + fct_name + "(" + &args_rep + ");"),
-        &("\tconsole.log({\"".to_owned() 
-            + &ret_val_basename + "\": typeof " + &ret_val_basename + " == \"function\"? \"[function]\" : " 
-            + &ret_val_basename + ".toString()});"),
+        &("\tlet ".to_owned()
+            + &ret_val_basename
+            + " = "
+            + base_var_name
+            + "."
+            + fct_name
+            + "("
+            + &args_rep
+            + ");"),
+        &("\tconsole.log({\"".to_owned()
+            + &ret_val_basename
+            + "\": typeof "
+            + &ret_val_basename
+            + " == \"function\"? \"[function]\" : "
+            + &ret_val_basename
+            + ".toString()});"),
         &("\tconsole.log({\"ret_val_type\": typeof ".to_owned() + &ret_val_basename + "});"),
         // rejected promise
-        &("\tPromise.resolve(".to_owned() + &ret_val_basename + ").catch(e => { console.log({\"error\": true}); });"),
+        &("\tPromise.resolve(".to_owned()
+            + &ret_val_basename
+            + ").catch(e => { console.log({\"error\": true}); });"),
         "} catch(e) {",
         "\tconsole.log({\"error\": true});",
         "}",
