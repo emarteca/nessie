@@ -94,6 +94,14 @@ fn main() {
             );
         }
 
+        if !Path::new(&("node_modules/".to_owned() + &opt.lib_name)).exists() {
+            Command::new("npm")
+                .arg("install")
+                .arg(&opt.lib_name)
+                .output()
+                .expect(format!("failed to install {:?} to test", &opt.lib_name).as_str());
+        }
+
         // if we got to this point, we successfully got the API and can construct the module object
         let mut mod_rep =
             match NpmModule::from_api_spec(PathBuf::from(&api_spec_filename), opt.lib_name.clone())
@@ -101,8 +109,9 @@ fn main() {
                 Ok(mod_rep) => mod_rep,
                 _ => panic!("Error reading the module spec from the api_info file"),
             };
-        if let Err(e) = run_discovery_phase(&mut mod_rep, &mut testgen_db) {
-            panic!("Error running discovery phase: {:?}", e);
+        match run_discovery_phase(&mut mod_rep, &mut testgen_db) {
+            Ok(fcts) => mod_rep.set_fns(fcts),
+            Err(e) => panic!("Error running discovery phase: {:?}", e),
         }
         let mut disc_file =
             std::fs::File::create(&discovery_filename).expect("Error creating discovery JSON file");

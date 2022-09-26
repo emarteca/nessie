@@ -2,8 +2,9 @@ use crate::decisions::TestGenDB;
 use crate::module_reps::*; // the representation structs, for components
 use crate::test_bodies::*;
 
-use indextree::Arena;
-use serde_json::Value;
+use indextree::{Arena, NodeId};
+use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,8 +43,19 @@ impl FunctionCall {
         }
     }
 
-    pub fn get_code(&self, base_var_name: &str) -> String {
-        get_instrumented_function_call(&self.name, base_var_name, &self.sig.get_arg_list())
+    pub fn get_code(
+        &self,
+        base_var_name: &str,
+        cur_call_id: usize,
+        include_basic_callback: bool,
+    ) -> String {
+        get_instrumented_function_call(
+            &self.name,
+            base_var_name,
+            &self.sig.get_arg_list(),
+            cur_call_id,
+            include_basic_callback,
+        )
     }
 }
 
@@ -128,34 +140,37 @@ impl<'cxt> Test<'cxt> {
         cur_test_id: usize,
         test_dir_path: String,
         test_file_prefix: String,
-    ) -> Test<'cxt> {
+    ) -> (ExtensionPointID, Test<'cxt>) {
         let mut fct_tree = Arena::new();
-        fct_tree.new_node(one_call);
-        Self {
-            mod_rep,
-            fct_tree,
-            ext_points: Vec::new(),
-            loc_id: TestLocID {
-                cur_test_id,
-                test_dir_path,
-                test_file_prefix,
+        let one_call_id = fct_tree.new_node(one_call);
+        (
+            one_call_id,
+            Self {
+                mod_rep,
+                fct_tree,
+                ext_points: Vec::new(),
+                loc_id: TestLocID {
+                    cur_test_id,
+                    test_dir_path,
+                    test_file_prefix,
+                },
+                include_basic_callback,
             },
-            include_basic_callback,
-        }
+        )
     }
 
     pub fn is_empty(&self) -> bool {
         self.fct_tree.count() == 0
     }
 
-    fn fct_tree_code(&self, base_var_name: String) -> String {
+    fn fct_tree_code(&self, base_var_name: String, include_basic_callback: bool) -> String {
         // no function calls, return the empty string
         if self.is_empty() {
             return String::new();
         }
         // get root
         let mut root_node = self.fct_tree.iter().next().unwrap();
-        let mut test_body = self.dfs_print(&base_var_name, root_node, 1);
+        let mut test_body = self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
 
         // then get root siblings
         while root_node.next_sibling().is_some() {
@@ -163,7 +178,8 @@ impl<'cxt> Test<'cxt> {
                 .fct_tree
                 .get(root_node.next_sibling().unwrap())
                 .unwrap();
-            test_body = test_body + &self.dfs_print(&base_var_name, root_node, 1);
+            test_body =
+                test_body + &self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
         }
         test_body
     }
@@ -173,9 +189,14 @@ impl<'cxt> Test<'cxt> {
         base_var_name: &str,
         cur_root: &indextree::Node<FunctionCall>,
         num_tabs: usize,
+        include_basic_callback: bool,
     ) -> String {
         // get code for current node
-        let mut cur_code = cur_root.get().get_code(base_var_name);
+        let cur_call_id = self.get_uniq_id_for_call(cur_root);
+        let mut cur_code =
+            cur_root
+                .get()
+                .get_code(base_var_name, cur_call_id, include_basic_callback);
         // get children
         let cur_child = cur_root.first_child();
         if cur_child.is_some() {
@@ -189,7 +210,12 @@ impl<'cxt> Test<'cxt> {
                 cur_code = [
                     cur_code,
                     "\t".repeat(num_tabs),
-                    self.dfs_print(base_var_name, cur_child_node, num_tabs + 1),
+                    self.dfs_print(
+                        base_var_name,
+                        cur_child_node,
+                        num_tabs + 1,
+                        include_basic_callback,
+                    ),
                     "\n".to_string(),
                 ]
                 .join("");
@@ -205,20 +231,9 @@ impl<'cxt> Test<'cxt> {
 
         let base_var_name = self.mod_rep.get_mod_js_var_name();
         // traverse the tree of function calls and create the test code
-        let test_body = self.fct_tree_code(base_var_name);
+        let test_body = self.fct_tree_code(base_var_name, self.include_basic_callback);
 
-        [
-            test_header,
-            &setup_code,
-            if self.include_basic_callback {
-                basic_callback()
-            } else {
-                ""
-            },
-            &test_body,
-            test_footer,
-        ]
-        .join("\n")
+        [test_header, &setup_code, &test_body, test_footer].join("\n")
     }
 
     fn get_file(&self) -> String {
@@ -240,7 +255,9 @@ impl<'cxt> Test<'cxt> {
         Ok(cur_test_file)
     }
 
-    pub fn execute(&mut self /*, testgen_db: &mut TestGenDB*/) -> Result<(), DFError> {
+    pub fn execute(
+        &mut self, /*, testgen_db: &mut TestGenDB*/
+    ) -> Result<HashMap<ExtensionPointID, FunctionCallResult>, DFError> {
         let cur_test_file = self.write_test_to_file()?;
 
         let output = match Command::new("node").arg(&cur_test_file).output() {
@@ -257,20 +274,103 @@ impl<'cxt> Test<'cxt> {
             };
         // if the test didn't error, then we found a valid signature
         // also, need to update all the extension points if their relevant callbacks were executed
-        // let test_results = diagnose_test_correctness(&output_json);
+        let test_results = diagnose_test_correctness(self, &output_json);
         // todo!();
         // if not an error:
         // add all the nodes as extension points
         // testgen_db.add_extension_point(ext_type: ExtensionType, test_id: (Test, ExtensionPointID))
-        Ok(())
+        Ok(test_results)
+    }
+
+    pub fn get_fct_tree(&self) -> &Arena<FunctionCall> {
+        &self.fct_tree
+    }
+
+    pub fn get_uniq_id_for_call(&self, fc: &indextree::Node<FunctionCall>) -> usize {
+        self.fct_tree.get_node_id(fc).unwrap().into()
+    }
+
+    pub fn get_node_id_for_call_data(&self, fc_d: FunctionCall) -> Option<usize> {
+        for fc in self.fct_tree.iter() {
+            if &fc_d == fc.get() {
+                return Some(self.get_uniq_id_for_call(fc));
+            }
+        }
+        None
     }
 }
 
 // should somehow return a tree of results, that corresponds to the test tree itself
 // we can use this to build a list of extension points
 // note: we should only extend a test if it has no execution errors
-fn diagnose_test_correctness(output_json: &Value) -> Arena<FunctionCallResult> {
-    todo!();
+fn diagnose_test_correctness(
+    test: &Test,
+    output_json: &Value,
+) -> HashMap<ExtensionPointID, FunctionCallResult> {
+    let fct_tree = test.get_fct_tree();
+    // TODO! get this to work for multiple calls, to actually return an extension set
+    let mut fct_tree_results: HashMap<ExtensionPointID, FunctionCallResult> = HashMap::new();
+    let output_vec = match output_json {
+        Value::Array(vec) => vec,
+        _ => {
+            for fc in fct_tree.iter() {
+                fct_tree_results.insert(
+                    fct_tree.get_node_id(fc).unwrap(),
+                    FunctionCallResult::ExecutionError,
+                );
+            }
+            return fct_tree_results;
+        }
+    };
+    for fc in fct_tree.iter() {
+        let fc_id = test.get_uniq_id_for_call(fc).to_string();
+        if matches!(
+            output_vec
+                .iter()
+                .position(|r| r == &json!({"error_".to_owned() + &fc_id: true})),
+            Some(_)
+        ) {
+            fct_tree_results.insert(
+                fct_tree.get_node_id(fc).unwrap(),
+                FunctionCallResult::ExecutionError,
+            );
+            return fct_tree_results;
+        }
+        // now look through and see if the callback was executed
+        // and if so, whether or not it was executed sequentially
+        let done_pos = output_vec
+            .iter()
+            .position(|r| r == &json!({"done_".to_owned() + &fc_id: true}));
+        let callback_pos = output_vec
+            .iter()
+            .position(|r| r == &json!({"callback_exec_".to_owned() + &fc_id: true}));
+
+        fct_tree_results.insert(
+            fct_tree.get_node_id(fc).unwrap(),
+            match (done_pos, callback_pos) {
+                (Some(done_index), Some(callback_index)) => {
+                    // if test ends before callback is done executing, it's async
+                    if done_index < callback_index {
+                        FunctionCallResult::SingleCallback(
+                            SingleCallCallbackTestResult::CallbackCalledAsync,
+                        )
+                    }
+                    // else it's sync
+                    else {
+                        FunctionCallResult::SingleCallback(
+                            SingleCallCallbackTestResult::CallbackCalledSync,
+                        )
+                    }
+                }
+                (Some(_), None) => FunctionCallResult::SingleCallback(
+                    SingleCallCallbackTestResult::NoCallbackCalled,
+                ),
+                // if "done" never prints, there was an error
+                _ => FunctionCallResult::ExecutionError,
+            },
+        );
+    }
+    fct_tree_results
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

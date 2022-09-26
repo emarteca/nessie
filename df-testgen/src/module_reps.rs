@@ -54,6 +54,10 @@ impl std::fmt::Debug for NpmModule {
 }
 
 impl NpmModule {
+    pub fn set_fns(&mut self, new_fcts: HashMap<String, ModuleFunction>) {
+        self.fns = new_fcts;
+    }
+
     pub fn get_mut_fns(&mut self) -> &mut HashMap<String, ModuleFunction> {
         &mut self.fns
     }
@@ -215,12 +219,12 @@ impl FunctionSignature {
     /// constructor
     pub fn new(
         num_args: usize,
-        arg_list: Vec<FunctionArgument>,
+        arg_list: &Vec<FunctionArgument>,
         call_test_result: Option<FunctionCallResult>,
     ) -> Self {
         Self {
             num_args,
-            arg_list,
+            arg_list: arg_list.clone(),
             call_test_result,
         }
     }
@@ -321,7 +325,7 @@ impl std::fmt::Display for ArgType {
 }
 
 /// errors in the DF testgen pipeline
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DFError {
     /// error reading some sort of spec file from a previous stage of the pipeline
     SpecFileError,

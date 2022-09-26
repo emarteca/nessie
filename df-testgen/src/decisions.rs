@@ -45,8 +45,8 @@ pub fn gen_new_sig_with_cb(
     }
 
     FunctionSignature::new(
-        num_args, args, // arguments
-        None, // no callback result yet since it wasn't run
+        num_args, &args, // arguments
+        None,  // no callback result yet since it wasn't run
     )
 }
 
@@ -270,7 +270,7 @@ impl<'cxt> TestGenDB<'cxt> {
         mod_rep: &'cxt NpmModule,
         fct_call: FunctionCall,
         include_basic_callback: bool,
-    ) -> Test {
+    ) -> (ExtensionPointID, Test) {
         self.cur_test_index = self.cur_test_index + 1;
         Test::test_one_call(
             mod_rep,
