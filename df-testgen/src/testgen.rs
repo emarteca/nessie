@@ -2,10 +2,11 @@ use crate::decisions::TestGenDB;
 use crate::module_reps::*; // the representation structs, for components
 use crate::test_bodies::*;
 
-use indextree::{Arena, NodeId};
+use indextree::Arena;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Command;
+use strum_macros::EnumIter;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestLocID {
@@ -379,7 +380,7 @@ pub struct ExtensionPoint {
     ext_type: ExtensionType,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Copy, EnumIter)]
 pub enum ExtensionType {
     Sequential,
     Nested,

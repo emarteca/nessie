@@ -4,6 +4,7 @@ use rand::{distributions::Alphanumeric, prelude::*};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
+use strum::IntoEnumIterator;
 
 pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 100;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
@@ -53,7 +54,6 @@ pub fn gen_new_sig_with_cb(
 
 pub struct TestGenDB<'cxt> {
     fs_strings: Vec<PathBuf>,
-    rng: std::cell::RefCell<rand::prelude::ThreadRng>,
     possible_ext_points: Vec<(ExtensionType, (Test<'cxt>, Option<ExtensionPointID>))>,
     cur_test_index: usize,
     pub test_dir_path: String,
@@ -63,10 +63,8 @@ pub struct TestGenDB<'cxt> {
 // setup, and generate random values of particular types
 impl<'cxt> TestGenDB<'cxt> {
     pub fn new(test_dir_path: String, test_file_prefix: String) -> Self {
-        let rng = thread_rng();
         Self {
             fs_strings: Vec::new(),
-            rng: std::cell::RefCell::new(rng),
             possible_ext_points: Vec::new(),
             cur_test_index: 0,
             test_dir_path,
@@ -245,7 +243,7 @@ impl<'cxt> TestGenDB<'cxt> {
         let rel_exts = self
             .possible_ext_points
             .iter()
-            .filter(|(et, test_with_id)| et == &ext_type)
+            .filter(|(et, _)| et == &ext_type)
             .collect::<Vec<&(ExtensionType, (Test, Option<ExtensionPointID>))>>();
         let rand_test = rel_exts.choose(&mut thread_rng());
         // if there's no valid test to extend yet, then we make a new blank one
@@ -297,10 +295,14 @@ impl<'cxt> TestGenDB<'cxt> {
             .values()
             .any(|&res| res == FunctionCallResult::ExecutionError)
         {
-            println!("can't extend!!");
             return;
         }
-        // TODO! how to do nested extensions? we need to say "extend in body of callback", but callbacks arent part of the tree
-        // can_be_extended
+        for (ext_id, res) in ext_point_results.iter() {
+            for ext_type in ExtensionType::iter() {
+                if res.can_be_extended(ext_type) {
+                    self.add_extension_point(ext_type, (test.clone(), Some(*ext_id)));
+                }
+            }
+        }
     }
 }

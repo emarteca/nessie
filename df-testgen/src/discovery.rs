@@ -1,10 +1,8 @@
 use crate::decisions;
 use crate::decisions::TestGenDB;
 use crate::module_reps::*; // all the representation structs
-use crate::test_bodies::*;
 use crate::testgen::*;
 
-use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
@@ -17,16 +15,12 @@ pub fn run_discovery_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
     testgen_db: &'cxt mut TestGenDB<'cxt>,
 ) -> Result<HashMap<String, ModuleFunction>, DFError> {
-    let setup_code = mod_rep.get_js_for_basic_cjs_import();
-    let test_header = get_instrumented_header();
-    let test_footer = get_instrumented_footer();
-    let base_var_name = mod_rep.get_mod_js_var_name();
     let mut cur_test_id: usize = 0;
 
     let mut fcts = mod_rep.get_fns().clone();
     let mut test_res_pairs: Vec<(Test, HashMap<ExtensionPointID, FunctionCallResult>)> = Vec::new();
 
-    for (func_name, mut func_desc) in fcts.iter_mut() {
+    for (func_name, func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
         for _ in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
             let args = gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), testgen_db);
@@ -63,9 +57,10 @@ pub fn run_discovery_phase<'cxt>(
             test_res_pairs.push((cur_test, test_results));
         }
     }
-    test_res_pairs.iter().map(|(cur_test, test_results)| {
-        testgen_db.add_extension_points_for_test(cur_test, test_results)
-    });
+    testgen_db.set_cur_test_index(cur_test_id);
+    for (cur_test, test_results) in test_res_pairs.iter() {
+        testgen_db.add_extension_points_for_test(cur_test, test_results);
+    }
     Ok(fcts)
 }
 
