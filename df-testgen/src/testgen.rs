@@ -36,7 +36,7 @@ impl FunctionCall {
         Self { name, sig }
     }
 
-    pub fn init_args_with_random(&mut self, testgen_db: &mut TestGenDB) {
+    pub fn init_args_with_random(&mut self, testgen_db: &TestGenDB) {
         for arg in self.sig.get_mut_args() {
             let arg_type = arg.get_type();
             arg.set_string_rep_arg_val(testgen_db.gen_random_value_of_type(arg_type));

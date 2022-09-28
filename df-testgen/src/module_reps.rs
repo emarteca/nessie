@@ -5,6 +5,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::testgen::ExtensionType;
+
 /// serializable representation of the module
 /// at the api_info stage (i.e., only statically looked at the library)
 #[derive(Debug, Serialize, Deserialize)]
@@ -358,4 +360,21 @@ pub enum FunctionCallResult {
     /// there is an error in the execution of the function
     ExecutionError,
     // TODO MultiCallback
+}
+
+impl FunctionCallResult {
+    pub fn can_be_extended(&self, ext_type: ExtensionType) -> bool {
+        match (self, ext_type) {
+            // can never extend if there's an execution error
+            (Self::ExecutionError, _) => false,
+            // can't nest if there's no callback
+            (
+                Self::SingleCallback(SingleCallCallbackTestResult::NoCallbackCalled),
+                ExtensionType::Nested,
+            ) => false,
+            // no-callback and sequential: true
+            // sync or async callback and either nested or sequential: true
+            (_, _) => true,
+        }
+    }
 }

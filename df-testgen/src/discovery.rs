@@ -21,9 +21,10 @@ pub fn run_discovery_phase<'cxt>(
     let test_header = get_instrumented_header();
     let test_footer = get_instrumented_footer();
     let base_var_name = mod_rep.get_mod_js_var_name();
-    let mut cur_test_id = 0;
+    let mut cur_test_id: usize = 0;
 
     let mut fcts = mod_rep.get_fns().clone();
+    let mut test_res_pairs: Vec<(Test, HashMap<ExtensionPointID, FunctionCallResult>)> = Vec::new();
 
     for (func_name, mut func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
@@ -34,11 +35,15 @@ pub fn run_discovery_phase<'cxt>(
                 FunctionSignature::new(args.len(), &args, None),
             );
 
-            let (cur_fct_id, mut cur_test) = testgen_db.build_test_with_call(
+            let (cur_fct_id, mut cur_test) = Test::test_one_call(
                 mod_rep,
                 fct_call.clone(),
-                /* include the basic callback when generating code */ true,
+                true, /* include basic callback */
+                cur_test_id,
+                testgen_db.get_test_dir_path(),
+                testgen_db.get_test_file_prefix(),
             );
+
             let test_results = cur_test.execute()?;
 
             let fct_result = test_results.get(&cur_fct_id).unwrap();
@@ -55,8 +60,12 @@ pub fn run_discovery_phase<'cxt>(
                 cur_cb_position *= -1
             }
             cur_test_id += 1;
+            test_res_pairs.push((cur_test, test_results));
         }
     }
+    test_res_pairs.iter().map(|(cur_test, test_results)| {
+        testgen_db.add_extension_points_for_test(cur_test, test_results)
+    });
     Ok(fcts)
 }
 
@@ -66,7 +75,7 @@ pub fn run_discovery_phase<'cxt>(
 fn gen_args_for_fct_with_cb(
     mod_fct: &ModuleFunction,
     cb_position: Option<i32>,
-    testgen_db: &mut TestGenDB,
+    testgen_db: &TestGenDB,
 ) -> Vec<FunctionArgument> {
     let num_args = mod_fct.get_num_api_args();
     // TODO in the improved version of the discovery phase, this information will be used
