@@ -158,19 +158,22 @@ impl<'cxt> Test {
             // can't nested extend an empty test
             return Err(DFError::InvalidTestExtensionOption);
         }
-        let ext_id = ext_id.unwrap();
-
+        println!("{:?}", base_test);
+        
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
 
-        // do the extension
-        match ext_type {
-            ExtensionType::Nested => {
-                ext_id.append(ext_node_id, &mut base_test.fct_tree);
-            }
-            ExtensionType::Sequential => {
-                // FIXME ellen! make sure this doesn't break if the parent is tree root
-                let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap();
-                ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
+        // do the extension, if it's a non-empty test
+        if ext_id.is_some() {
+            let ext_id = ext_id.unwrap();
+            match ext_type {
+                ExtensionType::Nested => {
+                    ext_id.append(ext_node_id, &mut base_test.fct_tree);
+                }
+                ExtensionType::Sequential => {
+                    // FIXME ellen! make sure this doesn't break if the parent is tree root
+                    let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap();
+                    ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
+                }
             }
         }
 
