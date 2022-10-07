@@ -52,16 +52,16 @@ pub fn gen_new_sig_with_cb(
     )
 }
 
-pub struct TestGenDB<'cxt> {
+pub struct TestGenDB {
     fs_strings: Vec<PathBuf>,
-    possible_ext_points: Vec<(ExtensionType, (Test<'cxt>, Option<ExtensionPointID>))>,
+    possible_ext_points: Vec<(ExtensionType, (Test, Option<ExtensionPointID>))>,
     cur_test_index: usize,
     pub test_dir_path: String,
     pub test_file_prefix: String,
 }
 
 // setup, and generate random values of particular types
-impl<'cxt> TestGenDB<'cxt> {
+impl<'cxt> TestGenDB {
     pub fn new(test_dir_path: String, test_file_prefix: String) -> Self {
         Self {
             fs_strings: Vec::new(),
@@ -280,14 +280,14 @@ impl<'cxt> TestGenDB<'cxt> {
     pub fn add_extension_point(
         &mut self,
         ext_type: ExtensionType,
-        test_id: (Test<'cxt>, Option<ExtensionPointID>),
+        test_id: (Test, Option<ExtensionPointID>),
     ) {
         self.possible_ext_points.push((ext_type, test_id));
     }
 
     pub fn add_extension_points_for_test(
         &mut self,
-        test: &Test<'cxt>,
+        test: &Test,
         ext_point_results: &HashMap<ExtensionPointID, FunctionCallResult>,
     ) {
         // a test is only extensible if there are no execution errors

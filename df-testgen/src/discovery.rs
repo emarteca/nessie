@@ -11,10 +11,12 @@ use std::convert::TryFrom;
 /// the instrumented tests output a JSON of information about the dynamic types of args and return
 /// the output of execution is a JSON, which is parsed and then analyzed
 /// then this information is used to construct signatures for the module functions
-pub fn run_discovery_phase<'cxt>(
-    mod_rep: &'cxt mut NpmModule,
-    testgen_db: &'cxt mut TestGenDB<'cxt>,
-) -> Result<HashMap<String, ModuleFunction>, DFError> {
+pub fn run_discovery_phase(
+    mod_rep: NpmModule,
+    testgen_db: TestGenDB,
+) -> Result<(NpmModule, TestGenDB), DFError> {
+    let mut mod_rep = mod_rep;
+    let mut testgen_db = testgen_db;
     let mut cur_test_id: usize = 0;
 
     let mut fcts = mod_rep.get_fns().clone();
@@ -23,14 +25,14 @@ pub fn run_discovery_phase<'cxt>(
     for (func_name, func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
         for _ in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
-            let args = gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), testgen_db);
+            let args = gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), &testgen_db);
             let fct_call = FunctionCall::new(
                 func_name.clone(),
                 FunctionSignature::new(args.len(), &args, None),
             );
 
             let (cur_fct_id, mut cur_test) = Test::test_one_call(
-                mod_rep,
+                &mod_rep,
                 fct_call.clone(),
                 true, /* include basic callback */
                 cur_test_id,
@@ -61,7 +63,8 @@ pub fn run_discovery_phase<'cxt>(
     for (cur_test, test_results) in test_res_pairs.iter() {
         testgen_db.add_extension_points_for_test(cur_test, test_results);
     }
-    Ok(fcts)
+    mod_rep.set_fns(fcts);
+    Ok((mod_rep, testgen_db))
 }
 
 /// generate arguments for a function with a callback at specified position

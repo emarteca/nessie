@@ -7,6 +7,7 @@ use df_testgen::module_reps::*; // all the representation structs
 
 use df_testgen::decisions;
 use df_testgen::discovery::run_discovery_phase;
+use df_testgen::testgen::run_testgen_phase;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -71,7 +72,9 @@ fn main() {
     testgen_db.set_fs_strings(toy_fs_paths);
 
     // if discovery file doesn't already exist
-    let mut mod_rep: NpmModule = if (!Path::new(&discovery_filename).exists()) || opt.run_discover {
+    let (mut mod_rep, mut testgen_db) = if (!Path::new(&discovery_filename).exists())
+        || opt.run_discover
+    {
         // is the api spec file already there? if so, don't run
         let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
 
@@ -109,20 +112,21 @@ fn main() {
                 Ok(mod_rep) => mod_rep,
                 _ => panic!("Error reading the module spec from the api_info file"),
             };
-        match run_discovery_phase(&mut mod_rep, &mut testgen_db) {
-            Ok(fcts) => mod_rep.set_fns(fcts),
-            Err(e) => panic!("Error running discovery phase: {:?}", e),
-        }
+        let (mod_rep, testgen_db) =
+            run_discovery_phase(mod_rep, testgen_db).expect("Error running discovery phase: {:?}");
         let mut disc_file =
             std::fs::File::create(&discovery_filename).expect("Error creating discovery JSON file");
         // print discovery to a file
         disc_file
             .write_all(format!("{:?}", mod_rep).as_bytes())
             .expect("Error writing to discovery JSON file");
-        mod_rep
+        (mod_rep, testgen_db)
     } else {
         let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
-        serde_json::from_str(&file_conts_string).unwrap()
+        (
+            serde_json::from_str(&file_conts_string).unwrap(),
+            testgen_db,
+        )
     };
 
     // at this point, the mod_rep has the results from the discovery phase
@@ -130,4 +134,6 @@ fn main() {
     println!("Discovery phase returns: {}", mod_rep.short_display());
 
     let num_tests = opt.num_tests;
+
+    run_testgen_phase(&mut mod_rep, &mut testgen_db, num_tests);
 }

@@ -8,6 +8,54 @@ use std::collections::HashMap;
 use std::process::Command;
 use strum_macros::EnumIter;
 
+pub fn run_testgen_phase<'cxt>(
+    mod_rep: &'cxt mut NpmModule,
+    testgen_db: &'cxt mut TestGenDB,
+    num_tests: i32,
+) -> Result<(), DFError> {
+    let mut cur_test_id: usize = 0;
+
+    // let mut fcts = mod_rep.get_fns().clone();
+    let mut test_res_pairs: Vec<(Test, HashMap<ExtensionPointID, FunctionCallResult>)> = Vec::new();
+
+    // for (func_name, func_desc) in fcts.iter_mut() {
+    //     let mut cur_cb_position = 1;
+    for _ in 0..num_tests {
+        let ext_type = ExtensionType::Sequential;
+        // let args = gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), testgen_db);
+        // let fct_call = FunctionCall::new(
+        //     func_name.clone(),
+        //     FunctionSignature::new(args.len(), &args, None),
+        // );
+
+        let (cur_fct_id, mut cur_test) = Test::extend(mod_rep, testgen_db, ext_type, cur_test_id)?;
+
+        let test_results = cur_test.execute()?;
+
+        // let fct_result = test_results.get(&cur_fct_id).unwrap();
+        // if fct_result != &FunctionCallResult::ExecutionError {
+        //     func_desc.add_sig(FunctionSignature::try_from((&args, *fct_result)).unwrap());
+        // }
+
+        // if we haven't tested the current position with no callbacks, do that
+        // else, move to the next position in the arg list and try with a callback arg
+        // if cur_cb_position < 0 && args.len() > 0 {
+        //     cur_cb_position =
+        //         (((cur_cb_position * (-1)) + 1) % i32::try_from(args.len()).unwrap()) + 1
+        // } else {
+        //     cur_cb_position *= -1
+        // }
+        cur_test_id += 1;
+        test_res_pairs.push((cur_test, test_results));
+    }
+    // }
+    testgen_db.set_cur_test_index(cur_test_id);
+    for (cur_test, test_results) in test_res_pairs.iter() {
+        testgen_db.add_extension_points_for_test(cur_test, test_results);
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestLocID {
     pub cur_test_id: usize,
@@ -61,25 +109,25 @@ impl FunctionCall {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Test<'cxt> {
-    mod_rep: &'cxt NpmModule,
+pub struct Test {
     fct_tree: Arena<FunctionCall>,
     ext_points: Vec<ExtensionPoint>,
     loc_id: TestLocID,
     include_basic_callback: bool,
+    js_for_basic_cjs_import: String,
+    mod_js_var_name: String,
 }
 
 pub type ExtensionPointID = indextree::NodeId;
 
-impl<'cxt> Test<'cxt> {
+impl<'cxt> Test {
     pub fn new(
         mod_rep: &'cxt NpmModule,
         cur_test_id: usize,
         test_dir_path: String,
         test_file_prefix: String,
-    ) -> Test<'cxt> {
+    ) -> Test {
         Self {
-            mod_rep,
             fct_tree: Arena::new(),
             ext_points: Vec::new(),
             loc_id: TestLocID {
@@ -88,6 +136,8 @@ impl<'cxt> Test<'cxt> {
                 test_file_prefix,
             },
             include_basic_callback: false,
+            js_for_basic_cjs_import: mod_rep.get_js_for_basic_cjs_import(),
+            mod_js_var_name: mod_rep.get_mod_js_var_name(),
         }
     }
 
@@ -95,10 +145,10 @@ impl<'cxt> Test<'cxt> {
     // also, the testgenDB will return a test given the extensiontype
     pub fn extend(
         mod_rep: &'cxt NpmModule,
-        testgen_db: &mut TestGenDB<'cxt>,
+        testgen_db: &mut TestGenDB,
         ext_type: ExtensionType,
         new_test_id: usize,
-    ) -> Result<Self, DFError> {
+    ) -> Result<(ExtensionPointID, Test), DFError> {
         // select random function to call, and create corresponding node
         let ext_call = testgen_db.gen_random_call(mod_rep);
 
@@ -110,44 +160,47 @@ impl<'cxt> Test<'cxt> {
         }
         let ext_id = ext_id.unwrap();
 
-        let ext_node = base_test.fct_tree.new_node(ext_call);
+        let ext_node_id = base_test.fct_tree.new_node(ext_call);
 
         // do the extension
         match ext_type {
             ExtensionType::Nested => {
-                ext_id.append(ext_node, &mut base_test.fct_tree);
+                ext_id.append(ext_node_id, &mut base_test.fct_tree);
             }
             ExtensionType::Sequential => {
                 // FIXME ellen! make sure this doesn't break if the parent is tree root
                 let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap();
-                ext_point_parent.append(ext_node, &mut base_test.fct_tree);
+                ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
             }
         }
 
         // return the new test
-        Ok(Self {
-            mod_rep,
-            fct_tree: base_test.fct_tree,
-            ext_points: Vec::new(), // we don't know what the extension points are yet!
-            loc_id: base_test.loc_id.copy_with_new_test_id(new_test_id),
-            include_basic_callback: false,
-        })
+        Ok((
+            ext_node_id,
+            Self {
+                fct_tree: base_test.fct_tree,
+                ext_points: Vec::new(), // we don't know what the extension points are yet!
+                loc_id: base_test.loc_id.copy_with_new_test_id(new_test_id),
+                include_basic_callback: false,
+                js_for_basic_cjs_import: base_test.js_for_basic_cjs_import,
+                mod_js_var_name: base_test.mod_js_var_name,
+            },
+        ))
     }
 
     pub fn test_one_call(
-        mod_rep: &'cxt NpmModule,
+        mod_rep: &NpmModule,
         one_call: FunctionCall,
         include_basic_callback: bool,
         cur_test_id: usize,
         test_dir_path: String,
         test_file_prefix: String,
-    ) -> (ExtensionPointID, Test<'cxt>) {
+    ) -> (ExtensionPointID, Test) {
         let mut fct_tree = Arena::new();
         let one_call_id = fct_tree.new_node(one_call);
         (
             one_call_id,
             Self {
-                mod_rep,
                 fct_tree,
                 ext_points: Vec::new(),
                 loc_id: TestLocID {
@@ -156,6 +209,8 @@ impl<'cxt> Test<'cxt> {
                     test_file_prefix,
                 },
                 include_basic_callback,
+                js_for_basic_cjs_import: mod_rep.get_js_for_basic_cjs_import(),
+                mod_js_var_name: mod_rep.get_mod_js_var_name(),
             },
         )
     }
@@ -226,11 +281,11 @@ impl<'cxt> Test<'cxt> {
     }
 
     fn get_code(&self) -> String {
-        let setup_code = self.mod_rep.get_js_for_basic_cjs_import();
+        let setup_code = self.js_for_basic_cjs_import.clone();
         let test_header = get_instrumented_header();
         let test_footer = get_instrumented_footer();
 
-        let base_var_name = self.mod_rep.get_mod_js_var_name();
+        let base_var_name = self.mod_js_var_name.clone();
         // traverse the tree of function calls and create the test code
         let test_body = self.fct_tree_code(base_var_name, self.include_basic_callback);
 
