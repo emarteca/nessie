@@ -59,9 +59,30 @@ pub fn get_instrumented_function_call(
         .map(|fct_arg| fct_arg.get_string_rep_arg_val().as_ref().unwrap().clone())
         .collect::<Vec<String>>()
         .join(", ");
+    let print_args = |title: String| {
+        args.iter()
+            .enumerate()
+            .map(|(i, fct_arg)| {
+                [
+                    "\tconsole.log({\"",
+                    &title,
+                    "_",
+                    &ret_val_basename,
+                    "_arg",
+                    &i.to_string(),
+                    "\": ",
+                    &fct_arg.get_string_rep_arg_val().as_ref().unwrap().clone(),
+                    "});",
+                ]
+                .join("")
+            })
+            .collect::<Vec<String>>()
+            .join("\n")
+    };
     [
         "try { ",
         &extra_cb_code,
+        &print_args("before_cb".to_string()),
         &("\tlet ".to_owned()
             + &ret_val_basename
             + " = "
@@ -71,6 +92,7 @@ pub fn get_instrumented_function_call(
             + "("
             + &args_rep
             + ");"),
+        &print_args("after_cb".to_string()),
         &("\tconsole.log({\"".to_owned()
             + &ret_val_basename
             + "\": typeof "

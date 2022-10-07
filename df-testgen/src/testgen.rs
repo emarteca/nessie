@@ -159,7 +159,7 @@ impl<'cxt> Test {
             return Err(DFError::InvalidTestExtensionOption);
         }
         println!("{:?}", base_test);
-        
+
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
 
         // do the extension, if it's a non-empty test
@@ -171,7 +171,7 @@ impl<'cxt> Test {
                 }
                 ExtensionType::Sequential => {
                     // FIXME ellen! make sure this doesn't break if the parent is tree root
-                    let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap();
+                    let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap_or(ext_id);
                     ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
                 }
             }
