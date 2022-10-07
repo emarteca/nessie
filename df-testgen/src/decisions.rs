@@ -202,10 +202,39 @@ impl<'cxt> TestGenDB {
     /// and these should be fields in the generator
     fn gen_random_callback(&self, opt_sig: Option<FunctionSignature>) -> String {
         if let Some(sig) = opt_sig {
-            println!("sig: {:?}", sig);
-            todo!();
+            // FIXME! should have some identifier for the cb it's in
+            let print_args = sig
+                .get_arg_list()
+                .iter()
+                .enumerate()
+                .map(|(i, fct_arg)| {
+                    [
+                        "\tconsole.log({\"",
+                        "in_cb_arg_",
+                        &i.to_string(),
+                        "\": cb_arg_",
+                        &i.to_string(),
+                        "});",
+                    ]
+                    .join("")
+                })
+                .collect::<Vec<String>>()
+                .join("\n");
+            println!("reeee: {:?}", sig);
+            [
+                "(",
+                &(0..sig.get_arg_list().len())
+                    .map(|i| "cb_arg_".to_owned() + &i.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                ") => {",
+                &print_args,
+                "}",
+            ]
+            .join("\n")
+        } else {
+            "(...args) => { console.log(args); }".to_string()
         }
-        "(...args) => { console.log(args); }".to_string()
     }
 
     pub fn gen_random_call(&self, mod_rep: &NpmModule) -> FunctionCall {
