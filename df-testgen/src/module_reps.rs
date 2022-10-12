@@ -286,6 +286,17 @@ impl FunctionArgument {
         &self.string_rep_arg_val
     }
 
+    pub fn get_string_rep_arg_val__short(&self) -> Option<String> {
+        match self.arg_type {
+            ArgType::CallbackType => {
+                Some("\"[function]\"".to_string())
+            },
+            _ => {
+                self.get_string_rep_arg_val().clone()
+            }
+        }
+    }
+
     pub fn set_string_rep_arg_val(&mut self, rep_arg_val: String) {
         self.string_rep_arg_val = Some(rep_arg_val.clone())
     }

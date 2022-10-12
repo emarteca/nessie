@@ -158,8 +158,7 @@ impl<'cxt> Test {
             // can't nested extend an empty test
             return Err(DFError::InvalidTestExtensionOption);
         }
-        println!("{:?}", base_test);
-
+        
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
 
         // do the extension, if it's a non-empty test

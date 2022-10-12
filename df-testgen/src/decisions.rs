@@ -115,6 +115,8 @@ impl<'cxt> TestGenDB {
             ArgType::AnyType => self.choose_random_arg_type(true, false),
             _ => arg_type,
         };
+        // TODO!!!! DEBUGGING
+        let arg_type = ArgType::CallbackType;
         match arg_type {
             ArgType::NumberType => self.gen_random_number(),
             ArgType::StringType => self.gen_random_string(true),
@@ -154,6 +156,8 @@ impl<'cxt> TestGenDB {
                 } else {
                     Some(i32::try_from(thread_rng().gen_range(0..num_args * 2)).unwrap())
                     // x2 means there's a 50% chance of no callback (position never reached)
+                    // NOTE: this is for the signature of the callback being generated -- a 
+                    // callback is always returned from this branch of the match
                 };
                 let sigs = Vec::new();
                 let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
@@ -220,7 +224,6 @@ impl<'cxt> TestGenDB {
                 })
                 .collect::<Vec<String>>()
                 .join("\n");
-            println!("reeee: {:?}", sig);
             [
                 "(",
                 &(0..sig.get_arg_list().len())

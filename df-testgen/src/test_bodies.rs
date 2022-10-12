@@ -71,7 +71,7 @@ pub fn get_instrumented_function_call(
                     "_arg",
                     &i.to_string(),
                     "\": ",
-                    &fct_arg.get_string_rep_arg_val().as_ref().unwrap().clone(),
+                    &fct_arg.get_string_rep_arg_val__short().as_ref().unwrap().clone(),
                     "});",
                 ]
                 .join("")
