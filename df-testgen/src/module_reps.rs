@@ -288,12 +288,8 @@ impl FunctionArgument {
 
     pub fn get_string_rep_arg_val__short(&self) -> Option<String> {
         match self.arg_type {
-            ArgType::CallbackType => {
-                Some("\"[function]\"".to_string())
-            },
-            _ => {
-                self.get_string_rep_arg_val().clone()
-            }
+            ArgType::CallbackType => Some("\"[function]\"".to_string()),
+            _ => self.get_string_rep_arg_val().clone(),
         }
     }
 

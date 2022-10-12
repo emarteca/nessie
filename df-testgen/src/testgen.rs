@@ -15,43 +15,18 @@ pub fn run_testgen_phase<'cxt>(
 ) -> Result<(), DFError> {
     let mut cur_test_id: usize = 0;
 
-    // let mut fcts = mod_rep.get_fns().clone();
-    let mut test_res_pairs: Vec<(Test, HashMap<ExtensionPointID, FunctionCallResult>)> = Vec::new();
-
-    // for (func_name, func_desc) in fcts.iter_mut() {
-    //     let mut cur_cb_position = 1;
     for _ in 0..num_tests {
+        // TODO!!! work for nesting too
         let ext_type = ExtensionType::Sequential;
-        // let args = gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), testgen_db);
-        // let fct_call = FunctionCall::new(
-        //     func_name.clone(),
-        //     FunctionSignature::new(args.len(), &args, None),
-        // );
 
         let (cur_fct_id, mut cur_test) = Test::extend(mod_rep, testgen_db, ext_type, cur_test_id)?;
+        println!("{:?}, {:?}", cur_test_id, cur_test.fct_tree.count());
 
         let test_results = cur_test.execute()?;
 
-        // let fct_result = test_results.get(&cur_fct_id).unwrap();
-        // if fct_result != &FunctionCallResult::ExecutionError {
-        //     func_desc.add_sig(FunctionSignature::try_from((&args, *fct_result)).unwrap());
-        // }
-
-        // if we haven't tested the current position with no callbacks, do that
-        // else, move to the next position in the arg list and try with a callback arg
-        // if cur_cb_position < 0 && args.len() > 0 {
-        //     cur_cb_position =
-        //         (((cur_cb_position * (-1)) + 1) % i32::try_from(args.len()).unwrap()) + 1
-        // } else {
-        //     cur_cb_position *= -1
-        // }
         cur_test_id += 1;
-        test_res_pairs.push((cur_test, test_results));
-    }
-    // }
-    testgen_db.set_cur_test_index(cur_test_id);
-    for (cur_test, test_results) in test_res_pairs.iter() {
-        testgen_db.add_extension_points_for_test(cur_test, test_results);
+        testgen_db.set_cur_test_index(cur_test_id);
+        testgen_db.add_extension_points_for_test(&cur_test, &test_results);
     }
     Ok(())
 }
@@ -158,7 +133,7 @@ impl<'cxt> Test {
             // can't nested extend an empty test
             return Err(DFError::InvalidTestExtensionOption);
         }
-        
+
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
 
         // do the extension, if it's a non-empty test
@@ -166,12 +141,16 @@ impl<'cxt> Test {
             let ext_id = ext_id.unwrap();
             match ext_type {
                 ExtensionType::Nested => {
+                    println!("here!!!: {:?}", new_test_id);
                     ext_id.append(ext_node_id, &mut base_test.fct_tree);
                 }
                 ExtensionType::Sequential => {
+                    println!("woop!!!: {:?}", new_test_id);
                     // FIXME ellen! make sure this doesn't break if the parent is tree root
                     let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap_or(ext_id);
                     ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
+                    println!("{:?}", ext_point_parent);
+                    println!("{:?}", base_test.fct_tree.count());
                 }
             }
         }
@@ -222,6 +201,11 @@ impl<'cxt> Test {
     }
 
     fn fct_tree_code(&self, base_var_name: String, include_basic_callback: bool) -> String {
+        println!(
+            "REEEEEEEEE: {:?}, {:?}",
+            self.loc_id.cur_test_id,
+            self.fct_tree.count()
+        );
         // no function calls, return the empty string
         if self.is_empty() {
             return String::new();
@@ -231,13 +215,12 @@ impl<'cxt> Test {
         let mut test_body = self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
 
         // then get root siblings
-        while root_node.next_sibling().is_some() {
-            root_node = self
-                .fct_tree
-                .get(root_node.next_sibling().unwrap())
-                .unwrap();
+        let mut next_node = root_node.next_sibling();
+        while next_node.is_some() {
+            root_node = self.fct_tree.get(next_node.unwrap()).unwrap();
             test_body =
                 test_body + &self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
+            next_node = root_node.next_sibling();
         }
         test_body
     }
@@ -256,28 +239,22 @@ impl<'cxt> Test {
                 .get()
                 .get_code(base_var_name, cur_call_id, include_basic_callback);
         // get children
-        let cur_child = cur_root.first_child();
-        if cur_child.is_some() {
-            let cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
-            // then get child's siblings (iterating through the children)
-            while cur_child_node.next_sibling().is_some() {
-                let cur_child_node = self
-                    .fct_tree
-                    .get(cur_child_node.next_sibling().unwrap())
-                    .unwrap();
-                cur_code = [
-                    cur_code,
-                    "\t".repeat(num_tabs),
-                    self.dfs_print(
-                        base_var_name,
-                        cur_child_node,
-                        num_tabs + 1,
-                        include_basic_callback,
-                    ),
-                    "\n".to_string(),
-                ]
-                .join("");
-            }
+        let mut cur_child = cur_root.first_child();
+        while cur_child.is_some() {
+            let mut cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
+            cur_code = [
+                cur_code,
+                "\t".repeat(num_tabs),
+                self.dfs_print(
+                    base_var_name,
+                    cur_child_node,
+                    num_tabs + 1,
+                    include_basic_callback,
+                ),
+                "\n".to_string(),
+            ]
+            .join("");
+            cur_child = cur_child_node.next_sibling();
         }
         cur_code
     }
@@ -313,9 +290,8 @@ impl<'cxt> Test {
         Ok(cur_test_file)
     }
 
-    pub fn execute(
-        &mut self, /*, testgen_db: &mut TestGenDB*/
-    ) -> Result<HashMap<ExtensionPointID, FunctionCallResult>, DFError> {
+    // TODOOOO ADD TIMEOUT
+    pub fn execute(&mut self) -> Result<HashMap<ExtensionPointID, FunctionCallResult>, DFError> {
         let cur_test_file = self.write_test_to_file()?;
 
         let output = match Command::new("node").arg(&cur_test_file).output() {
@@ -333,10 +309,6 @@ impl<'cxt> Test {
         // if the test didn't error, then we found a valid signature
         // also, need to update all the extension points if their relevant callbacks were executed
         let test_results = diagnose_test_correctness(self, &output_json);
-        // todo!();
-        // if not an error:
-        // add all the nodes as extension points
-        // testgen_db.add_extension_point(ext_type: ExtensionType, test_id: (Test, ExtensionPointID))
         Ok(test_results)
     }
 
