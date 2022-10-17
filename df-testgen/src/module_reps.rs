@@ -340,10 +340,8 @@ pub enum DFError {
     SpecFileError,
     /// error printing test file
     WritingTestError,
-    /// error running test
+    /// error running test (could be a timeout)
     TestRunningError,
-    /// test didn't finish running before timeout
-    TestTimeoutError,
     /// error parsing test output
     TestOutputParseError,
     /// invalid test extension option

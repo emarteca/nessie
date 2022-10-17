@@ -8,7 +8,6 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Command;
 use strum_macros::EnumIter;
-use wait_timeout::ChildExt;
 
 pub fn run_testgen_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
@@ -22,8 +21,7 @@ pub fn run_testgen_phase<'cxt>(
         let ext_type = ExtensionType::Sequential;
 
         let (cur_fct_id, mut cur_test) = Test::extend(mod_rep, testgen_db, ext_type, cur_test_id)?;
-        println!("{:?}, {:?}", cur_test_id, cur_test.fct_tree.count());
-
+        
         let test_results = cur_test.execute()?;
 
         cur_test_id += 1;
@@ -151,8 +149,6 @@ impl<'cxt> Test {
                     // FIXME ellen! make sure this doesn't break if the parent is tree root
                     let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap_or(ext_id);
                     ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
-                    println!("{:?}", ext_point_parent);
-                    println!("{:?}", base_test.fct_tree.count());
                 }
             }
         }
@@ -203,11 +199,6 @@ impl<'cxt> Test {
     }
 
     fn fct_tree_code(&self, base_var_name: String, include_basic_callback: bool) -> String {
-        println!(
-            "REEEEEEEEE: {:?}, {:?}",
-            self.loc_id.cur_test_id,
-            self.fct_tree.count()
-        );
         // no function calls, return the empty string
         if self.is_empty() {
             return String::new();
@@ -296,24 +287,14 @@ impl<'cxt> Test {
         let cur_test_file = self.write_test_to_file()?;
 
         let timeout = std::time::Duration::from_secs(decisions::TEST_TIMEOUT_SECONDS);
-        let mut run_test = Command::new("node");
-        let mut run_test_child = run_test.arg(&cur_test_file).spawn().unwrap();
-
-        let output = match run_test_child.wait_timeout(timeout).unwrap() {
-            Some(status) => {
-                match run_test.output() {
-                    // child inherits stdout from parent, can still use parent's output()
-                    Ok(output) => output,
-                    _ => return Err(DFError::TestRunningError), // should never crash, everything is in a try-catch
-                }
-            }
-            None => {
-                // timeout
-                run_test_child.kill().unwrap();
-                return Err(DFError::TestTimeoutError);
-            }
+        let mut binding = Command::new("timeout");
+        let run_test = binding.arg(decisions::TEST_TIMEOUT_SECONDS.to_string()).arg("node").arg(&cur_test_file);
+        
+        let output = match run_test.output() {
+            Ok(output) => output,
+            _ => return Err(DFError::TestRunningError), // should never crash, everything is in a try-catch
         };
-
+        
         let output_json: Value =
             match serde_json::from_str(match std::str::from_utf8(&output.stdout) {
                 Ok(output_str) => output_str,
