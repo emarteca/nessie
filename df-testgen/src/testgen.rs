@@ -1,3 +1,4 @@
+use crate::decisions;
 use crate::decisions::TestGenDB;
 use crate::module_reps::*; // the representation structs, for components
 use crate::test_bodies::*;
@@ -7,6 +8,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Command;
 use strum_macros::EnumIter;
+use wait_timeout::ChildExt;
 
 pub fn run_testgen_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
@@ -290,14 +292,28 @@ impl<'cxt> Test {
         Ok(cur_test_file)
     }
 
-    // TODOOOO ADD TIMEOUT
     pub fn execute(&mut self) -> Result<HashMap<ExtensionPointID, FunctionCallResult>, DFError> {
         let cur_test_file = self.write_test_to_file()?;
 
-        let output = match Command::new("node").arg(&cur_test_file).output() {
-            Ok(output) => output,
-            _ => return Err(DFError::TestRunningError), // should never crash, everything is in a try-catch
+        let timeout = std::time::Duration::from_secs(decisions::TEST_TIMEOUT_SECONDS);
+        let mut run_test = Command::new("node");
+        let mut run_test_child = run_test.arg(&cur_test_file).spawn().unwrap();
+
+        let output = match run_test_child.wait_timeout(timeout).unwrap() {
+            Some(status) => {
+                match run_test.output() {
+                    // child inherits stdout from parent, can still use parent's output()
+                    Ok(output) => output,
+                    _ => return Err(DFError::TestRunningError), // should never crash, everything is in a try-catch
+                }
+            }
+            None => {
+                // timeout
+                run_test_child.kill().unwrap();
+                return Err(DFError::TestTimeoutError);
+            }
         };
+
         let output_json: Value =
             match serde_json::from_str(match std::str::from_utf8(&output.stdout) {
                 Ok(output_str) => output_str,

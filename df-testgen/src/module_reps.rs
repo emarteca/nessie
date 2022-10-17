@@ -342,6 +342,8 @@ pub enum DFError {
     WritingTestError,
     /// error running test
     TestRunningError,
+    /// test didn't finish running before timeout
+    TestTimeoutError,
     /// error parsing test output
     TestOutputParseError,
     /// invalid test extension option

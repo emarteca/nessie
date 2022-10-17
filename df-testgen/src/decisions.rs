@@ -9,6 +9,7 @@ use strum::IntoEnumIterator;
 pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 100;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = false;
+pub const TEST_TIMEOUT_SECONDS: u64 = 30;
 
 pub const MAX_GENERATED_NUM: f64 = 1000.0;
 pub const MAX_GENERATED_ARRAY_LENGTH: usize = 10;
