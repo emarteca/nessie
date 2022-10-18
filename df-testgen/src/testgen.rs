@@ -4,6 +4,7 @@ use crate::module_reps::*; // the representation structs, for components
 use crate::test_bodies::*;
 
 use indextree::Arena;
+use rand::Rng;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Command;
@@ -15,12 +16,15 @@ pub fn run_testgen_phase<'cxt>(
     num_tests: i32,
 ) -> Result<(), DFError> {
     let mut cur_test_id: usize = 0;
+    // if we specify a nested extension but there's no valid test that can be extended 
+    // in a nested way, don't error, instead just return a fresh test
+    const fresh_test_if_cant_extend: bool = true;
 
     for _ in 0..num_tests {
-        // TODO!!! work for nesting too
-        let ext_type = ExtensionType::Sequential;
+        // let ext_type: ExtensionType = rand::thread_rng().gen();
+        let ext_type = ExtensionType::Nested;
 
-        let (cur_fct_id, mut cur_test) = Test::extend(mod_rep, testgen_db, ext_type, cur_test_id)?;
+        let (cur_fct_id, mut cur_test) = Test::extend(mod_rep, testgen_db, ext_type, cur_test_id, fresh_test_if_cant_extend)?;
         
         let test_results = cur_test.execute()?;
 
@@ -123,6 +127,7 @@ impl<'cxt> Test {
         testgen_db: &mut TestGenDB,
         ext_type: ExtensionType,
         new_test_id: usize,
+        fresh_test_if_cant_extend: bool,
     ) -> Result<(ExtensionPointID, Test), DFError> {
         // select random function to call, and create corresponding node
         let ext_call = testgen_db.gen_random_call(mod_rep);
@@ -131,7 +136,11 @@ impl<'cxt> Test {
         let (mut base_test, ext_id) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
         if (base_test.is_empty() || ext_id.is_none()) && ext_type == ExtensionType::Nested {
             // can't nested extend an empty test
-            return Err(DFError::InvalidTestExtensionOption);
+            if !fresh_test_if_cant_extend {
+                return Err(DFError::InvalidTestExtensionOption);
+            }
+        } else {
+            println!("reee");
         }
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
@@ -335,7 +344,6 @@ fn diagnose_test_correctness(
     output_json: &Value,
 ) -> HashMap<ExtensionPointID, FunctionCallResult> {
     let fct_tree = test.get_fct_tree();
-    // TODO! get this to work for multiple calls, to actually return an extension set
     let mut fct_tree_results: HashMap<ExtensionPointID, FunctionCallResult> = HashMap::new();
     let output_vec = match output_json {
         Value::Array(vec) => vec,
@@ -370,7 +378,9 @@ fn diagnose_test_correctness(
             .position(|r| r == &json!({"done_".to_owned() + &fc_id: true}));
         let callback_pos = output_vec
             .iter()
-            .position(|r| r == &json!({"callback_exec_".to_owned() + &fc_id: true}));
+            // .position(|r| r == &json!({"callback_exec_".to_owned() + &fc_id: true}));
+            // TODOOOOOOOOOOOOOOOOOOOOOOO
+            .position(|r| r == &json!({"callback_exec": true}));
 
         fct_tree_results.insert(
             fct_tree.get_node_id(fc).unwrap(),
@@ -406,7 +416,7 @@ pub struct ExtensionPoint {
     ext_type: ExtensionType,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Copy, EnumIter)]
+#[derive(Debug, Clone, Eq, PartialEq, Copy, EnumIter, Rand)]
 pub enum ExtensionType {
     Sequential,
     Nested,

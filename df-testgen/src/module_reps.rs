@@ -371,6 +371,7 @@ pub enum FunctionCallResult {
 
 impl FunctionCallResult {
     pub fn can_be_extended(&self, ext_type: ExtensionType) -> bool {
+        println!("extend: {:?}, {:?}", self, ext_type);
         match (self, ext_type) {
             // can never extend if there's an execution error
             (Self::ExecutionError, _) => false,

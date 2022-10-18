@@ -231,11 +231,12 @@ impl<'cxt> TestGenDB {
                     .join(", "),
                 ") => {",
                 &print_args,
+                "console.log({\"callback_exec\": true});",
                 "}",
             ]
             .join("\n")
         } else {
-            "(...args) => { console.log(args); }".to_string()
+            "(...args) => { console.log(args); console.log({\"callback_exec\": true}); }".to_string()
         }
     }
 
