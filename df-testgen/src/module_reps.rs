@@ -199,6 +199,7 @@ pub struct FunctionSignature {
     /// callback related result of running this test, if it was run
     call_test_result: Option<FunctionCallResult>,
     /// is spread (i.e., `...args`)
+    #[serde(default)] // default is false
     pub is_spread_args: bool,
 }
 
