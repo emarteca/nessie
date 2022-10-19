@@ -25,11 +25,10 @@ pub fn run_discovery_phase(
     for (func_name, func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
         for _ in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
-            let args = gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), &testgen_db);
-            let fct_call = FunctionCall::new(
-                func_name.clone(),
-                FunctionSignature::new(args.len(), &args, None),
-            );
+            let args =
+                gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), &testgen_db)?;
+            let fct_call =
+                FunctionCall::new(func_name.clone(), FunctionSignature::new(&args, None));
 
             let (cur_fct_id, mut cur_test) = Test::test_one_call(
                 &mod_rep,
@@ -74,7 +73,7 @@ fn gen_args_for_fct_with_cb(
     mod_fct: &ModuleFunction,
     cb_position: Option<i32>,
     testgen_db: &TestGenDB,
-) -> Vec<FunctionArgument> {
+) -> Result<Vec<FunctionArgument>, TestGenError> {
     let num_args = mod_fct.get_num_api_args();
     // TODO in the improved version of the discovery phase, this information will be used
     // to inform the new signatures generated
@@ -83,10 +82,10 @@ fn gen_args_for_fct_with_cb(
     let mut cur_sig = decisions::gen_new_sig_with_cb(num_args, sigs, cb_position, testgen_db);
     for arg in cur_sig.get_mut_args() {
         let arg_type = arg.get_type();
-        arg.set_string_rep_arg_val(match arg_type {
-            ArgType::CallbackType => "cb".to_string(),
+        arg.set_arg_val(match arg_type {
+            ArgType::CallbackType => ArgVal::Callback(CallbackVal::Var("cb".to_string())),
             _ => testgen_db.gen_random_value_of_type(arg_type),
-        });
+        })?;
     }
-    cur_sig.get_arg_list().to_vec()
+    Ok(cur_sig.get_arg_list().to_vec())
 }

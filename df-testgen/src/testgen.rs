@@ -4,7 +4,7 @@ use crate::module_reps::*; // the representation structs, for components
 use crate::test_bodies::*;
 
 use indextree::Arena;
-use rand::Rng;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Command;
@@ -16,7 +16,7 @@ pub fn run_testgen_phase<'cxt>(
     num_tests: i32,
 ) -> Result<(), DFError> {
     let mut cur_test_id: usize = 0;
-    // if we specify a nested extension but there's no valid test that can be extended 
+    // if we specify a nested extension but there's no valid test that can be extended
     // in a nested way, don't error, instead just return a fresh test
     const fresh_test_if_cant_extend: bool = true;
 
@@ -24,8 +24,14 @@ pub fn run_testgen_phase<'cxt>(
         // let ext_type: ExtensionType = rand::thread_rng().gen();
         let ext_type = ExtensionType::Nested;
 
-        let (cur_fct_id, mut cur_test) = Test::extend(mod_rep, testgen_db, ext_type, cur_test_id, fresh_test_if_cant_extend)?;
-        
+        let (cur_fct_id, mut cur_test) = Test::extend(
+            mod_rep,
+            testgen_db,
+            ext_type,
+            cur_test_id,
+            fresh_test_if_cant_extend,
+        )?;
+
         let test_results = cur_test.execute()?;
 
         cur_test_id += 1;
@@ -52,7 +58,67 @@ impl TestLocID {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Callback {
+    sig: FunctionSignature,
+    // TODO store the functions that are called in the body of the callback
+    // the test tree should also have nodes for callbacks (trace through for child calls)
+    inner_calls: Vec<FunctionCall>,
+}
+
+impl Callback {
+    pub fn new(sig: FunctionSignature) -> Self {
+        Self {
+            sig,
+            inner_calls: Vec::new(),
+        }
+    }
+
+    pub fn get_string_rep(&self) -> String {
+        // FIXME! should have some identifier for the cb it's in
+        let print_args = self
+            .sig
+            .get_arg_list()
+            .iter()
+            .enumerate()
+            .map(|(i, fct_arg)| {
+                [
+                    "\tconsole.log({\"",
+                    "in_cb_arg_",
+                    &i.to_string(),
+                    "\": cb_arg_",
+                    &i.to_string(),
+                    "});",
+                ]
+                .join("")
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        [
+            "(",
+            &(0..self.sig.get_arg_list().len())
+                .map(|i| "cb_arg_".to_owned() + &i.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            ") => {",
+            &print_args,
+            "console.log({\"callback_exec\": true});",
+            "}",
+        ]
+        .join("\n")
+    }
+}
+
+impl std::default::Default for Callback {
+    fn default() -> Self {
+        Self {
+            sig: FunctionSignature::default(),
+            inner_calls: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionCall {
     name: String,
     // signature has the arguments
@@ -64,11 +130,12 @@ impl FunctionCall {
         Self { name, sig }
     }
 
-    pub fn init_args_with_random(&mut self, testgen_db: &TestGenDB) {
+    pub fn init_args_with_random(&mut self, testgen_db: &TestGenDB) -> Result<(), TestGenError> {
         for arg in self.sig.get_mut_args() {
             let arg_type = arg.get_type();
-            arg.set_string_rep_arg_val(testgen_db.gen_random_value_of_type(arg_type));
+            arg.set_arg_val(testgen_db.gen_random_value_of_type(arg_type))?;
         }
+        Ok(())
     }
 
     pub fn get_code(
@@ -80,7 +147,7 @@ impl FunctionCall {
         get_instrumented_function_call(
             &self.name,
             base_var_name,
-            &self.sig.get_arg_list(),
+            &self.sig,
             cur_call_id,
             include_basic_callback,
         )
@@ -155,7 +222,6 @@ impl<'cxt> Test {
                 }
                 ExtensionType::Sequential => {
                     println!("woop!!!: {:?}", new_test_id);
-                    // FIXME ellen! make sure this doesn't break if the parent is tree root
                     let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap_or(ext_id);
                     ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
                 }
@@ -297,13 +363,16 @@ impl<'cxt> Test {
 
         let timeout = std::time::Duration::from_secs(decisions::TEST_TIMEOUT_SECONDS);
         let mut binding = Command::new("timeout");
-        let run_test = binding.arg(decisions::TEST_TIMEOUT_SECONDS.to_string()).arg("node").arg(&cur_test_file);
-        
+        let run_test = binding
+            .arg(decisions::TEST_TIMEOUT_SECONDS.to_string())
+            .arg("node")
+            .arg(&cur_test_file);
+
         let output = match run_test.output() {
             Ok(output) => output,
             _ => return Err(DFError::TestRunningError), // should never crash, everything is in a try-catch
         };
-        
+
         let output_json: Value =
             match serde_json::from_str(match std::str::from_utf8(&output.stdout) {
                 Ok(output_str) => output_str,

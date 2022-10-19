@@ -35,12 +35,11 @@ pub fn gen_new_sig_with_cb(
     for arg_index in 0..num_args {
         args.push(
             if cb_position.is_some() && i32::try_from(arg_index) == Ok(cb_position.unwrap()) {
-                FunctionArgument::new(ArgType::CallbackType, true, None)
+                FunctionArgument::new(ArgType::CallbackType, None)
             } else {
                 FunctionArgument::new(
                     testgen_db
                         .choose_random_arg_type(ALLOW_MULTIPLE_CALLBACK_ARGS, ALLOW_ANY_TYPE_ARGS),
-                    false,
                     None,
                 )
             },
@@ -48,7 +47,7 @@ pub fn gen_new_sig_with_cb(
     }
 
     FunctionSignature::new(
-        num_args, &args, // arguments
+        &args, // arguments
         None,  // no callback result yet since it wasn't run
     )
 }
@@ -111,14 +110,14 @@ impl<'cxt> TestGenDB {
 
     /// generate random value of specified argument type
     /// return a string representation of the JS equivalent
-    pub fn gen_random_value_of_type(&self, arg_type: ArgType) -> String {
+    pub fn gen_random_value_of_type(&self, arg_type: ArgType) -> ArgVal {
         let arg_type = match arg_type {
             ArgType::AnyType => self.choose_random_arg_type(true, false),
             _ => arg_type,
         };
         match arg_type {
-            ArgType::NumberType => self.gen_random_number(),
-            ArgType::StringType => self.gen_random_string(true),
+            ArgType::NumberType => self.gen_random_number_val(),
+            ArgType::StringType => self.gen_random_string_val(true),
             ArgType::ArrayType => {
                 // to keep things simple, we'll only have arrays of strings and/or numbers, like in the original lambdatester
                 // https://github.com/sola-da/LambdaTester/blob/master/utilities/randomGenerator.js#L90
@@ -127,26 +126,26 @@ impl<'cxt> TestGenDB {
                 let array_type = thread_rng().gen_range(0..3);
                 for _ in 0..num_elts {
                     gen_array.push(match (array_type, thread_rng().gen_range(0..=1) < 1) {
-                        (0, _) | (2, true) => self.gen_random_number(),
-                        _ => self.gen_random_string(true),
+                        (0, _) | (2, true) => self.gen_random_number_val().get_string_rep(),
+                        _ => self.gen_random_string_val(true).get_string_rep(),
                     });
                 }
-                "[".to_owned() + &gen_array.join(", ") + "]"
+                ArgVal::Array("[".to_owned() + &gen_array.join(", ") + "]")
             }
             ArgType::ObjectType => {
                 let num_elts = thread_rng().gen_range(0..MAX_GENERATED_OBJ_LENGTH);
                 let mut gen_obj: Vec<String> = Vec::with_capacity(num_elts);
                 for _ in 0..num_elts {
                     gen_obj.push(
-                        self.gen_random_string(false)
+                        self.gen_random_string_val(false).get_string_rep()
                             + ": "
                             + &match thread_rng().gen_range(0..=1) < 1 {
-                                true => self.gen_random_number(),
-                                _ => self.gen_random_string(true),
+                                true => self.gen_random_number_val().get_string_rep(),
+                                _ => self.gen_random_string_val(true).get_string_rep(),
                             },
                     );
                 }
-                "{".to_owned() + &gen_obj.join(", ") + "}"
+                ArgVal::Object("{".to_owned() + &gen_obj.join(", ") + "}")
             }
             ArgType::CallbackType => {
                 let num_args = thread_rng().gen_range(0..DEFAULT_MAX_ARG_LENGTH);
@@ -162,21 +161,21 @@ impl<'cxt> TestGenDB {
                 let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
                 self.gen_random_callback(Some(random_sig))
             }
-            _ => self.gen_random_string(true),
+            _ => self.gen_random_string_val(true),
         }
     }
 
     /// generate a random number
-    fn gen_random_number(&self) -> String {
-        (thread_rng().gen_range(-MAX_GENERATED_NUM..MAX_GENERATED_NUM)).to_string()
+    fn gen_random_number_val(&self) -> ArgVal {
+        ArgVal::Number((thread_rng().gen_range(-MAX_GENERATED_NUM..MAX_GENERATED_NUM)).to_string())
     }
     /// generate a random string; since we're working with file systems, these strings should sometimes correspond
     /// to valid paths in the operating system
-    fn gen_random_string(&self, include_fs_strings: bool) -> String {
+    fn gen_random_string_val(&self, include_fs_strings: bool) -> ArgVal {
         // if string, choose something from the self.fs_strings half the time
         // TODO actually, if we're including fs strings, always choose an fs string
         let string_choice = 0; // self.thread_rng().gen_range(0..=1);
-        match (string_choice, include_fs_strings) {
+        ArgVal::String(match (string_choice, include_fs_strings) {
             (0, true) => {
                 // choose string from the list of valid files
                 let rand_index = thread_rng().gen_range(0..self.fs_strings.len());
@@ -198,45 +197,16 @@ impl<'cxt> TestGenDB {
                         .collect::<String>()
                     + "\""
             }
-        }
+        })
     }
     /// generate a random callback
     /// the `opt_sig` signature should be generated based on the function pool etc
     /// and these should be fields in the generator
-    fn gen_random_callback(&self, opt_sig: Option<FunctionSignature>) -> String {
+    fn gen_random_callback(&self, opt_sig: Option<FunctionSignature>) -> ArgVal {
         if let Some(sig) = opt_sig {
-            // FIXME! should have some identifier for the cb it's in
-            let print_args = sig
-                .get_arg_list()
-                .iter()
-                .enumerate()
-                .map(|(i, fct_arg)| {
-                    [
-                        "\tconsole.log({\"",
-                        "in_cb_arg_",
-                        &i.to_string(),
-                        "\": cb_arg_",
-                        &i.to_string(),
-                        "});",
-                    ]
-                    .join("")
-                })
-                .collect::<Vec<String>>()
-                .join("\n");
-            [
-                "(",
-                &(0..sig.get_arg_list().len())
-                    .map(|i| "cb_arg_".to_owned() + &i.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", "),
-                ") => {",
-                &print_args,
-                "console.log({\"callback_exec\": true});",
-                "}",
-            ]
-            .join("\n")
+            ArgVal::Callback(CallbackVal::RawCallback(Callback::new(sig)))
         } else {
-            "(...args) => { console.log(args); console.log({\"callback_exec\": true}); }".to_string()
+            ArgVal::Callback(CallbackVal::RawCallback(Callback::default()))
         }
     }
 

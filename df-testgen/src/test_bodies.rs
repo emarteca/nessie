@@ -43,7 +43,7 @@ process.on("exit", function f() {
 pub fn get_instrumented_function_call(
     fct_name: &str,
     base_var_name: &str,
-    args: &Vec<FunctionArgument>,
+    sig: &FunctionSignature,
     cur_call_id: usize,
     include_basic_callback: bool,
 ) -> String {
@@ -53,35 +53,51 @@ pub fn get_instrumented_function_call(
     } else {
         String::new()
     };
-    let args_rep = args
-        .iter()
-        .filter(|fct_arg| !matches!(fct_arg.get_string_rep_arg_val(), None))
-        .map(|fct_arg| fct_arg.get_string_rep_arg_val().as_ref().unwrap().clone())
-        .collect::<Vec<String>>()
-        .join(", ");
-    let print_args = |title: String| {
+    let args_rep = if sig.is_spread_args {
+        "...args".to_string()
+    } else {
+        let args = sig.get_arg_list();
         args.iter()
-            .enumerate()
-            .map(|(i, fct_arg)| {
-                [
-                    "\tconsole.log({\"",
-                    &title,
-                    "_",
-                    &ret_val_basename,
-                    "_arg",
-                    &i.to_string(),
-                    "\": ",
-                    &fct_arg
-                        .get_string_rep_arg_val__short()
-                        .as_ref()
-                        .unwrap()
-                        .clone(),
-                    "});",
-                ]
-                .join("")
-            })
+            .filter(|fct_arg| !matches!(fct_arg.get_string_rep_arg_val(), None))
+            .map(|fct_arg| fct_arg.get_string_rep_arg_val().as_ref().unwrap().clone())
             .collect::<Vec<String>>()
-            .join("\n")
+            .join(", ")
+    };
+    let print_args = |title: String| {
+        if sig.is_spread_args {
+            [
+                "\tconsole.log({\"",
+                &title,
+                "_",
+                &ret_val_basename,
+                "_args\": args});",
+            ]
+            .join("")
+        } else {
+            let args = sig.get_arg_list();
+            args.iter()
+                .enumerate()
+                .map(|(i, fct_arg)| {
+                    [
+                        "\tconsole.log({\"",
+                        &title,
+                        "_",
+                        &ret_val_basename,
+                        "_arg",
+                        &i.to_string(),
+                        "\": ",
+                        &fct_arg
+                            .get_string_rep_arg_val__short()
+                            .as_ref()
+                            .unwrap()
+                            .clone(),
+                        "});",
+                    ]
+                    .join("")
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+        }
     };
     [
         "try { ",

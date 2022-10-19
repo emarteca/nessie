@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::testgen::ExtensionType;
+use crate::testgen::{Callback, ExtensionType};
 
 /// serializable representation of the module
 /// at the api_info stage (i.e., only statically looked at the library)
@@ -194,12 +194,12 @@ impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
 /// note that functions may have multiple valid signatures
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FunctionSignature {
-    /// number of arguments
-    num_args: usize,
     /// list of arguments: their type, and value if tested
     arg_list: Vec<FunctionArgument>,
     /// callback related result of running this test, if it was run
     call_test_result: Option<FunctionCallResult>,
+    /// is spread (i.e., `...args`)
+    pub is_spread_args: bool,
 }
 
 impl TryFrom<(&Vec<FunctionArgument>, FunctionCallResult)> for FunctionSignature {
@@ -208,11 +208,10 @@ impl TryFrom<(&Vec<FunctionArgument>, FunctionCallResult)> for FunctionSignature
     fn try_from(
         (arg_list, callback_res): (&Vec<FunctionArgument>, FunctionCallResult),
     ) -> Result<Self, Self::Error> {
-        let num_args = arg_list.len();
         Ok(Self {
-            num_args,
             arg_list: arg_list.clone(),
             call_test_result: Some(callback_res),
+            is_spread_args: false,
         })
     }
 }
@@ -220,14 +219,13 @@ impl TryFrom<(&Vec<FunctionArgument>, FunctionCallResult)> for FunctionSignature
 impl FunctionSignature {
     /// constructor
     pub fn new(
-        num_args: usize,
         arg_list: &Vec<FunctionArgument>,
         call_test_result: Option<FunctionCallResult>,
     ) -> Self {
         Self {
-            num_args,
             arg_list: arg_list.clone(),
             call_test_result,
+            is_spread_args: false,
         }
     }
 
@@ -235,7 +233,7 @@ impl FunctionSignature {
     pub fn get_callback_positions(&self) -> Vec<usize> {
         let mut posns = Vec::new();
         for (pos, arg) in self.arg_list.iter().enumerate() {
-            if arg.is_callback {
+            if arg.is_callback() {
                 posns.push(pos);
             }
         }
@@ -258,32 +256,38 @@ impl FunctionSignature {
     }
 }
 
+impl std::default::Default for FunctionSignature {
+    fn default() -> Self {
+        Self {
+            arg_list: Vec::new(),
+            call_test_result: None,
+            is_spread_args: true,
+        }
+    }
+}
+
 /// representation of a function argument
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FunctionArgument {
-    /// type of the argumnet
+    /// type of the argument
     arg_type: ArgType,
-    /// is this argument a callback? true/false
-    is_callback: bool,
     // if tested, list of values tested with
     // TODO figure out how to represent these values
-    string_rep_arg_val: Option<String>,
+    arg_val: Option<ArgVal>,
 }
 
 impl FunctionArgument {
-    pub fn new(arg_type: ArgType, is_callback: bool, string_rep_arg_val: Option<String>) -> Self {
-        if (arg_type == ArgType::CallbackType) != is_callback {
-            panic!("If the FunctionArgument is a CallbackType it must also be a callback bool");
-        }
-        Self {
-            arg_type,
-            is_callback,
-            string_rep_arg_val,
-        }
+    pub fn new(arg_type: ArgType, arg_val: Option<ArgVal>) -> Self {
+        Self { arg_type, arg_val }
     }
+
+    pub fn is_callback(&self) -> bool {
+        self.arg_type == ArgType::CallbackType
+    }
+
     /// getter for string representation of argument value
-    pub fn get_string_rep_arg_val(&self) -> &Option<String> {
-        &self.string_rep_arg_val
+    pub fn get_string_rep_arg_val(&self) -> Option<String> {
+        Some(self.arg_val.clone()?.get_string_rep().clone())
     }
 
     pub fn get_string_rep_arg_val__short(&self) -> Option<String> {
@@ -293,8 +297,16 @@ impl FunctionArgument {
         }
     }
 
-    pub fn set_string_rep_arg_val(&mut self, rep_arg_val: String) {
-        self.string_rep_arg_val = Some(rep_arg_val.clone())
+    pub fn set_arg_val(&mut self, arg_val: ArgVal) -> Result<(), TestGenError> {
+        if !(arg_val.get_type().can_be_repd_as(self.arg_type)) {
+            return Err(TestGenError::ArgTypeValMismatch);
+        }
+        self.arg_val = Some(arg_val.clone());
+        Ok(())
+    }
+
+    pub fn get_arg_val(&self) -> &Option<ArgVal> {
+        &self.arg_val
     }
 
     pub fn get_type(&self) -> ArgType {
@@ -320,6 +332,14 @@ pub enum ArgType {
     AnyType,
 }
 
+impl ArgType {
+    // return true if the receiver (`self`) can be represented
+    // by the other type `ot`.
+    pub fn can_be_repd_as(&self, ot: Self) -> bool {
+        *self == ot || ot == Self::AnyType
+    }
+}
+
 impl std::fmt::Display for ArgType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
@@ -329,6 +349,49 @@ impl std::fmt::Display for ArgType {
             ArgType::ObjectType => write!(f, "object"),
             ArgType::CallbackType => write!(f, "function"),
             ArgType::AnyType => write!(f, "any"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ArgVal {
+    Number(String),
+    String(String),
+    Array(String),
+    Object(String),
+    Callback(CallbackVal),
+}
+
+impl ArgVal {
+    pub fn get_string_rep(&self) -> String {
+        match self {
+            Self::Number(s) | Self::String(s) | Self::Array(s) | Self::Object(s) => s.clone(),
+            Self::Callback(cbv) => cbv.get_string_rep(),
+        }
+    }
+
+    pub fn get_type(&self) -> ArgType {
+        match self {
+            Self::Number(_) => ArgType::NumberType,
+            Self::String(_) => ArgType::StringType,
+            Self::Array(_) => ArgType::ArrayType,
+            Self::Object(_) => ArgType::ObjectType,
+            Self::Callback(_) => ArgType::CallbackType,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CallbackVal {
+    Var(String),
+    RawCallback(Callback),
+}
+
+impl CallbackVal {
+    pub fn get_string_rep(&self) -> String {
+        match self {
+            Self::Var(vs) => vs.clone(),
+            Self::RawCallback(cb) => cb.get_string_rep(),
         }
     }
 }
@@ -346,6 +409,20 @@ pub enum DFError {
     TestOutputParseError,
     /// invalid test extension option
     InvalidTestExtensionOption,
+    /// error during test generation
+    TestGenError(TestGenError),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum TestGenError {
+    /// type mismatch between arg value and specified arg type
+    ArgTypeValMismatch,
+}
+
+impl From<TestGenError> for DFError {
+    fn from(tge: TestGenError) -> Self {
+        Self::TestGenError(tge)
+    }
 }
 
 /// representation of the different test outcomes we care about
