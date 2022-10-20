@@ -310,8 +310,22 @@ impl FunctionArgument {
         &self.arg_val
     }
 
+    pub fn get_arg_val_mut(&mut self) -> &Option<ArgVal> {
+        &mut self.arg_val
+    }
+
     pub fn get_type(&self) -> ArgType {
         self.arg_type
+    }
+
+    pub fn set_cb_id(&mut self, cb_id: Option<String>) -> Result<(), TestGenError> {
+        match self.arg_val.as_mut() {
+            Some(mut arg_val) => {
+                arg_val.set_cb_id(cb_id)?;
+                Ok(())
+            }
+            _ => Err(TestGenError::ArgValNotSetYet),
+        }
     }
 }
 
@@ -380,6 +394,16 @@ impl ArgVal {
             Self::Callback(_) => ArgType::CallbackType,
         }
     }
+
+    pub fn set_cb_id(&mut self, cb_id: Option<String>) -> Result<(), TestGenError> {
+        match self {
+            Self::Callback(CallbackVal::RawCallback(cb)) => {
+                cb.set_cb_id(cb_id);
+                Ok(())
+            }
+            _ => Err(TestGenError::ArgTypeValMismatch),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -418,6 +442,8 @@ pub enum DFError {
 pub enum TestGenError {
     /// type mismatch between arg value and specified arg type
     ArgTypeValMismatch,
+    /// trying to set a property of an arg val that is still None
+    ArgValNotSetYet,
 }
 
 impl From<TestGenError> for DFError {

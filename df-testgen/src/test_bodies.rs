@@ -5,9 +5,9 @@ pub fn basic_callback() -> &'static str {
     r#"let cb = function() { console.log({"callback_exec": true}); }"#
 }
 
-pub fn basic_callback_with_id(cur_call_id: usize) -> String {
+pub fn basic_callback_with_id(cur_call_uniq_id: String) -> String {
     "let cb = function() { console.log({\"callback_exec_".to_owned()
-        + &cur_call_id.to_string()
+        + &cur_call_uniq_id
         + "\": true}); }"
 }
 
@@ -45,11 +45,17 @@ pub fn get_instrumented_function_call(
     base_var_name: &str,
     sig: &FunctionSignature,
     cur_call_id: usize,
+    parent_arg_position_nesting: Option<usize>,
     include_basic_callback: bool,
 ) -> String {
     let ret_val_basename = "ret_val_".to_owned() + base_var_name;
+    let cur_call_uniq_id = cur_call_id.to_string()
+        + &match parent_arg_position_nesting {
+            Some(pos) => String::from("_".to_owned() + &pos.to_string()),
+            None => String::new(),
+        };
     let extra_cb_code = if include_basic_callback {
-        basic_callback_with_id(cur_call_id)
+        basic_callback_with_id(cur_call_uniq_id.clone())
     } else {
         String::new()
     };
@@ -125,12 +131,12 @@ pub fn get_instrumented_function_call(
         &("\tPromise.resolve(".to_owned()
             + &ret_val_basename
             + ").catch(e => { console.log({\"error_"
-            + &cur_call_id.to_string()
+            + &cur_call_uniq_id
             + "\": true}); });"),
         "} catch(e) {",
-        &("\tconsole.log({\"error_".to_owned() + &cur_call_id.to_string() + "\": true});"),
+        &("\tconsole.log({\"error_".to_owned() + &cur_call_uniq_id + "\": true});"),
         "}",
-        &("console.log({\"done_".to_owned() + &cur_call_id.to_string() + "\": true});"),
+        &("console.log({\"done_".to_owned() + &cur_call_uniq_id + "\": true});"),
     ]
     .join("\n")
 }

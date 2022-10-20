@@ -64,6 +64,10 @@ pub struct Callback {
     // TODO store the functions that are called in the body of the callback
     // the test tree should also have nodes for callbacks (trace through for child calls)
     inner_calls: Vec<FunctionCall>,
+    // unique ID, used when printing to determine what the CB is
+    cb_id: Option<String>,
+    // the argument position that this callback is in
+    cb_arg_pos: Option<usize>,
 }
 
 impl Callback {
@@ -71,6 +75,8 @@ impl Callback {
         Self {
             sig,
             inner_calls: Vec::new(),
+            cb_id: None,
+            cb_arg_pos: None,
         }
     }
 
@@ -102,10 +108,31 @@ impl Callback {
                 .join(", "),
             ") => {",
             &print_args,
-            "console.log({\"callback_exec\": true});",
+            &[
+                "console.log({\"callback_exec_",
+                &match &self.cb_id {
+                    Some(str_id) => str_id.clone(),
+                    None => String::new(),
+                },
+                "\": ",
+                &match &self.cb_arg_pos {
+                    Some(pos_id) => pos_id.to_string(),
+                    None => String::new(),
+                },
+                "});",
+            ]
+            .join(""),
             "}",
         ]
         .join("\n")
+    }
+
+    pub fn set_cb_id(&mut self, cb_id: Option<String>) {
+        self.cb_id = cb_id;
+    }
+
+    pub fn set_cb_arg_pos(&mut self, cb_arg_pos: Option<usize>) {
+        self.cb_arg_pos = cb_arg_pos;
     }
 }
 
@@ -114,6 +141,8 @@ impl std::default::Default for Callback {
         Self {
             sig: FunctionSignature::default(),
             inner_calls: Vec::new(),
+            cb_id: None,
+            cb_arg_pos: None,
         }
     }
 }
@@ -123,17 +152,36 @@ pub struct FunctionCall {
     name: String,
     // signature has the arguments
     sig: FunctionSignature,
+    // argument position in the parent call, of the callback within which this call is nested
+    parent_arg_position_nesting: Option<usize>,
 }
 
 impl FunctionCall {
-    pub fn new(name: String, sig: FunctionSignature) -> Self {
-        Self { name, sig }
+    pub fn new(
+        name: String,
+        sig: FunctionSignature,
+        parent_arg_position_nesting: Option<usize>,
+    ) -> Self {
+        Self {
+            name,
+            sig,
+            parent_arg_position_nesting,
+        }
+    }
+
+    pub fn update_cb_args_with_id(&mut self, call_id: usize) -> Result<(), TestGenError> {
+        for arg in self.sig.get_mut_args() {
+            if arg.get_type() == ArgType::CallbackType {
+                arg.set_cb_id(Some(call_id.to_string()))?;
+            }
+        }
+        Ok(())
     }
 
     pub fn init_args_with_random(&mut self, testgen_db: &TestGenDB) -> Result<(), TestGenError> {
-        for arg in self.sig.get_mut_args() {
+        for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
-            arg.set_arg_val(testgen_db.gen_random_value_of_type(arg_type))?;
+            arg.set_arg_val(testgen_db.gen_random_value_of_type(arg_type, Some(i)))?;
         }
         Ok(())
     }
@@ -149,6 +197,7 @@ impl FunctionCall {
             base_var_name,
             &self.sig,
             cur_call_id,
+            self.parent_arg_position_nesting,
             include_basic_callback,
         )
     }
@@ -197,7 +246,7 @@ impl<'cxt> Test {
         fresh_test_if_cant_extend: bool,
     ) -> Result<(ExtensionPointID, Test), DFError> {
         // select random function to call, and create corresponding node
-        let ext_call = testgen_db.gen_random_call(mod_rep);
+        let mut ext_call = testgen_db.gen_random_call(mod_rep);
 
         // choose a random test to extend with this new call
         let (mut base_test, ext_id) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
@@ -211,6 +260,11 @@ impl<'cxt> Test {
         }
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
+        // update callback args of ext_call to have the ext_call ID
+        let mut new_node = base_test.fct_tree.get_mut(ext_node_id).unwrap();
+        new_node
+            .get_mut()
+            .update_cb_args_with_id(ext_node_id.into());
 
         // do the extension, if it's a non-empty test
         if ext_id.is_some() {
@@ -218,10 +272,12 @@ impl<'cxt> Test {
             match ext_type {
                 ExtensionType::Nested => {
                     println!("here!!!: {:?}", new_test_id);
+                    // adding a child
                     ext_id.append(ext_node_id, &mut base_test.fct_tree);
                 }
                 ExtensionType::Sequential => {
                     println!("woop!!!: {:?}", new_test_id);
+                    // adding a sibling
                     let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap_or(ext_id);
                     ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
                 }
@@ -445,11 +501,17 @@ fn diagnose_test_correctness(
         let done_pos = output_vec
             .iter()
             .position(|r| r == &json!({"done_".to_owned() + &fc_id: true}));
-        let callback_pos = output_vec
-            .iter()
-            // .position(|r| r == &json!({"callback_exec_".to_owned() + &fc_id: true}));
-            // TODOOOOOOOOOOOOOOOOOOOOOOO
-            .position(|r| r == &json!({"callback_exec": true}));
+        let (mut callback_pos, mut cb_arg_pos) = (None, None);
+        for (i, r) in output_vec.iter().enumerate() {
+            if let k = &r["callback_exec_".to_owned() + &fc_id] {
+                if !k.is_null() {
+                    (callback_pos, cb_arg_pos) = (Some(i), Some(k))
+                }
+            }
+        }
+
+        // TODO add argpos to the results, so we can see what extension point makes sense
+        println!("omfgg: {:?}, {:?}", callback_pos, cb_arg_pos);
 
         fct_tree_results.insert(
             fct_tree.get_node_id(fc).unwrap(),

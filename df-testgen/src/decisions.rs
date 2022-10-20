@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use std::path::PathBuf;
 use strum::IntoEnumIterator;
 
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 100;
+pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 3;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = false;
 pub const TEST_TIMEOUT_SECONDS: u64 = 30;
@@ -110,7 +110,7 @@ impl<'cxt> TestGenDB {
 
     /// generate random value of specified argument type
     /// return a string representation of the JS equivalent
-    pub fn gen_random_value_of_type(&self, arg_type: ArgType) -> ArgVal {
+    pub fn gen_random_value_of_type(&self, arg_type: ArgType, arg_pos: Option<usize>) -> ArgVal {
         let arg_type = match arg_type {
             ArgType::AnyType => self.choose_random_arg_type(true, false),
             _ => arg_type,
@@ -159,7 +159,7 @@ impl<'cxt> TestGenDB {
                 };
                 let sigs = Vec::new();
                 let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
-                self.gen_random_callback(Some(random_sig))
+                self.gen_random_callback(Some(random_sig), arg_pos)
             }
             _ => self.gen_random_string_val(true),
         }
@@ -202,12 +202,18 @@ impl<'cxt> TestGenDB {
     /// generate a random callback
     /// the `opt_sig` signature should be generated based on the function pool etc
     /// and these should be fields in the generator
-    fn gen_random_callback(&self, opt_sig: Option<FunctionSignature>) -> ArgVal {
-        if let Some(sig) = opt_sig {
-            ArgVal::Callback(CallbackVal::RawCallback(Callback::new(sig)))
+    fn gen_random_callback(
+        &self,
+        opt_sig: Option<FunctionSignature>,
+        arg_pos: Option<usize>,
+    ) -> ArgVal {
+        let mut cb = if let Some(sig) = opt_sig {
+            Callback::new(sig)
         } else {
-            ArgVal::Callback(CallbackVal::RawCallback(Callback::default()))
-        }
+            Callback::default()
+        };
+        cb.set_cb_arg_pos(arg_pos);
+        ArgVal::Callback(CallbackVal::RawCallback(cb))
     }
 
     pub fn gen_random_call(&self, mod_rep: &NpmModule) -> FunctionCall {
@@ -232,7 +238,9 @@ impl<'cxt> TestGenDB {
             cb_position,
             self,
         );
-        let mut ret_call = FunctionCall::new(fct_name, random_sig);
+        let mut ret_call = FunctionCall::new(
+            fct_name, random_sig, None, /* position of arg in parent call of cb this is in */
+        );
         ret_call.init_args_with_random(self);
         ret_call
     }
