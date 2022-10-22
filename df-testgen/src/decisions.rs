@@ -17,6 +17,8 @@ pub const MAX_GENERATED_OBJ_LENGTH: usize = 5;
 pub const RANDOM_STRING_LENGTH: usize = 5;
 pub const DEFAULT_MAX_ARG_LENGTH: usize = 5;
 
+pub const CHOOSE_NEW_SIG_PCT: f64 = 0.5; // 50% chance of new signature
+
 /// metadata for the setup required before tests are generated
 pub mod setup {
     pub const TOY_FS_DIRS: [&str; 2] = ["a/b/test/directory", "a/b/test/dir"];
@@ -25,31 +27,39 @@ pub mod setup {
 
 pub fn gen_new_sig_with_cb(
     num_args: Option<usize>,
-    _sigs: &Vec<FunctionSignature>, // TODO don't pick a sig we already picked
+    sigs: &Vec<FunctionSignature>, // TODO don't pick a sig we already picked
     cb_position: Option<i32>,
     testgen_db: &TestGenDB,
 ) -> FunctionSignature {
-    let num_args = num_args.unwrap_or(DEFAULT_MAX_ARG_LENGTH);
-    let mut args: Vec<FunctionArgument> = Vec::with_capacity(num_args);
+    // look at the list of signatures CHOOSE_NEW_SIG_PCT of the time (if the list is non-empty)
+    if sigs.len() > 0 && (thread_rng().gen_range(0..=1) as f64) > CHOOSE_NEW_SIG_PCT {
+        sigs.choose(&mut thread_rng()).unwrap().clone()
+    } else {
+        let num_args = num_args.unwrap_or(thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH));
+        let mut args: Vec<FunctionArgument> = Vec::with_capacity(num_args);
 
-    for arg_index in 0..num_args {
-        args.push(
-            if cb_position.is_some() && i32::try_from(arg_index) == Ok(cb_position.unwrap()) {
-                FunctionArgument::new(ArgType::CallbackType, None)
-            } else {
-                FunctionArgument::new(
-                    testgen_db
-                        .choose_random_arg_type(ALLOW_MULTIPLE_CALLBACK_ARGS, ALLOW_ANY_TYPE_ARGS),
-                    None,
-                )
-            },
-        );
+        for arg_index in 0..num_args {
+            args.push(
+                if cb_position.is_some() && i32::try_from(arg_index) == Ok(cb_position.unwrap()) {
+                    FunctionArgument::new(ArgType::CallbackType, None)
+                } else {
+                    FunctionArgument::new(
+                        // ArgType::StringType, // TODO THIS IS JUST FOR DEBUGGING
+                        testgen_db.choose_random_arg_type(
+                            ALLOW_MULTIPLE_CALLBACK_ARGS,
+                            ALLOW_ANY_TYPE_ARGS,
+                        ),
+                        None,
+                    )
+                },
+            );
+        }
+
+        FunctionSignature::new(
+            &args, // arguments
+            None,  // no callback result yet since it wasn't run
+        )
     }
-
-    FunctionSignature::new(
-        &args, // arguments
-        None,  // no callback result yet since it wasn't run
-    )
 }
 
 pub struct TestGenDB {
@@ -121,9 +131,9 @@ impl<'cxt> TestGenDB {
             ArgType::ArrayType => {
                 // to keep things simple, we'll only have arrays of strings and/or numbers, like in the original lambdatester
                 // https://github.com/sola-da/LambdaTester/blob/master/utilities/randomGenerator.js#L90
-                let num_elts = thread_rng().gen_range(0..MAX_GENERATED_ARRAY_LENGTH);
+                let num_elts = thread_rng().gen_range(0..=MAX_GENERATED_ARRAY_LENGTH);
                 let mut gen_array: Vec<String> = Vec::with_capacity(num_elts);
-                let array_type = thread_rng().gen_range(0..3);
+                let array_type = thread_rng().gen_range(0..=3);
                 for _ in 0..num_elts {
                     gen_array.push(match (array_type, thread_rng().gen_range(0..=1) < 1) {
                         (0, _) | (2, true) => self.gen_random_number_val().get_string_rep(),
@@ -133,7 +143,7 @@ impl<'cxt> TestGenDB {
                 ArgVal::Array("[".to_owned() + &gen_array.join(", ") + "]")
             }
             ArgType::ObjectType => {
-                let num_elts = thread_rng().gen_range(0..MAX_GENERATED_OBJ_LENGTH);
+                let num_elts = thread_rng().gen_range(0..=MAX_GENERATED_OBJ_LENGTH);
                 let mut gen_obj: Vec<String> = Vec::with_capacity(num_elts);
                 for _ in 0..num_elts {
                     gen_obj.push(
@@ -148,11 +158,11 @@ impl<'cxt> TestGenDB {
                 ArgVal::Object("{".to_owned() + &gen_obj.join(", ") + "}")
             }
             ArgType::CallbackType => {
-                let num_args = thread_rng().gen_range(0..DEFAULT_MAX_ARG_LENGTH);
+                let num_args = thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH);
                 let cb_position = if num_args == 0 {
                     None
                 } else {
-                    Some(i32::try_from(thread_rng().gen_range(0..num_args * 2)).unwrap())
+                    Some(i32::try_from(thread_rng().gen_range(0..=(num_args * 2))).unwrap())
                     // x2 means there's a 50% chance of no callback (position never reached)
                     // NOTE: this is for the signature of the callback being generated -- a
                     // callback is always returned from this branch of the match
@@ -167,7 +177,7 @@ impl<'cxt> TestGenDB {
 
     /// generate a random number
     fn gen_random_number_val(&self) -> ArgVal {
-        ArgVal::Number((thread_rng().gen_range(-MAX_GENERATED_NUM..MAX_GENERATED_NUM)).to_string())
+        ArgVal::Number((thread_rng().gen_range(-MAX_GENERATED_NUM..=MAX_GENERATED_NUM)).to_string())
     }
     /// generate a random string; since we're working with file systems, these strings should sometimes correspond
     /// to valid paths in the operating system
@@ -219,7 +229,6 @@ impl<'cxt> TestGenDB {
     pub fn gen_random_call(&self, mod_rep: &NpmModule) -> FunctionCall {
         let rand_fct_index = mod_rep.get_fns().keys().choose(&mut thread_rng()).unwrap();
         let fct_to_call = &mod_rep.get_fns()[rand_fct_index];
-        // TODO! use the fct_to_call.get_sigs() to make a good signature
         let fct_name = fct_to_call.get_name();
         let num_args = if let Some(api_args) = fct_to_call.get_num_api_args() {
             api_args
@@ -229,9 +238,10 @@ impl<'cxt> TestGenDB {
         let cb_position = if num_args == 0 {
             None
         } else {
-            Some(i32::try_from(thread_rng().gen_range(0..num_args * 2)).unwrap())
+            Some(i32::try_from(thread_rng().gen_range(0..=(num_args * 2))).unwrap())
             // x2 means there's a 50% chance of no callback (position never reached)
         };
+        // choose a random signature -- either new, or an existing one if we know what it is
         let random_sig = gen_new_sig_with_cb(
             fct_to_call.get_num_api_args(),
             fct_to_call.get_sigs(),

@@ -109,7 +109,7 @@ impl Callback {
             ") => {",
             &print_args,
             &[
-                "console.log({\"callback_exec_",
+                "\tconsole.log({\"callback_exec_",
                 &match &self.cb_id {
                     Some(str_id) => str_id.clone(),
                     None => String::new(),
@@ -255,8 +255,6 @@ impl<'cxt> Test {
             if !fresh_test_if_cant_extend {
                 return Err(DFError::InvalidTestExtensionOption);
             }
-        } else {
-            println!("reee");
         }
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
