@@ -63,7 +63,7 @@ pub fn gen_new_sig_with_cb(
 
 pub struct TestGenDB {
     fs_strings: Vec<PathBuf>,
-    possible_ext_points: Vec<(ExtensionType, (Test, Option<ExtensionPointID>))>,
+    possible_ext_points: Vec<(ExtensionType, (Test, Option<ExtensionPointID>, Option<String>))>,
     cur_test_index: usize,
     pub test_dir_path: String,
     pub test_file_prefix: String,
@@ -258,12 +258,12 @@ impl<'cxt> TestGenDB {
         &mut self,
         mod_rep: &'cxt NpmModule,
         ext_type: ExtensionType,
-    ) -> (Test, Option<ExtensionPointID>) {
+    ) -> (Test, Option<ExtensionPointID>, Option<String>) {
         let rel_exts = self
             .possible_ext_points
             .iter()
             .filter(|(et, _)| et == &ext_type)
-            .collect::<Vec<&(ExtensionType, (Test, Option<ExtensionPointID>))>>();
+            .collect::<Vec<&(ExtensionType, (Test, Option<ExtensionPointID>, Option<String>))>>();
         let rand_test = rel_exts.choose(&mut thread_rng());
         // if there's no valid test to extend yet, then we make a new blank one
         if let Some(test_with_id) = rand_test {
@@ -277,6 +277,7 @@ impl<'cxt> TestGenDB {
                     self.test_dir_path.clone(),
                     self.test_file_prefix.clone(),
                 ),
+                None,
                 None,
             )
         }
@@ -299,7 +300,7 @@ impl<'cxt> TestGenDB {
     pub fn add_extension_point(
         &mut self,
         ext_type: ExtensionType,
-        test_id: (Test, Option<ExtensionPointID>),
+        test_id: (Test, Option<ExtensionPointID>, Option<String>),
     ) {
         self.possible_ext_points.push((ext_type, test_id));
     }
@@ -307,19 +308,19 @@ impl<'cxt> TestGenDB {
     pub fn add_extension_points_for_test(
         &mut self,
         test: &Test,
-        ext_point_results: &HashMap<ExtensionPointID, FunctionCallResult>,
+        ext_point_results: &HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
     ) {
         // a test is only extensible if there are no execution errors
         if ext_point_results
             .values()
-            .any(|&res| res == FunctionCallResult::ExecutionError)
+            .any(|&(res, _)| res == FunctionCallResult::ExecutionError)
         {
             return;
         }
-        for (ext_id, res) in ext_point_results.iter() {
+        for (ext_id, (res, cb_arg_pos)) in ext_point_results.iter() {
             for ext_type in ExtensionType::iter() {
                 if res.can_be_extended(ext_type) {
-                    self.add_extension_point(ext_type, (test.clone(), Some(*ext_id)));
+                    self.add_extension_point(ext_type, (test.clone(), Some(*ext_id), cb_arg_pos.clone()));
                 }
             }
         }

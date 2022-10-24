@@ -20,7 +20,7 @@ pub fn run_discovery_phase(
     let mut cur_test_id: usize = 0;
 
     let mut fcts = mod_rep.get_fns().clone();
-    let mut test_res_pairs: Vec<(Test, HashMap<ExtensionPointID, FunctionCallResult>)> = Vec::new();
+    let mut test_res_pairs: Vec<(Test, HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>)> = Vec::new();
 
     for (func_name, func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
@@ -41,7 +41,7 @@ pub fn run_discovery_phase(
 
             let test_results = cur_test.execute()?;
 
-            let fct_result = test_results.get(&cur_fct_id).unwrap();
+            let (fct_result, cb_arg_pos) = test_results.get(&cur_fct_id).unwrap();
             if fct_result != &FunctionCallResult::ExecutionError {
                 func_desc.add_sig(FunctionSignature::try_from((&args, *fct_result)).unwrap());
             }

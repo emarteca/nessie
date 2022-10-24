@@ -9,6 +9,8 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Command;
 use strum_macros::EnumIter;
+use rand::Rng;
+
 
 pub fn run_testgen_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
@@ -21,8 +23,8 @@ pub fn run_testgen_phase<'cxt>(
     const fresh_test_if_cant_extend: bool = true;
 
     for _ in 0..num_tests {
-        // let ext_type: ExtensionType = rand::thread_rng().gen();
-        let ext_type = ExtensionType::Nested;
+        let ext_type: ExtensionType = rand::thread_rng().gen();
+        // let ext_type = ExtensionType::Nested;
 
         let (cur_fct_id, mut cur_test) = Test::extend(
             mod_rep,
@@ -157,14 +159,14 @@ pub struct FunctionCall {
     // signature has the arguments
     sig: FunctionSignature,
     // argument position in the parent call, of the callback within which this call is nested
-    parent_arg_position_nesting: Option<usize>,
+    parent_arg_position_nesting: Option<String>,
 }
 
 impl FunctionCall {
     pub fn new(
         name: String,
         sig: FunctionSignature,
-        parent_arg_position_nesting: Option<usize>,
+        parent_arg_position_nesting: Option<String>,
     ) -> Self {
         Self {
             name,
@@ -192,6 +194,10 @@ impl FunctionCall {
 
     pub fn get_name(&self) -> &str {
         &self.name
+    }
+
+    pub fn set_parent_arg_position_nesting(&mut self, parent_arg_position_nesting: Option<String>) {
+        self.parent_arg_position_nesting = parent_arg_position_nesting;
     }
 }
 
@@ -241,7 +247,7 @@ impl<'cxt> Test {
         let mut ext_call = testgen_db.gen_random_call(mod_rep);
 
         // choose a random test to extend with this new call
-        let (mut base_test, ext_id) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
+        let (mut base_test, ext_id, cb_arg_pos) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
         if (base_test.is_empty() || ext_id.is_none()) && ext_type == ExtensionType::Nested {
             // can't nested extend an empty test
             if !fresh_test_if_cant_extend {
@@ -263,6 +269,7 @@ impl<'cxt> Test {
                 ExtensionType::Nested => {
                     println!("here!!!: {:?}", new_test_id);
                     // adding a child
+                    new_node.get_mut().set_parent_arg_position_nesting(cb_arg_pos);
                     ext_id.append(ext_node_id, &mut base_test.fct_tree);
                 }
                 ExtensionType::Sequential => {
@@ -326,14 +333,15 @@ impl<'cxt> Test {
         }
         // get root
         let mut root_node = self.fct_tree.iter().next().unwrap();
-        let mut test_body = self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
+        let mut test_body =
+            self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
 
         // then get root siblings
         let mut next_node = root_node.next_sibling();
         while next_node.is_some() {
             root_node = self.fct_tree.get(next_node.unwrap()).unwrap();
-            test_body =
-                test_body + &self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
+            test_body = test_body
+                + &self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
             next_node = root_node.next_sibling();
         }
         test_body
@@ -346,17 +354,12 @@ impl<'cxt> Test {
         num_tabs: usize,
         include_basic_callback: bool,
     ) -> String {
-        let cur_call_id = self.get_uniq_id_for_call(cur_root);
+        let cur_call_uniq_id = self.get_uniq_id_for_call(cur_root);
 
         let cur_node_call = cur_root.get();
 
         let indents = "\t".repeat(num_tabs);
         let ret_val_basename = "ret_val_".to_owned() + base_var_name;
-        let cur_call_uniq_id = cur_call_id.to_string()
-            + &match cur_node_call.parent_arg_position_nesting {
-                Some(pos) => String::from("_".to_owned() + &pos.to_string()),
-                None => String::new(),
-            };
         let extra_cb_code = if include_basic_callback {
             basic_callback_with_id(cur_call_uniq_id.clone())
         } else {
@@ -387,7 +390,6 @@ impl<'cxt> Test {
                             ];
                             cur_child = cur_child_node.next_sibling();
                             Some(ret_val.join(""))
-                            // }
                         } else {
                             None
                         };
@@ -442,7 +444,7 @@ impl<'cxt> Test {
         Ok(cur_test_file)
     }
 
-    pub fn execute(&mut self) -> Result<HashMap<ExtensionPointID, FunctionCallResult>, DFError> {
+    pub fn execute(&mut self) -> Result<HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>, DFError> {
         let cur_test_file = self.write_test_to_file()?;
 
         let timeout = std::time::Duration::from_secs(decisions::TEST_TIMEOUT_SECONDS);
@@ -475,11 +477,15 @@ impl<'cxt> Test {
         &self.fct_tree
     }
 
-    pub fn get_uniq_id_for_call(&self, fc: &indextree::Node<FunctionCall>) -> usize {
-        self.fct_tree.get_node_id(fc).unwrap().into()
+    pub fn get_uniq_id_for_call(&self, fc: &indextree::Node<FunctionCall>) -> String {
+        self.fct_tree.get_node_id(fc).unwrap().to_string()
+        + &match &fc.get().parent_arg_position_nesting {
+            Some(pos) => String::from("_".to_owned() + &pos.to_string()),
+            None => String::new(),
+        }
     }
 
-    pub fn get_node_id_for_call_data(&self, fc_d: FunctionCall) -> Option<usize> {
+    pub fn get_node_id_for_call_data(&self, fc_d: FunctionCall) -> Option<String> {
         for fc in self.fct_tree.iter() {
             if &fc_d == fc.get() {
                 return Some(self.get_uniq_id_for_call(fc));
@@ -495,16 +501,16 @@ impl<'cxt> Test {
 fn diagnose_test_correctness(
     test: &Test,
     output_json: &Value,
-) -> HashMap<ExtensionPointID, FunctionCallResult> {
+) -> HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> {
     let fct_tree = test.get_fct_tree();
-    let mut fct_tree_results: HashMap<ExtensionPointID, FunctionCallResult> = HashMap::new();
+    let mut fct_tree_results: HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> = HashMap::new();
     let output_vec = match output_json {
         Value::Array(vec) => vec,
         _ => {
             for fc in fct_tree.iter() {
                 fct_tree_results.insert(
                     fct_tree.get_node_id(fc).unwrap(),
-                    FunctionCallResult::ExecutionError,
+                    (FunctionCallResult::ExecutionError, None),
                 );
             }
             return fct_tree_results;
@@ -520,7 +526,7 @@ fn diagnose_test_correctness(
         ) {
             fct_tree_results.insert(
                 fct_tree.get_node_id(fc).unwrap(),
-                FunctionCallResult::ExecutionError,
+                (FunctionCallResult::ExecutionError, None),
             );
             return fct_tree_results;
         }
@@ -533,7 +539,7 @@ fn diagnose_test_correctness(
         for (i, r) in output_vec.iter().enumerate() {
             if let k = &r["callback_exec_".to_owned() + &fc_id] {
                 if !k.is_null() {
-                    (callback_pos, cb_arg_pos) = (Some(i), Some(k))
+                    (callback_pos, cb_arg_pos) = (Some(i), Some(k.to_string()))
                 }
             }
         }
@@ -543,7 +549,7 @@ fn diagnose_test_correctness(
 
         fct_tree_results.insert(
             fct_tree.get_node_id(fc).unwrap(),
-            match (done_pos, callback_pos) {
+            (match (done_pos, callback_pos) {
                 (Some(done_index), Some(callback_index)) => {
                     // if test ends before callback is done executing, it's async
                     if done_index < callback_index {
@@ -563,7 +569,7 @@ fn diagnose_test_correctness(
                 ),
                 // if "done" never prints, there was an error
                 _ => FunctionCallResult::ExecutionError,
-            },
+            }, cb_arg_pos)
         );
     }
     fct_tree_results
