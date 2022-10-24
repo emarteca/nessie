@@ -80,7 +80,7 @@ impl Callback {
         }
     }
 
-    pub fn get_string_rep(&self) -> String {
+    pub fn get_string_rep(&self, extra_body_code: Option<String>) -> String {
         // FIXME! should have some identifier for the cb it's in
         let print_args = self
             .sig
@@ -99,14 +99,14 @@ impl Callback {
                 .join("")
             })
             .collect::<Vec<String>>()
-            .join("\n");
+            .join("\n\t");
         [
-            "(",
-            &(0..self.sig.get_arg_list().len())
-                .map(|i| "cb_arg_".to_owned() + &i.to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
-            ") => {",
+            &("(".to_owned()
+                + &(0..self.sig.get_arg_list().len())
+                    .map(|i| "cb_arg_".to_owned() + &i.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                + " ) => {"),
             &print_args,
             &[
                 "\tconsole.log({\"callback_exec_",
@@ -122,9 +122,13 @@ impl Callback {
                 "});",
             ]
             .join(""),
+            &match extra_body_code {
+                Some(str) => str.clone(),
+                None => String::new(),
+            },
             "}",
         ]
-        .join("\n")
+        .join("\n\t")
     }
 
     pub fn set_cb_id(&mut self, cb_id: Option<String>) {
@@ -186,20 +190,8 @@ impl FunctionCall {
         Ok(())
     }
 
-    pub fn get_code(
-        &self,
-        base_var_name: &str,
-        cur_call_id: usize,
-        include_basic_callback: bool,
-    ) -> String {
-        get_instrumented_function_call(
-            &self.name,
-            base_var_name,
-            &self.sig,
-            cur_call_id,
-            self.parent_arg_position_nesting,
-            include_basic_callback,
-        )
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -354,31 +346,69 @@ impl<'cxt> Test {
         num_tabs: usize,
         include_basic_callback: bool,
     ) -> String {
-        // get code for current node
         let cur_call_id = self.get_uniq_id_for_call(cur_root);
-        let mut cur_code =
-            cur_root
-                .get()
-                .get_code(base_var_name, cur_call_id, include_basic_callback);
-        // get children
-        let mut cur_child = cur_root.first_child();
-        while cur_child.is_some() {
-            let mut cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
-            cur_code = [
-                cur_code,
-                "\t".repeat(num_tabs),
-                self.dfs_print(
-                    base_var_name,
-                    cur_child_node,
-                    num_tabs + 1,
-                    include_basic_callback,
-                ),
-                "\n".to_string(),
-            ]
-            .join("");
-            cur_child = cur_child_node.next_sibling();
-        }
-        cur_code
+
+        let cur_node_call = cur_root.get();
+
+        let indents = "\t".repeat(num_tabs);
+        let ret_val_basename = "ret_val_".to_owned() + base_var_name;
+        let cur_call_uniq_id = cur_call_id.to_string()
+            + &match cur_node_call.parent_arg_position_nesting {
+                Some(pos) => String::from("_".to_owned() + &pos.to_string()),
+                None => String::new(),
+            };
+        let extra_cb_code = if include_basic_callback {
+            basic_callback_with_id(cur_call_uniq_id.clone())
+        } else {
+            String::new()
+        };
+        let args_rep = if cur_node_call.sig.is_spread_args {
+            "...args".to_string()
+        } else {
+            // iterate over the arguments to the current call, and if they're callbacks
+            // print those bodies accordingly -- this is equivalent to
+            // iterating through the children
+            let args = cur_node_call.sig.get_arg_list();
+            let mut args_rep = String::new();
+            let mut cur_child = cur_root.first_child();
+            args.iter()
+                .map(|arg| {
+                    let extra_body_code =
+                        if arg.get_type() == ArgType::CallbackType && cur_child.is_some() {
+                            let mut cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
+                            let ret_val = [
+                                self.dfs_print(
+                                    base_var_name,
+                                    cur_child_node,
+                                    num_tabs + 1,
+                                    include_basic_callback,
+                                ),
+                                "\n".to_string(),
+                            ];
+                            cur_child = cur_child_node.next_sibling();
+                            Some(ret_val.join(""))
+                            // }
+                        } else {
+                            None
+                        };
+                    arg.get_string_rep_arg_val(extra_body_code)
+                        .as_ref()
+                        .unwrap()
+                        .clone()
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
+        };
+        get_instrumented_function_call(
+            &cur_node_call.sig,
+            cur_node_call.get_name(),
+            args_rep,
+            ret_val_basename,
+            extra_cb_code,
+            base_var_name,
+            cur_call_uniq_id,
+            indents,
+        )
     }
 
     fn get_code(&self) -> String {

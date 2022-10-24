@@ -44,7 +44,6 @@ pub fn gen_new_sig_with_cb(
                     FunctionArgument::new(ArgType::CallbackType, None)
                 } else {
                     FunctionArgument::new(
-                        // ArgType::StringType, // TODO THIS IS JUST FOR DEBUGGING
                         testgen_db.choose_random_arg_type(
                             ALLOW_MULTIPLE_CALLBACK_ARGS,
                             ALLOW_ANY_TYPE_ARGS,
@@ -136,8 +135,8 @@ impl<'cxt> TestGenDB {
                 let array_type = thread_rng().gen_range(0..=3);
                 for _ in 0..num_elts {
                     gen_array.push(match (array_type, thread_rng().gen_range(0..=1) < 1) {
-                        (0, _) | (2, true) => self.gen_random_number_val().get_string_rep(),
-                        _ => self.gen_random_string_val(true).get_string_rep(),
+                        (0, _) | (2, true) => self.gen_random_number_val().get_string_rep(None),
+                        _ => self.gen_random_string_val(true).get_string_rep(None),
                     });
                 }
                 ArgVal::Array("[".to_owned() + &gen_array.join(", ") + "]")
@@ -147,11 +146,11 @@ impl<'cxt> TestGenDB {
                 let mut gen_obj: Vec<String> = Vec::with_capacity(num_elts);
                 for _ in 0..num_elts {
                     gen_obj.push(
-                        self.gen_random_string_val(false).get_string_rep()
+                        self.gen_random_string_val(false).get_string_rep(None)
                             + ": "
                             + &match thread_rng().gen_range(0..=1) < 1 {
-                                true => self.gen_random_number_val().get_string_rep(),
-                                _ => self.gen_random_string_val(true).get_string_rep(),
+                                true => self.gen_random_number_val().get_string_rep(None),
+                                _ => self.gen_random_string_val(true).get_string_rep(None),
                             },
                     );
                 }

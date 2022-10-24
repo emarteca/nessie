@@ -1,4 +1,5 @@
 use crate::module_reps::*; // all the representation structs
+use crate::testgen::FunctionCall;
 
 /// simplest callback: just print that it has executed
 pub fn basic_callback() -> &'static str {
@@ -41,36 +42,17 @@ process.on("exit", function f() {
 /// print an error in the catch
 /// remember at this point "print" has been redefined to push to the array
 pub fn get_instrumented_function_call(
+    cur_node_call_sig: &FunctionSignature,
     fct_name: &str,
+    args_rep: String,
+    ret_val_basename: String,
+    extra_cb_code: String,
     base_var_name: &str,
-    sig: &FunctionSignature,
-    cur_call_id: usize,
-    parent_arg_position_nesting: Option<usize>,
-    include_basic_callback: bool,
+    cur_call_uniq_id: String,
+    indents: String,
 ) -> String {
-    let ret_val_basename = "ret_val_".to_owned() + base_var_name;
-    let cur_call_uniq_id = cur_call_id.to_string()
-        + &match parent_arg_position_nesting {
-            Some(pos) => String::from("_".to_owned() + &pos.to_string()),
-            None => String::new(),
-        };
-    let extra_cb_code = if include_basic_callback {
-        basic_callback_with_id(cur_call_uniq_id.clone())
-    } else {
-        String::new()
-    };
-    let args_rep = if sig.is_spread_args {
-        "...args".to_string()
-    } else {
-        let args = sig.get_arg_list();
-        args.iter()
-            .filter(|fct_arg| !matches!(fct_arg.get_string_rep_arg_val(), None))
-            .map(|fct_arg| fct_arg.get_string_rep_arg_val().as_ref().unwrap().clone())
-            .collect::<Vec<String>>()
-            .join(", ")
-    };
     let print_args = |title: String| {
-        if sig.is_spread_args {
+        if cur_node_call_sig.is_spread_args {
             [
                 "\tconsole.log({\"",
                 &title,
@@ -80,7 +62,7 @@ pub fn get_instrumented_function_call(
             ]
             .join("")
         } else {
-            let args = sig.get_arg_list();
+            let args = cur_node_call_sig.get_arg_list();
             args.iter()
                 .enumerate()
                 .map(|(i, fct_arg)| {
@@ -106,7 +88,7 @@ pub fn get_instrumented_function_call(
         }
     };
     [
-        "try { ",
+        "\ntry { ",
         &extra_cb_code,
         &print_args("before_cb".to_string()),
         &("\tlet ".to_owned()
@@ -114,7 +96,7 @@ pub fn get_instrumented_function_call(
             + " = "
             + base_var_name
             + "."
-            + fct_name
+            + &fct_name
             + "("
             + &args_rep
             + ");"),
@@ -139,4 +121,5 @@ pub fn get_instrumented_function_call(
         &("console.log({\"done_".to_owned() + &cur_call_uniq_id + "\": true});"),
     ]
     .join("\n")
+    .replace("\n", &("\n".to_owned() + &indents))
 }
