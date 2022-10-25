@@ -62,97 +62,20 @@ impl TestLocID {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Callback {
-    sig: FunctionSignature,
-    // TODO store the functions that are called in the body of the callback
-    // the test tree should also have nodes for callbacks (trace through for child calls)
-    inner_calls: Vec<FunctionCall>,
+    pub(crate) sig: FunctionSignature,
     // unique ID, used when printing to determine what the CB is
     cb_id: Option<String>,
     // the argument position that this callback is in
-    cb_arg_pos: Option<usize>,
+    pub(crate) cb_arg_pos: Option<usize>,
 }
 
 impl Callback {
     pub fn new(sig: FunctionSignature) -> Self {
         Self {
             sig,
-            inner_calls: Vec::new(),
             cb_id: None,
             cb_arg_pos: None,
         }
-    }
-
-    pub fn get_string_rep(
-        &self,
-        extra_body_code: Option<String>,
-        context_uniq_id: Option<String>,
-        print_instrumented: bool,
-    ) -> String {
-        let print_args = self
-            .sig
-            .get_arg_list()
-            .iter()
-            .enumerate()
-            .map(|(i, fct_arg)| {
-                if print_instrumented {
-                    [
-                        "\tconsole.log({\"",
-                        "in_cb_arg_",
-                        &i.to_string(),
-                        "_",
-                        &match &context_uniq_id {
-                            Some(str_id) => str_id.clone(),
-                            None => String::new(),
-                        },
-                        "\": cb_arg_",
-                        &i.to_string(),
-                        "});",
-                    ]
-                    .join("")
-                } else {
-                    String::new()
-                }
-            })
-            .collect::<Vec<String>>()
-            .join("\n\t");
-        let cb_code = [
-            &("(".to_owned()
-                + &(0..self.sig.get_arg_list().len())
-                    .map(|i| "cb_arg_".to_owned() + &i.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                + " ) => {"),
-            &print_args,
-            &if print_instrumented {
-                [
-                    "\tconsole.log({\"callback_exec_",
-                    &match context_uniq_id {
-                        Some(str_id) => str_id.clone(),
-                        None => String::new(),
-                    },
-                    "\": ",
-                    &match &self.cb_arg_pos {
-                        Some(pos_id) => pos_id.to_string(),
-                        None => String::new(),
-                    },
-                    "});",
-                ]
-                .join("")
-            } else {
-                String::new()
-            },
-            &match extra_body_code {
-                Some(str) => str.clone(),
-                None => String::new(),
-            },
-            "}",
-        ]
-        .join("\n");
-        cb_code
-            .split("\n")
-            .filter(|line| line.len() > 0)
-            .collect::<Vec<&str>>()
-            .join("\n\t")
     }
 
     pub fn set_cb_id(&mut self, cb_id: Option<String>) {
@@ -168,7 +91,6 @@ impl std::default::Default for Callback {
     fn default() -> Self {
         Self {
             sig: FunctionSignature::default(),
-            inner_calls: Vec::new(),
             cb_id: None,
             cb_arg_pos: None,
         }
@@ -179,7 +101,7 @@ impl std::default::Default for Callback {
 pub struct FunctionCall {
     name: String,
     // signature has the arguments
-    sig: FunctionSignature,
+    pub(crate) sig: FunctionSignature,
     // argument position in the parent call, of the callback within which this call is nested
     parent_arg_position_nesting: Option<String>,
     parent_call_id: Option<String>,
@@ -242,12 +164,12 @@ impl FunctionCall {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Test {
-    fct_tree: Arena<FunctionCall>,
+    pub(crate) fct_tree: Arena<FunctionCall>,
     ext_points: Vec<ExtensionPoint>,
     loc_id: TestLocID,
-    include_basic_callback: bool,
-    js_for_basic_cjs_import: String,
-    mod_js_var_name: String,
+    pub(crate) include_basic_callback: bool,
+    pub(crate) js_for_basic_cjs_import: String,
+    pub(crate) mod_js_var_name: String,
 }
 
 pub type ExtensionPointID = indextree::NodeId;
@@ -366,150 +288,6 @@ impl<'cxt> Test {
 
     pub fn is_empty(&self) -> bool {
         self.fct_tree.count() == 0
-    }
-
-    fn fct_tree_code(
-        &self,
-        base_var_name: String,
-        include_basic_callback: bool,
-        print_instrumented: bool,
-    ) -> String {
-        // no function calls, return the empty string
-        if self.is_empty() {
-            return String::new();
-        }
-        // get root
-        let mut iter = self.fct_tree.iter();
-        let mut root_node = iter.next().unwrap();
-        const ROOT_LEVEL_TABS: usize = 0;
-        let mut test_body = self.dfs_print(
-            &base_var_name,
-            root_node,
-            ROOT_LEVEL_TABS,
-            include_basic_callback,
-            print_instrumented,
-        );
-
-        // then get root siblings
-        let mut next_node = iter.next();
-        while next_node.is_some() {
-            root_node = next_node.unwrap();
-            // if it's a root node sibling
-            if root_node.parent().is_none() {
-                test_body = test_body
-                    + &self.dfs_print(
-                        &base_var_name,
-                        root_node,
-                        ROOT_LEVEL_TABS,
-                        include_basic_callback,
-                        print_instrumented,
-                    );
-            }
-            next_node = iter.next();
-        }
-        test_body
-    }
-
-    fn dfs_print(
-        &self,
-        base_var_name: &str,
-        cur_root: &indextree::Node<FunctionCall>,
-        num_tabs: usize,
-        include_basic_callback: bool,
-        print_instrumented: bool,
-    ) -> String {
-        let cur_call_uniq_id = self.get_uniq_id_for_call(cur_root);
-        let cur_call_node_id = self.fct_tree.get_node_id(cur_root).unwrap();
-
-        let cur_node_call = cur_root.get();
-
-        let indents = "\t".repeat(num_tabs);
-        let ret_val_basename = "ret_val_".to_owned() + base_var_name;
-        let extra_cb_code = if include_basic_callback {
-            basic_callback_with_id(cur_call_uniq_id.clone())
-        } else {
-            String::new()
-        };
-        let args_rep = if cur_node_call.sig.is_spread_args {
-            "...args".to_string()
-        } else {
-            // iterate over the arguments to the current call, and if they're callbacks
-            // print those bodies accordingly -- this is equivalent to
-            // iterating through the children
-            let args = cur_node_call.sig.get_arg_list();
-            let mut args_rep = String::new();
-            let mut cur_child = cur_root.first_child();
-            args.iter()
-                .map(|arg| {
-                    let extra_body_code =
-                        if arg.get_type() == ArgType::CallbackType && cur_child.is_some() {
-                            let mut cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
-                            let ret_val = if cur_child_node.get().get_parent_call_id()
-                                == Some(cur_call_node_id.to_string())
-                            {
-                                Some(
-                                    [
-                                        self.dfs_print(
-                                            base_var_name,
-                                            cur_child_node,
-                                            num_tabs + 1,
-                                            include_basic_callback,
-                                            print_instrumented,
-                                        ),
-                                        "\n".to_string(),
-                                    ]
-                                    .join(""),
-                                )
-                            } else {
-                                None
-                            };
-                            cur_child = cur_child_node.next_sibling();
-                            ret_val
-                        } else {
-                            None
-                        };
-                    arg.get_string_rep_arg_val(
-                        extra_body_code,
-                        Some(cur_call_uniq_id.clone()),
-                        print_instrumented,
-                    )
-                    .as_ref()
-                    .unwrap()
-                    .clone()
-                })
-                .collect::<Vec<String>>()
-                .join(", ")
-        };
-        get_function_call_code(
-            &cur_node_call.sig,
-            cur_node_call.get_name(),
-            args_rep,
-            ret_val_basename,
-            extra_cb_code,
-            base_var_name,
-            cur_call_uniq_id,
-            indents,
-            print_instrumented,
-        )
-    }
-
-    fn get_code(&self, print_instrumented: bool) -> String {
-        let setup_code = self.js_for_basic_cjs_import.clone();
-        let (test_header, test_footer) = if print_instrumented {
-            (get_instrumented_header(), get_instrumented_footer())
-        } else {
-            ("", "")
-        };
-
-        let base_var_name = self.mod_js_var_name.clone();
-        // traverse the tree of function calls and create the test code
-        let test_body = self.fct_tree_code(
-            base_var_name,
-            self.include_basic_callback,
-            print_instrumented,
-        );
-
-        [test_header, &setup_code, &test_body, test_footer].join("\n")
     }
 
     fn get_file(&self) -> String {
