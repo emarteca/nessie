@@ -1,6 +1,9 @@
 use crate::module_reps::*; // all the representation structs for the Npm modules
 use crate::testgen::*; // tests and related structs
-use rand::{distributions::Alphanumeric, prelude::*};
+use rand::{
+    distributions::{Alphanumeric, WeightedIndex},
+    prelude::*,
+};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
@@ -18,6 +21,7 @@ pub const RANDOM_STRING_LENGTH: usize = 5;
 pub const DEFAULT_MAX_ARG_LENGTH: usize = 5;
 
 pub const CHOOSE_NEW_SIG_PCT: f64 = 0.5; // 50% chance of new signature
+pub const RECHOOSE_LIB_FCT_WEIGHT_FACTOR: f64 = 0.8; // if we choose a function, now re-choosing is at its weight*0.8
 
 /// metadata for the setup required before tests are generated
 pub mod setup {
@@ -68,6 +72,10 @@ pub struct TestGenDB {
         (Test, Option<ExtensionPointID>, Option<String>),
     )>,
     cur_test_index: usize,
+    // keep track of all the functions tested, per library,
+    // so we can bias the generator to choose functions that haven't
+    // been tested yet
+    libs_fcts_weights: HashMap<String, Vec<(String, f64)>>,
     pub test_dir_path: String,
     pub test_file_prefix: String,
 }
@@ -79,6 +87,7 @@ impl<'cxt> TestGenDB {
             fs_strings: Vec::new(),
             possible_ext_points: Vec::new(),
             cur_test_index: 0,
+            libs_fcts_weights: HashMap::new(),
             test_dir_path,
             test_file_prefix,
         }
@@ -121,7 +130,6 @@ impl<'cxt> TestGenDB {
     }
 
     /// generate random value of specified argument type
-    /// return a string representation of the JS equivalent
     pub fn gen_random_value_of_type(&self, arg_type: ArgType, arg_pos: Option<usize>) -> ArgVal {
         let arg_type = match arg_type {
             ArgType::AnyType => self.choose_random_arg_type(true, false),
@@ -230,10 +238,32 @@ impl<'cxt> TestGenDB {
         ArgVal::Callback(CallbackVal::RawCallback(cb))
     }
 
-    pub fn gen_random_call(&self, mod_rep: &NpmModule) -> FunctionCall {
-        let rand_fct_index = mod_rep.get_fns().keys().choose(&mut thread_rng()).unwrap();
-        let fct_to_call = &mod_rep.get_fns()[rand_fct_index];
-        let fct_name = fct_to_call.get_name();
+    pub fn gen_random_call(&mut self, mod_rep: &NpmModule) -> FunctionCall {
+        let lib_name = mod_rep.get_mod_js_var_name();
+        let lib_fcts_weights = self
+            .libs_fcts_weights
+            .entry(lib_name.clone())
+            .or_insert_with(|| {
+                mod_rep
+                    .get_fns()
+                    .keys()
+                    .map(|fct_name| (fct_name.clone(), 1.0))
+                    .collect()
+            });
+        let dist =
+            WeightedIndex::new(lib_fcts_weights.iter().map(|(fct_name, weight)| weight)).unwrap();
+        let rand_fct_index = dist.sample(&mut thread_rng());
+        let (fct_name, cur_fct_weight) = &lib_fcts_weights[rand_fct_index].clone();
+        let fct_to_call = &mod_rep.get_fns()[fct_name];
+        // now update the weight of the function we just picked
+        if let Some((fct_name, cur_fct_weight)) = self
+            .libs_fcts_weights
+            .get_mut(&lib_name)
+            .unwrap()
+            .get_mut(rand_fct_index)
+        {
+            *cur_fct_weight = *cur_fct_weight * RECHOOSE_LIB_FCT_WEIGHT_FACTOR;
+        }
         let num_args = if let Some(api_args) = fct_to_call.get_num_api_args() {
             api_args
         } else {
@@ -253,7 +283,9 @@ impl<'cxt> TestGenDB {
             self,
         );
         let mut ret_call = FunctionCall::new(
-            fct_name, random_sig, None, /* position of arg in parent call of cb this is in */
+            fct_name.clone(),
+            random_sig,
+            None, /* position of arg in parent call of cb this is in */
             None, /* parent call node ID */
         );
         ret_call.init_args_with_random(self);
