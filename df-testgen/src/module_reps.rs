@@ -287,19 +287,24 @@ impl FunctionArgument {
     }
 
     /// getter for string representation of argument value
-    pub fn get_string_rep_arg_val(&self, extra_body_code: Option<String>) -> Option<String> {
+    pub fn get_string_rep_arg_val(
+        &self,
+        extra_body_code: Option<String>,
+        context_uniq_id: Option<String>,
+    ) -> Option<String> {
         Some(
             self.arg_val
                 .clone()?
-                .get_string_rep(extra_body_code)
+                .get_string_rep(extra_body_code, context_uniq_id)
                 .clone(),
         )
     }
 
+    // don't need any of the function ID stuff here, since functions just print as "[function]"
     pub fn get_string_rep_arg_val__short(&self) -> Option<String> {
         match self.arg_type {
             ArgType::CallbackType => Some("\"[function]\"".to_string()),
-            _ => self.get_string_rep_arg_val(None).clone(),
+            _ => self.get_string_rep_arg_val(None, None).clone(),
         }
     }
 
@@ -383,10 +388,14 @@ pub enum ArgVal {
 }
 
 impl ArgVal {
-    pub fn get_string_rep(&self, extra_body_code: Option<String>) -> String {
+    pub fn get_string_rep(
+        &self,
+        extra_body_code: Option<String>,
+        context_uniq_id: Option<String>,
+    ) -> String {
         match self {
             Self::Number(s) | Self::String(s) | Self::Array(s) | Self::Object(s) => s.clone(),
-            Self::Callback(cbv) => cbv.get_string_rep(extra_body_code),
+            Self::Callback(cbv) => cbv.get_string_rep(extra_body_code, context_uniq_id),
         }
     }
 
@@ -418,10 +427,14 @@ pub enum CallbackVal {
 }
 
 impl CallbackVal {
-    pub fn get_string_rep(&self, extra_body_code: Option<String>) -> String {
+    pub fn get_string_rep(
+        &self,
+        extra_body_code: Option<String>,
+        context_uniq_id: Option<String>,
+    ) -> String {
         match self {
             Self::Var(vs) => vs.clone(),
-            Self::RawCallback(cb) => cb.get_string_rep(extra_body_code),
+            Self::RawCallback(cb) => cb.get_string_rep(extra_body_code, context_uniq_id),
         }
     }
 }

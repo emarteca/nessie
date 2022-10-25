@@ -57,6 +57,8 @@ pub fn get_instrumented_function_call(
                 "\tconsole.log({\"",
                 &title,
                 "_",
+                &cur_call_uniq_id,
+                "_",
                 &ret_val_basename,
                 "_args\": args});",
             ]
@@ -69,6 +71,8 @@ pub fn get_instrumented_function_call(
                     [
                         "\tconsole.log({\"",
                         &title,
+                        "_",
+                        &cur_call_uniq_id,
                         "_",
                         &ret_val_basename,
                         "_arg",
@@ -103,12 +107,18 @@ pub fn get_instrumented_function_call(
         &print_args("after_cb".to_string()),
         &("\tconsole.log({\"".to_owned()
             + &ret_val_basename
+            + "_"
+            + &cur_call_uniq_id
             + "\": typeof "
             + &ret_val_basename
             + " == \"function\"? \"[function]\" : "
             + &ret_val_basename
             + ".toString()});"),
-        &("\tconsole.log({\"ret_val_type\": typeof ".to_owned() + &ret_val_basename + "});"),
+        &("\tconsole.log({\"ret_val_type_".to_owned()
+            + &cur_call_uniq_id
+            + "\": typeof "
+            + &ret_val_basename
+            + "});"),
         // rejected promise
         &("\tPromise.resolve(".to_owned()
             + &ret_val_basename

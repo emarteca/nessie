@@ -138,8 +138,10 @@ impl<'cxt> TestGenDB {
                 let array_type = thread_rng().gen_range(0..=3);
                 for _ in 0..num_elts {
                     gen_array.push(match (array_type, thread_rng().gen_range(0..=1) < 1) {
-                        (0, _) | (2, true) => self.gen_random_number_val().get_string_rep(None),
-                        _ => self.gen_random_string_val(true).get_string_rep(None),
+                        (0, _) | (2, true) => {
+                            self.gen_random_number_val().get_string_rep(None, None)
+                        }
+                        _ => self.gen_random_string_val(true).get_string_rep(None, None),
                     });
                 }
                 ArgVal::Array("[".to_owned() + &gen_array.join(", ") + "]")
@@ -149,11 +151,11 @@ impl<'cxt> TestGenDB {
                 let mut gen_obj: Vec<String> = Vec::with_capacity(num_elts);
                 for _ in 0..num_elts {
                     gen_obj.push(
-                        self.gen_random_string_val(false).get_string_rep(None)
+                        self.gen_random_string_val(false).get_string_rep(None, None)
                             + ": "
                             + &match thread_rng().gen_range(0..=1) < 1 {
-                                true => self.gen_random_number_val().get_string_rep(None),
-                                _ => self.gen_random_string_val(true).get_string_rep(None),
+                                true => self.gen_random_number_val().get_string_rep(None, None),
+                                _ => self.gen_random_string_val(true).get_string_rep(None, None),
                             },
                     );
                 }

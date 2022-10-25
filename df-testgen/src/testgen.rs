@@ -81,8 +81,11 @@ impl Callback {
         }
     }
 
-    pub fn get_string_rep(&self, extra_body_code: Option<String>) -> String {
-        // FIXME! should have some identifier for the cb it's in
+    pub fn get_string_rep(
+        &self,
+        extra_body_code: Option<String>,
+        context_uniq_id: Option<String>,
+    ) -> String {
         let print_args = self
             .sig
             .get_arg_list()
@@ -93,6 +96,11 @@ impl Callback {
                     "\tconsole.log({\"",
                     "in_cb_arg_",
                     &i.to_string(),
+                    "_",
+                    &match &context_uniq_id {
+                        Some(str_id) => str_id.clone(),
+                        None => String::new(),
+                    },
                     "\": cb_arg_",
                     &i.to_string(),
                     "});",
@@ -111,7 +119,7 @@ impl Callback {
             &print_args,
             &[
                 "\tconsole.log({\"callback_exec_",
-                &match &self.cb_id {
+                &match context_uniq_id {
                     Some(str_id) => str_id.clone(),
                     None => String::new(),
                 },
@@ -283,7 +291,6 @@ impl<'cxt> Test {
             let ext_id = ext_id.unwrap();
             match ext_type {
                 ExtensionType::Nested => {
-                    println!("here!!!: {:?}", new_test_id);
                     // adding a child
                     new_node
                         .get_mut()
@@ -292,13 +299,11 @@ impl<'cxt> Test {
                     ext_id.append(ext_node_id, &mut base_test.fct_tree);
                 }
                 ExtensionType::Sequential => {
-                    println!("woop!!!: {:?}", new_test_id);
                     // adding a sibling
                     if let Some(ext_point_parent) = base_test.fct_tree[ext_id].parent() {
-                        println!("BURH");
                         ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
-                    } //.unwrap_or(ext_id);
-                      // else it's a root's child
+                    }
+                    // else it's a root's sibling, so won't have a parent
                 }
             }
         }
@@ -427,7 +432,7 @@ impl<'cxt> Test {
                         } else {
                             None
                         };
-                    arg.get_string_rep_arg_val(extra_body_code)
+                    arg.get_string_rep_arg_val(extra_body_code, Some(cur_call_uniq_id.clone()))
                         .as_ref()
                         .unwrap()
                         .clone()
@@ -584,9 +589,6 @@ fn diagnose_test_correctness(
                 }
             }
         }
-
-        // TODO add argpos to the results, so we can see what extension point makes sense
-        println!("omfgg: {:?}, {:?}", callback_pos, cb_arg_pos);
 
         fct_tree_results.insert(
             fct_tree.get_node_id(fc).unwrap(),
