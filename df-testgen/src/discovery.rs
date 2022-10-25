@@ -20,15 +20,22 @@ pub fn run_discovery_phase(
     let mut cur_test_id: usize = 0;
 
     let mut fcts = mod_rep.get_fns().clone();
-    let mut test_res_pairs: Vec<(Test, HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>)> = Vec::new();
+    let mut test_res_pairs: Vec<(
+        Test,
+        HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
+    )> = Vec::new();
 
     for (func_name, func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
         for _ in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
             let args =
                 gen_args_for_fct_with_cb(&func_desc, Some(cur_cb_position - 1), &testgen_db)?;
-            let fct_call =
-                FunctionCall::new(func_name.clone(), FunctionSignature::new(&args, None), None);
+            let fct_call = FunctionCall::new(
+                func_name.clone(),
+                FunctionSignature::new(&args, None),
+                None,
+                None,
+            );
 
             let (cur_fct_id, mut cur_test) = Test::test_one_call(
                 &mod_rep,

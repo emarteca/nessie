@@ -63,7 +63,10 @@ pub fn gen_new_sig_with_cb(
 
 pub struct TestGenDB {
     fs_strings: Vec<PathBuf>,
-    possible_ext_points: Vec<(ExtensionType, (Test, Option<ExtensionPointID>, Option<String>))>,
+    possible_ext_points: Vec<(
+        ExtensionType,
+        (Test, Option<ExtensionPointID>, Option<String>),
+    )>,
     cur_test_index: usize,
     pub test_dir_path: String,
     pub test_file_prefix: String,
@@ -249,6 +252,7 @@ impl<'cxt> TestGenDB {
         );
         let mut ret_call = FunctionCall::new(
             fct_name, random_sig, None, /* position of arg in parent call of cb this is in */
+            None, /* parent call node ID */
         );
         ret_call.init_args_with_random(self);
         ret_call
@@ -263,7 +267,10 @@ impl<'cxt> TestGenDB {
             .possible_ext_points
             .iter()
             .filter(|(et, _)| et == &ext_type)
-            .collect::<Vec<&(ExtensionType, (Test, Option<ExtensionPointID>, Option<String>))>>();
+            .collect::<Vec<&(
+                ExtensionType,
+                (Test, Option<ExtensionPointID>, Option<String>),
+            )>>();
         let rand_test = rel_exts.choose(&mut thread_rng());
         // if there's no valid test to extend yet, then we make a new blank one
         if let Some(test_with_id) = rand_test {
@@ -320,7 +327,10 @@ impl<'cxt> TestGenDB {
         for (ext_id, (res, cb_arg_pos)) in ext_point_results.iter() {
             for ext_type in ExtensionType::iter() {
                 if res.can_be_extended(ext_type) {
-                    self.add_extension_point(ext_type, (test.clone(), Some(*ext_id), cb_arg_pos.clone()));
+                    self.add_extension_point(
+                        ext_type,
+                        (test.clone(), Some(*ext_id), cb_arg_pos.clone()),
+                    );
                 }
             }
         }

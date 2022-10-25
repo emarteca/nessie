@@ -4,13 +4,12 @@ use crate::module_reps::*; // the representation structs, for components
 use crate::test_bodies::*;
 
 use indextree::Arena;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::process::Command;
 use strum_macros::EnumIter;
-use rand::Rng;
-
 
 pub fn run_testgen_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
@@ -24,7 +23,7 @@ pub fn run_testgen_phase<'cxt>(
 
     for _ in 0..num_tests {
         let ext_type: ExtensionType = rand::thread_rng().gen();
-        // let ext_type = ExtensionType::Nested;
+        // let ext_type = ExtensionType::Sequential;
 
         let (cur_fct_id, mut cur_test) = Test::extend(
             mod_rep,
@@ -160,6 +159,7 @@ pub struct FunctionCall {
     sig: FunctionSignature,
     // argument position in the parent call, of the callback within which this call is nested
     parent_arg_position_nesting: Option<String>,
+    parent_call_id: Option<String>,
 }
 
 impl FunctionCall {
@@ -167,11 +167,27 @@ impl FunctionCall {
         name: String,
         sig: FunctionSignature,
         parent_arg_position_nesting: Option<String>,
+        parent_call_id: Option<ExtensionPointID>,
     ) -> Self {
         Self {
             name,
             sig,
             parent_arg_position_nesting,
+            parent_call_id: match parent_call_id {
+                Some(id) => Some(id.to_string()),
+                None => None,
+            },
+        }
+    }
+
+    pub fn get_parent_call_id(&self) -> Option<String> {
+        self.parent_call_id.clone()
+    }
+
+    pub fn set_parent_call_id(&mut self, parent_call_id: Option<ExtensionPointID>) {
+        self.parent_call_id = match parent_call_id {
+            Some(id) => Some(id.to_string()),
+            None => None,
         }
     }
 
@@ -269,14 +285,20 @@ impl<'cxt> Test {
                 ExtensionType::Nested => {
                     println!("here!!!: {:?}", new_test_id);
                     // adding a child
-                    new_node.get_mut().set_parent_arg_position_nesting(cb_arg_pos);
+                    new_node
+                        .get_mut()
+                        .set_parent_arg_position_nesting(cb_arg_pos);
+                    new_node.get_mut().set_parent_call_id(Some(ext_id));
                     ext_id.append(ext_node_id, &mut base_test.fct_tree);
                 }
                 ExtensionType::Sequential => {
                     println!("woop!!!: {:?}", new_test_id);
                     // adding a sibling
-                    let ext_point_parent = base_test.fct_tree[ext_id].parent().unwrap_or(ext_id);
-                    ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
+                    if let Some(ext_point_parent) = base_test.fct_tree[ext_id].parent() {
+                        println!("BURH");
+                        ext_point_parent.append(ext_node_id, &mut base_test.fct_tree);
+                    } //.unwrap_or(ext_id);
+                      // else it's a root's child
                 }
             }
         }
@@ -332,17 +354,19 @@ impl<'cxt> Test {
             return String::new();
         }
         // get root
-        let mut root_node = self.fct_tree.iter().next().unwrap();
-        let mut test_body =
-            self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
+        let mut iter = self.fct_tree.iter();
+        let mut root_node = iter.next().unwrap();
+        let mut test_body = self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
 
         // then get root siblings
-        let mut next_node = root_node.next_sibling();
+        let mut next_node = iter.next();
         while next_node.is_some() {
-            root_node = self.fct_tree.get(next_node.unwrap()).unwrap();
-            test_body = test_body
-                + &self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
-            next_node = root_node.next_sibling();
+            root_node = next_node.unwrap(); //self.fct_tree.get(next_node.unwrap()).unwrap();
+            if root_node.parent().is_none() {
+                test_body = test_body
+                    + &self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
+            }
+            next_node = iter.next();
         }
         test_body
     }
@@ -355,6 +379,7 @@ impl<'cxt> Test {
         include_basic_callback: bool,
     ) -> String {
         let cur_call_uniq_id = self.get_uniq_id_for_call(cur_root);
+        let cur_call_node_id = self.fct_tree.get_node_id(cur_root).unwrap();
 
         let cur_node_call = cur_root.get();
 
@@ -379,17 +404,26 @@ impl<'cxt> Test {
                     let extra_body_code =
                         if arg.get_type() == ArgType::CallbackType && cur_child.is_some() {
                             let mut cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
-                            let ret_val = [
-                                self.dfs_print(
-                                    base_var_name,
-                                    cur_child_node,
-                                    num_tabs + 1,
-                                    include_basic_callback,
-                                ),
-                                "\n".to_string(),
-                            ];
+                            let ret_val = if cur_child_node.get().get_parent_call_id()
+                                == Some(cur_call_node_id.to_string())
+                            {
+                                Some(
+                                    [
+                                        self.dfs_print(
+                                            base_var_name,
+                                            cur_child_node,
+                                            num_tabs + 1,
+                                            include_basic_callback,
+                                        ),
+                                        "\n".to_string(),
+                                    ]
+                                    .join(""),
+                                )
+                            } else {
+                                None
+                            };
                             cur_child = cur_child_node.next_sibling();
-                            Some(ret_val.join(""))
+                            ret_val
                         } else {
                             None
                         };
@@ -444,7 +478,9 @@ impl<'cxt> Test {
         Ok(cur_test_file)
     }
 
-    pub fn execute(&mut self) -> Result<HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>, DFError> {
+    pub fn execute(
+        &mut self,
+    ) -> Result<HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>, DFError> {
         let cur_test_file = self.write_test_to_file()?;
 
         let timeout = std::time::Duration::from_secs(decisions::TEST_TIMEOUT_SECONDS);
@@ -479,10 +515,14 @@ impl<'cxt> Test {
 
     pub fn get_uniq_id_for_call(&self, fc: &indextree::Node<FunctionCall>) -> String {
         self.fct_tree.get_node_id(fc).unwrap().to_string()
-        + &match &fc.get().parent_arg_position_nesting {
-            Some(pos) => String::from("_".to_owned() + &pos.to_string()),
-            None => String::new(),
-        }
+            + &match &fc.get().parent_call_id {
+                Some(pos) => String::from("_pcid".to_owned() + &pos.to_string()),
+                None => String::new(),
+            }
+            + &match &fc.get().parent_arg_position_nesting {
+                Some(pos) => String::from("_pos".to_owned() + &pos.to_string()),
+                None => String::new(),
+            }
     }
 
     pub fn get_node_id_for_call_data(&self, fc_d: FunctionCall) -> Option<String> {
@@ -503,7 +543,8 @@ fn diagnose_test_correctness(
     output_json: &Value,
 ) -> HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> {
     let fct_tree = test.get_fct_tree();
-    let mut fct_tree_results: HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> = HashMap::new();
+    let mut fct_tree_results: HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> =
+        HashMap::new();
     let output_vec = match output_json {
         Value::Array(vec) => vec,
         _ => {
@@ -549,27 +590,30 @@ fn diagnose_test_correctness(
 
         fct_tree_results.insert(
             fct_tree.get_node_id(fc).unwrap(),
-            (match (done_pos, callback_pos) {
-                (Some(done_index), Some(callback_index)) => {
-                    // if test ends before callback is done executing, it's async
-                    if done_index < callback_index {
-                        FunctionCallResult::SingleCallback(
-                            SingleCallCallbackTestResult::CallbackCalledAsync,
-                        )
+            (
+                match (done_pos, callback_pos) {
+                    (Some(done_index), Some(callback_index)) => {
+                        // if test ends before callback is done executing, it's async
+                        if done_index < callback_index {
+                            FunctionCallResult::SingleCallback(
+                                SingleCallCallbackTestResult::CallbackCalledAsync,
+                            )
+                        }
+                        // else it's sync
+                        else {
+                            FunctionCallResult::SingleCallback(
+                                SingleCallCallbackTestResult::CallbackCalledSync,
+                            )
+                        }
                     }
-                    // else it's sync
-                    else {
-                        FunctionCallResult::SingleCallback(
-                            SingleCallCallbackTestResult::CallbackCalledSync,
-                        )
-                    }
-                }
-                (Some(_), None) => FunctionCallResult::SingleCallback(
-                    SingleCallCallbackTestResult::NoCallbackCalled,
-                ),
-                // if "done" never prints, there was an error
-                _ => FunctionCallResult::ExecutionError,
-            }, cb_arg_pos)
+                    (Some(_), None) => FunctionCallResult::SingleCallback(
+                        SingleCallCallbackTestResult::NoCallbackCalled,
+                    ),
+                    // if "done" never prints, there was an error
+                    _ => FunctionCallResult::ExecutionError,
+                },
+                cb_arg_pos,
+            ),
         );
     }
     fct_tree_results
