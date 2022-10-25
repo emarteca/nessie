@@ -8,6 +8,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::process::Command;
 use strum_macros::EnumIter;
 
@@ -16,14 +17,12 @@ pub fn run_testgen_phase<'cxt>(
     testgen_db: &'cxt mut TestGenDB,
     num_tests: i32,
 ) -> Result<(), DFError> {
-    let mut cur_test_id: usize = 0;
     // if we specify a nested extension but there's no valid test that can be extended
     // in a nested way, don't error, instead just return a fresh test
     const fresh_test_if_cant_extend: bool = true;
 
-    for _ in 0..num_tests {
+    for cur_test_id in 1..=num_tests.try_into().unwrap() {
         let ext_type: ExtensionType = rand::thread_rng().gen();
-        // let ext_type = ExtensionType::Sequential;
 
         let (cur_fct_id, mut cur_test) = Test::extend(
             mod_rep,
@@ -34,10 +33,12 @@ pub fn run_testgen_phase<'cxt>(
         )?;
 
         let test_results = cur_test.execute()?;
+        // then, re-print the test not instrumented
+        cur_test.write_test_to_file(false)?;
 
-        cur_test_id += 1;
         testgen_db.set_cur_test_index(cur_test_id);
         testgen_db.add_extension_points_for_test(&cur_test, &test_results);
+        println!("Test: {:?} of {:?}", cur_test_id, num_tests);
     }
     Ok(())
 }
@@ -85,6 +86,7 @@ impl Callback {
         &self,
         extra_body_code: Option<String>,
         context_uniq_id: Option<String>,
+        print_instrumented: bool,
     ) -> String {
         let print_args = self
             .sig
@@ -92,24 +94,28 @@ impl Callback {
             .iter()
             .enumerate()
             .map(|(i, fct_arg)| {
-                [
-                    "\tconsole.log({\"",
-                    "in_cb_arg_",
-                    &i.to_string(),
-                    "_",
-                    &match &context_uniq_id {
-                        Some(str_id) => str_id.clone(),
-                        None => String::new(),
-                    },
-                    "\": cb_arg_",
-                    &i.to_string(),
-                    "});",
-                ]
-                .join("")
+                if print_instrumented {
+                    [
+                        "\tconsole.log({\"",
+                        "in_cb_arg_",
+                        &i.to_string(),
+                        "_",
+                        &match &context_uniq_id {
+                            Some(str_id) => str_id.clone(),
+                            None => String::new(),
+                        },
+                        "\": cb_arg_",
+                        &i.to_string(),
+                        "});",
+                    ]
+                    .join("")
+                } else {
+                    String::new()
+                }
             })
             .collect::<Vec<String>>()
             .join("\n\t");
-        [
+        let cb_code = [
             &("(".to_owned()
                 + &(0..self.sig.get_arg_list().len())
                     .map(|i| "cb_arg_".to_owned() + &i.to_string())
@@ -117,27 +123,36 @@ impl Callback {
                     .join(", ")
                 + " ) => {"),
             &print_args,
-            &[
-                "\tconsole.log({\"callback_exec_",
-                &match context_uniq_id {
-                    Some(str_id) => str_id.clone(),
-                    None => String::new(),
-                },
-                "\": ",
-                &match &self.cb_arg_pos {
-                    Some(pos_id) => pos_id.to_string(),
-                    None => String::new(),
-                },
-                "});",
-            ]
-            .join(""),
+            &if print_instrumented {
+                [
+                    "\tconsole.log({\"callback_exec_",
+                    &match context_uniq_id {
+                        Some(str_id) => str_id.clone(),
+                        None => String::new(),
+                    },
+                    "\": ",
+                    &match &self.cb_arg_pos {
+                        Some(pos_id) => pos_id.to_string(),
+                        None => String::new(),
+                    },
+                    "});",
+                ]
+                .join("")
+            } else {
+                String::new()
+            },
             &match extra_body_code {
                 Some(str) => str.clone(),
                 None => String::new(),
             },
             "}",
         ]
-        .join("\n\t")
+        .join("\n");
+        cb_code
+            .split("\n")
+            .filter(|line| line.len() > 0)
+            .collect::<Vec<&str>>()
+            .join("\n\t")
     }
 
     pub fn set_cb_id(&mut self, cb_id: Option<String>) {
@@ -353,7 +368,12 @@ impl<'cxt> Test {
         self.fct_tree.count() == 0
     }
 
-    fn fct_tree_code(&self, base_var_name: String, include_basic_callback: bool) -> String {
+    fn fct_tree_code(
+        &self,
+        base_var_name: String,
+        include_basic_callback: bool,
+        print_instrumented: bool,
+    ) -> String {
         // no function calls, return the empty string
         if self.is_empty() {
             return String::new();
@@ -361,15 +381,29 @@ impl<'cxt> Test {
         // get root
         let mut iter = self.fct_tree.iter();
         let mut root_node = iter.next().unwrap();
-        let mut test_body = self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
+        const ROOT_LEVEL_TABS: usize = 0;
+        let mut test_body = self.dfs_print(
+            &base_var_name,
+            root_node,
+            ROOT_LEVEL_TABS,
+            include_basic_callback,
+            print_instrumented,
+        );
 
         // then get root siblings
         let mut next_node = iter.next();
         while next_node.is_some() {
-            root_node = next_node.unwrap(); //self.fct_tree.get(next_node.unwrap()).unwrap();
+            root_node = next_node.unwrap();
+            // if it's a root node sibling
             if root_node.parent().is_none() {
                 test_body = test_body
-                    + &self.dfs_print(&base_var_name, root_node, 1, include_basic_callback);
+                    + &self.dfs_print(
+                        &base_var_name,
+                        root_node,
+                        ROOT_LEVEL_TABS,
+                        include_basic_callback,
+                        print_instrumented,
+                    );
             }
             next_node = iter.next();
         }
@@ -382,6 +416,7 @@ impl<'cxt> Test {
         cur_root: &indextree::Node<FunctionCall>,
         num_tabs: usize,
         include_basic_callback: bool,
+        print_instrumented: bool,
     ) -> String {
         let cur_call_uniq_id = self.get_uniq_id_for_call(cur_root);
         let cur_call_node_id = self.fct_tree.get_node_id(cur_root).unwrap();
@@ -419,6 +454,7 @@ impl<'cxt> Test {
                                             cur_child_node,
                                             num_tabs + 1,
                                             include_basic_callback,
+                                            print_instrumented,
                                         ),
                                         "\n".to_string(),
                                     ]
@@ -432,15 +468,19 @@ impl<'cxt> Test {
                         } else {
                             None
                         };
-                    arg.get_string_rep_arg_val(extra_body_code, Some(cur_call_uniq_id.clone()))
-                        .as_ref()
-                        .unwrap()
-                        .clone()
+                    arg.get_string_rep_arg_val(
+                        extra_body_code,
+                        Some(cur_call_uniq_id.clone()),
+                        print_instrumented,
+                    )
+                    .as_ref()
+                    .unwrap()
+                    .clone()
                 })
                 .collect::<Vec<String>>()
                 .join(", ")
         };
-        get_instrumented_function_call(
+        get_function_call_code(
             &cur_node_call.sig,
             cur_node_call.get_name(),
             args_rep,
@@ -449,17 +489,25 @@ impl<'cxt> Test {
             base_var_name,
             cur_call_uniq_id,
             indents,
+            print_instrumented,
         )
     }
 
-    fn get_code(&self) -> String {
+    fn get_code(&self, print_instrumented: bool) -> String {
         let setup_code = self.js_for_basic_cjs_import.clone();
-        let test_header = get_instrumented_header();
-        let test_footer = get_instrumented_footer();
+        let (test_header, test_footer) = if print_instrumented {
+            (get_instrumented_header(), get_instrumented_footer())
+        } else {
+            ("", "")
+        };
 
         let base_var_name = self.mod_js_var_name.clone();
         // traverse the tree of function calls and create the test code
-        let test_body = self.fct_tree_code(base_var_name, self.include_basic_callback);
+        let test_body = self.fct_tree_code(
+            base_var_name,
+            self.include_basic_callback,
+            print_instrumented,
+        );
 
         [test_header, &setup_code, &test_body, test_footer].join("\n")
     }
@@ -474,9 +522,9 @@ impl<'cxt> Test {
             + ".js"
     }
 
-    fn write_test_to_file(&self) -> Result<String, DFError> {
+    fn write_test_to_file(&self, print_instrumented: bool) -> Result<String, DFError> {
         let cur_test_file = self.get_file();
-        let cur_test = self.get_code();
+        let cur_test = self.get_code(print_instrumented);
         if matches!(std::fs::write(&cur_test_file, cur_test), Err(_)) {
             return Err(DFError::WritingTestError);
         }
@@ -486,7 +534,8 @@ impl<'cxt> Test {
     pub fn execute(
         &mut self,
     ) -> Result<HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>, DFError> {
-        let cur_test_file = self.write_test_to_file()?;
+        let cur_test_file =
+            self.write_test_to_file(true /* needs to be instrumented for tracking */)?;
 
         let timeout = std::time::Duration::from_secs(decisions::TEST_TIMEOUT_SECONDS);
         let mut binding = Command::new("timeout");

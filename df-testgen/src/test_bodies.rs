@@ -41,7 +41,7 @@ process.on("exit", function f() {
 /// print the return value, and the argument values before the call
 /// print an error in the catch
 /// remember at this point "print" has been redefined to push to the array
-pub fn get_instrumented_function_call(
+pub fn get_function_call_code(
     cur_node_call_sig: &FunctionSignature,
     fct_name: &str,
     args_rep: String,
@@ -50,48 +50,53 @@ pub fn get_instrumented_function_call(
     base_var_name: &str,
     cur_call_uniq_id: String,
     indents: String,
+    print_instrumented: bool,
 ) -> String {
     let print_args = |title: String| {
-        if cur_node_call_sig.is_spread_args {
-            [
-                "\tconsole.log({\"",
-                &title,
-                "_",
-                &cur_call_uniq_id,
-                "_",
-                &ret_val_basename,
-                "_args\": args});",
-            ]
-            .join("")
+        if print_instrumented {
+            if cur_node_call_sig.is_spread_args {
+                [
+                    "\tconsole.log({\"",
+                    &title,
+                    "_",
+                    &cur_call_uniq_id,
+                    "_",
+                    &ret_val_basename,
+                    "_args\": args});",
+                ]
+                .join("")
+            } else {
+                let args = cur_node_call_sig.get_arg_list();
+                args.iter()
+                    .enumerate()
+                    .map(|(i, fct_arg)| {
+                        [
+                            "\tconsole.log({\"",
+                            &title,
+                            "_",
+                            &cur_call_uniq_id,
+                            "_",
+                            &ret_val_basename,
+                            "_arg",
+                            &i.to_string(),
+                            "\": ",
+                            &fct_arg
+                                .get_string_rep_arg_val__short()
+                                .as_ref()
+                                .unwrap()
+                                .clone(),
+                            "});",
+                        ]
+                        .join("")
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            }
         } else {
-            let args = cur_node_call_sig.get_arg_list();
-            args.iter()
-                .enumerate()
-                .map(|(i, fct_arg)| {
-                    [
-                        "\tconsole.log({\"",
-                        &title,
-                        "_",
-                        &cur_call_uniq_id,
-                        "_",
-                        &ret_val_basename,
-                        "_arg",
-                        &i.to_string(),
-                        "\": ",
-                        &fct_arg
-                            .get_string_rep_arg_val__short()
-                            .as_ref()
-                            .unwrap()
-                            .clone(),
-                        "});",
-                    ]
-                    .join("")
-                })
-                .collect::<Vec<String>>()
-                .join("\n")
+            String::new()
         }
     };
-    [
+    let fct_code = [
         "\ntry { ",
         &extra_cb_code,
         &print_args("before_cb".to_string()),
@@ -105,20 +110,28 @@ pub fn get_instrumented_function_call(
             + &args_rep
             + ");"),
         &print_args("after_cb".to_string()),
-        &("\tconsole.log({\"".to_owned()
-            + &ret_val_basename
-            + "_"
-            + &cur_call_uniq_id
-            + "\": typeof "
-            + &ret_val_basename
-            + " == \"function\"? \"[function]\" : "
-            + &ret_val_basename
-            + ".toString()});"),
-        &("\tconsole.log({\"ret_val_type_".to_owned()
-            + &cur_call_uniq_id
-            + "\": typeof "
-            + &ret_val_basename
-            + "});"),
+        &(if print_instrumented {
+            "\tconsole.log({\"".to_owned()
+                + &ret_val_basename
+                + "_"
+                + &cur_call_uniq_id
+                + "\": typeof "
+                + &ret_val_basename
+                + " == \"function\"? \"[function]\" : "
+                + &ret_val_basename
+                + ".toString()});"
+        } else {
+            String::new()
+        }),
+        &(if print_instrumented {
+            ("\tconsole.log({\"ret_val_type_".to_owned()
+                + &cur_call_uniq_id
+                + "\": typeof "
+                + &ret_val_basename
+                + "});")
+        } else {
+            String::new()
+        }),
         // rejected promise
         &("\tPromise.resolve(".to_owned()
             + &ret_val_basename
@@ -128,8 +141,19 @@ pub fn get_instrumented_function_call(
         "} catch(e) {",
         &("\tconsole.log({\"error_".to_owned() + &cur_call_uniq_id + "\": true});"),
         "}",
-        &("console.log({\"done_".to_owned() + &cur_call_uniq_id + "\": true});"),
+        &(if print_instrumented {
+            "console.log({\"done_".to_owned() + &cur_call_uniq_id + "\": true});"
+        } else {
+            String::new()
+        }),
     ]
-    .join("\n")
-    .replace("\n", &("\n".to_owned() + &indents))
+    .join("\n");
+
+    ("\n".to_owned() + &indents)
+        + &fct_code
+            .split("\n")
+            .into_iter()
+            .filter(|line| line.len() > 0)
+            .collect::<Vec<&str>>()
+            .join(&("\n".to_owned() + &indents))
 }

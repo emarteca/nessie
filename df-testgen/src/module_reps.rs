@@ -291,11 +291,12 @@ impl FunctionArgument {
         &self,
         extra_body_code: Option<String>,
         context_uniq_id: Option<String>,
+        print_instrumented: bool,
     ) -> Option<String> {
         Some(
             self.arg_val
                 .clone()?
-                .get_string_rep(extra_body_code, context_uniq_id)
+                .get_string_rep(extra_body_code, context_uniq_id, print_instrumented)
                 .clone(),
         )
     }
@@ -304,7 +305,7 @@ impl FunctionArgument {
     pub fn get_string_rep_arg_val__short(&self) -> Option<String> {
         match self.arg_type {
             ArgType::CallbackType => Some("\"[function]\"".to_string()),
-            _ => self.get_string_rep_arg_val(None, None).clone(),
+            _ => self.get_string_rep_arg_val(None, None, false).clone(),
         }
     }
 
@@ -392,10 +393,13 @@ impl ArgVal {
         &self,
         extra_body_code: Option<String>,
         context_uniq_id: Option<String>,
+        print_instrumented: bool,
     ) -> String {
         match self {
             Self::Number(s) | Self::String(s) | Self::Array(s) | Self::Object(s) => s.clone(),
-            Self::Callback(cbv) => cbv.get_string_rep(extra_body_code, context_uniq_id),
+            Self::Callback(cbv) => {
+                cbv.get_string_rep(extra_body_code, context_uniq_id, print_instrumented)
+            }
         }
     }
 
@@ -431,10 +435,13 @@ impl CallbackVal {
         &self,
         extra_body_code: Option<String>,
         context_uniq_id: Option<String>,
+        print_instrumented: bool,
     ) -> String {
         match self {
             Self::Var(vs) => vs.clone(),
-            Self::RawCallback(cb) => cb.get_string_rep(extra_body_code, context_uniq_id),
+            Self::RawCallback(cb) => {
+                cb.get_string_rep(extra_body_code, context_uniq_id, print_instrumented)
+            }
         }
     }
 }

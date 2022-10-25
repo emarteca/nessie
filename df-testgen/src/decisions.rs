@@ -146,10 +146,12 @@ impl<'cxt> TestGenDB {
                 let array_type = thread_rng().gen_range(0..=3);
                 for _ in 0..num_elts {
                     gen_array.push(match (array_type, thread_rng().gen_range(0..=1) < 1) {
-                        (0, _) | (2, true) => {
-                            self.gen_random_number_val().get_string_rep(None, None)
-                        }
-                        _ => self.gen_random_string_val(true).get_string_rep(None, None),
+                        (0, _) | (2, true) => self
+                            .gen_random_number_val()
+                            .get_string_rep(None, None, false),
+                        _ => self
+                            .gen_random_string_val(true)
+                            .get_string_rep(None, None, false),
                     });
                 }
                 ArgVal::Array("[".to_owned() + &gen_array.join(", ") + "]")
@@ -159,11 +161,16 @@ impl<'cxt> TestGenDB {
                 let mut gen_obj: Vec<String> = Vec::with_capacity(num_elts);
                 for _ in 0..num_elts {
                     gen_obj.push(
-                        self.gen_random_string_val(false).get_string_rep(None, None)
+                        self.gen_random_string_val(false)
+                            .get_string_rep(None, None, false)
                             + ": "
                             + &match thread_rng().gen_range(0..=1) < 1 {
-                                true => self.gen_random_number_val().get_string_rep(None, None),
-                                _ => self.gen_random_string_val(true).get_string_rep(None, None),
+                                true => self
+                                    .gen_random_number_val()
+                                    .get_string_rep(None, None, false),
+                                _ => self
+                                    .gen_random_string_val(true)
+                                    .get_string_rep(None, None, false),
                             },
                     );
                 }
@@ -214,7 +221,7 @@ impl<'cxt> TestGenDB {
                 "\"".to_owned()
                     + &rand::thread_rng()
                         .sample_iter(&Alphanumeric)
-                        .take(RANDOM_STRING_LENGTH)
+                        .take(thread_rng().gen_range(1..=RANDOM_STRING_LENGTH))
                         .map(char::from)
                         .collect::<String>()
                     + "\""
