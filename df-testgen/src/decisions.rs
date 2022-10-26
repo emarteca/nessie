@@ -50,11 +50,10 @@ pub fn gen_new_sig_with_cb(
                     FunctionArgument::new(ArgType::CallbackType, None)
                 } else {
                     FunctionArgument::new(
-                        // testgen_db.choose_random_arg_type(
-                        //     ALLOW_MULTIPLE_CALLBACK_ARGS,
-                        //     ALLOW_ANY_TYPE_ARGS,
-                        // ),
-                        ArgType::LibFunctionType,
+                        testgen_db.choose_random_arg_type(
+                            ALLOW_MULTIPLE_CALLBACK_ARGS,
+                            ALLOW_ANY_TYPE_ARGS,
+                        ),
                         None,
                     )
                 },
