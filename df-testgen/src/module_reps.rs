@@ -386,6 +386,7 @@ pub enum ArgVal {
     Array(String),
     Object(String),
     Callback(CallbackVal),
+    Variable(String),
 }
 
 impl ArgVal {
@@ -396,7 +397,11 @@ impl ArgVal {
         print_instrumented: bool,
     ) -> String {
         match self {
-            Self::Number(s) | Self::String(s) | Self::Array(s) | Self::Object(s) => s.clone(),
+            Self::Number(s)
+            | Self::String(s)
+            | Self::Array(s)
+            | Self::Object(s)
+            | Self::Variable(s) => s.clone(),
             Self::Callback(cbv) => {
                 cbv.get_string_rep(extra_body_code, context_uniq_id, print_instrumented)
             }
@@ -410,6 +415,7 @@ impl ArgVal {
             Self::Array(_) => ArgType::ArrayType,
             Self::Object(_) => ArgType::ObjectType,
             Self::Callback(_) => ArgType::CallbackType,
+            Self::Variable(_) => ArgType::AnyType,
         }
     }
 

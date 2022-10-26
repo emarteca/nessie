@@ -11,7 +11,7 @@ use strum::IntoEnumIterator;
 
 pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 3;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
-pub const ALLOW_ANY_TYPE_ARGS: bool = false;
+pub const ALLOW_ANY_TYPE_ARGS: bool = true;
 pub const TEST_TIMEOUT_SECONDS: u64 = 30;
 
 pub const MAX_GENERATED_NUM: f64 = 1000.0;
@@ -130,10 +130,18 @@ impl<'cxt> TestGenDB {
     }
 
     /// generate random value of specified argument type
-    pub fn gen_random_value_of_type(&self, arg_type: ArgType, arg_pos: Option<usize>) -> ArgVal {
-        let arg_type = match arg_type {
-            ArgType::AnyType => self.choose_random_arg_type(true, false),
-            _ => arg_type,
+    pub fn gen_random_value_of_type(
+        &self,
+        arg_type: ArgType,
+        arg_pos: Option<usize>,
+        ret_vals_pool: &Vec<ArgVal>,
+    ) -> ArgVal {
+        // gen AnyType? only if ret_vals_pool is non-empty
+        let arg_type = match (arg_type, ret_vals_pool.len() > 0) {
+            (ArgType::AnyType, false) => {
+                self.choose_random_arg_type(true, false /* no AnyType */)
+            }
+            (_, _) => arg_type,
         };
         match arg_type {
             ArgType::NumberType => self.gen_random_number_val(),
@@ -190,7 +198,7 @@ impl<'cxt> TestGenDB {
                 let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
                 self.gen_random_callback(Some(random_sig), arg_pos)
             }
-            _ => self.gen_random_string_val(true),
+            ArgType::AnyType => ret_vals_pool.choose(&mut thread_rng()).unwrap().clone(),
         }
     }
 
@@ -245,7 +253,11 @@ impl<'cxt> TestGenDB {
         ArgVal::Callback(CallbackVal::RawCallback(cb))
     }
 
-    pub fn gen_random_call(&mut self, mod_rep: &NpmModule) -> FunctionCall {
+    pub fn gen_random_call(
+        &mut self,
+        mod_rep: &NpmModule,
+        ret_vals_pool: Vec<ArgVal>,
+    ) -> FunctionCall {
         let lib_name = mod_rep.get_mod_js_var_name();
         let lib_fcts_weights = self
             .libs_fcts_weights
@@ -295,7 +307,7 @@ impl<'cxt> TestGenDB {
             None, /* position of arg in parent call of cb this is in */
             None, /* parent call node ID */
         );
-        ret_call.init_args_with_random(self);
+        ret_call.init_args_with_random(self, ret_vals_pool);
         ret_call
     }
 

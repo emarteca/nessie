@@ -33,8 +33,8 @@ pub fn run_testgen_phase<'cxt>(
         )?;
 
         let test_results = cur_test.execute()?;
-        // then, re-print the test not instrumented
-        cur_test.write_test_to_file(false)?;
+        // TODO WHEN NOT DEBUGGING then, re-print the test not instrumented
+        // cur_test.write_test_to_file(false)?;
 
         testgen_db.set_cur_test_index(cur_test_id);
         testgen_db.add_extension_points_for_test(&cur_test, &test_results);
@@ -145,10 +145,18 @@ impl FunctionCall {
         Ok(())
     }
 
-    pub fn init_args_with_random(&mut self, testgen_db: &TestGenDB) -> Result<(), TestGenError> {
+    pub fn init_args_with_random(
+        &mut self,
+        testgen_db: &TestGenDB,
+        ret_vals_pool: Vec<ArgVal>,
+    ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
-            arg.set_arg_val(testgen_db.gen_random_value_of_type(arg_type, Some(i)))?;
+            arg.set_arg_val(testgen_db.gen_random_value_of_type(
+                arg_type,
+                Some(i),
+                &ret_vals_pool,
+            ))?;
         }
         Ok(())
     }
@@ -204,9 +212,6 @@ impl<'cxt> Test {
         new_test_id: usize,
         fresh_test_if_cant_extend: bool,
     ) -> Result<(ExtensionPointID, Test), DFError> {
-        // select random function to call, and create corresponding node
-        let mut ext_call = testgen_db.gen_random_call(mod_rep);
-
         // choose a random test to extend with this new call
         let (mut base_test, ext_id, cb_arg_pos) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
         if (base_test.is_empty() || ext_id.is_none()) && ext_type == ExtensionType::Nested {
@@ -215,6 +220,15 @@ impl<'cxt> Test {
                 return Err(DFError::InvalidTestExtensionOption);
             }
         }
+
+        let ret_vals_pool: Vec<ArgVal> = if ext_id.is_some() {
+            base_test.get_ret_values_accessible_from_ext_point(ext_id.unwrap())
+        } else {
+            Vec::new()
+        };
+        println!("ree: {:?}", ret_vals_pool.clone());
+        // select random function to call, and create corresponding node
+        let mut ext_call = testgen_db.gen_random_call(mod_rep, ret_vals_pool);
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
         // update callback args of ext_call to have the ext_call ID
@@ -364,6 +378,29 @@ impl<'cxt> Test {
             }
         }
         None
+    }
+
+    pub fn get_ret_values_accessible_from_ext_point(
+        &self,
+        ext_id: ExtensionPointID,
+    ) -> Vec<ArgVal> {
+        let ext_node = self.fct_tree.get(ext_id).unwrap();
+        let ext_node_uniq_id = self.get_uniq_id_for_call(ext_node);
+
+        let ret_base_var_name = "ret_val_".to_owned() + &self.mod_js_var_name.clone();
+
+        self.fct_tree
+            .iter()
+            .map(|node| self.get_uniq_id_for_call(node))
+            .filter(|uniq_id| {
+                uniq_id < &ext_node_uniq_id // earlier than current node
+                &&
+                !ext_node_uniq_id.starts_with(uniq_id) // exclude nesting parents (since they're not accessible in their nest)
+                &&
+                uniq_id.matches("_").count() == 0 // only the returns from outermost nested functions are available
+            })
+            .map(|id| ArgVal::Variable(ret_base_var_name.clone() + "_" + &id))
+            .collect::<Vec<ArgVal>>()
     }
 }
 

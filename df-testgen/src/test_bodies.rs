@@ -16,7 +16,7 @@ impl Callback {
             .map(|(i, fct_arg)| {
                 if print_instrumented {
                     [
-                        "\tconsole.log({\"",
+                        "console.log({\"",
                         "in_cb_arg_",
                         &i.to_string(),
                         "_",
@@ -152,7 +152,7 @@ impl Test {
         let cur_node_call = cur_root.get();
 
         let indents = "\t".repeat(num_tabs);
-        let ret_val_basename = "ret_val_".to_owned() + base_var_name;
+        let ret_val_basename = "ret_val_".to_owned() + base_var_name + "_" + &cur_call_uniq_id;
         let extra_cb_code = if include_basic_callback {
             basic_callback_with_id(cur_call_uniq_id.clone())
         } else {
@@ -318,10 +318,11 @@ pub fn get_function_call_code(
         }
     };
     let fct_code = [
-        "\ntry { ",
+        &("let ".to_owned() + &ret_val_basename + ";"),
+        "try { ",
         &extra_cb_code,
         &print_args("before_cb".to_string()),
-        &("\tlet ".to_owned()
+        &("\t".to_owned()
             + &ret_val_basename
             + " = "
             + base_var_name
@@ -334,8 +335,6 @@ pub fn get_function_call_code(
         &(if print_instrumented {
             "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
-                + "_"
-                + &cur_call_uniq_id
                 + "\": typeof "
                 + &ret_val_basename
                 + " == \"function\"? \"[function]\" : "
@@ -345,8 +344,8 @@ pub fn get_function_call_code(
             String::new()
         }),
         &(if print_instrumented {
-            ("\tconsole.log({\"ret_val_type_".to_owned()
-                + &cur_call_uniq_id
+            ("\tconsole.log({\"".to_owned()
+                + &ret_val_basename
                 + "\": typeof "
                 + &ret_val_basename
                 + "});")
