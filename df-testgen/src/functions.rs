@@ -181,6 +181,8 @@ pub enum ArgType {
     ObjectType,
     /// callback (TODO maybe more granularity here)
     CallbackType,
+    /// library function -- distinct from callbacks, since we're not building them
+    LibFunctionType,
     /// the "any" dynamic type (basically a no-op)
     AnyType,
 }
@@ -200,7 +202,8 @@ impl std::fmt::Display for ArgType {
             ArgType::StringType => write!(f, "string"),
             ArgType::ArrayType => write!(f, "array"),
             ArgType::ObjectType => write!(f, "object"),
-            ArgType::CallbackType => write!(f, "function"),
+            ArgType::CallbackType => write!(f, "callback-function"),
+            ArgType::LibFunctionType => write!(f, "lib-function"),
             ArgType::AnyType => write!(f, "any"),
         }
     }
@@ -213,6 +216,7 @@ pub enum ArgVal {
     Array(String),
     Object(String),
     Callback(CallbackVal),
+    LibFunction(String),
     Variable(String),
 }
 
@@ -228,6 +232,7 @@ impl ArgVal {
             | Self::String(s)
             | Self::Array(s)
             | Self::Object(s)
+            | Self::LibFunction(s)
             | Self::Variable(s) => s.clone(),
             Self::Callback(cbv) => {
                 cbv.get_string_rep(extra_body_code, context_uniq_id, print_instrumented)
@@ -242,6 +247,7 @@ impl ArgVal {
             Self::Array(_) => ArgType::ArrayType,
             Self::Object(_) => ArgType::ObjectType,
             Self::Callback(_) => ArgType::CallbackType,
+            Self::LibFunction(_) => ArgType::LibFunctionType,
             Self::Variable(_) => ArgType::AnyType,
         }
     }

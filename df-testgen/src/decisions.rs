@@ -50,10 +50,11 @@ pub fn gen_new_sig_with_cb(
                     FunctionArgument::new(ArgType::CallbackType, None)
                 } else {
                     FunctionArgument::new(
-                        testgen_db.choose_random_arg_type(
-                            ALLOW_MULTIPLE_CALLBACK_ARGS,
-                            ALLOW_ANY_TYPE_ARGS,
-                        ),
+                        // testgen_db.choose_random_arg_type(
+                        //     ALLOW_MULTIPLE_CALLBACK_ARGS,
+                        //     ALLOW_ANY_TYPE_ARGS,
+                        // ),
+                        ArgType::LibFunctionType,
                         None,
                     )
                 },
@@ -114,9 +115,9 @@ impl<'cxt> TestGenDB {
         let max_arg_type_count = num_arg_types
             + if allow_cbs {
                 if allow_any {
-                    2
+                    3
                 } else {
-                    1
+                    2
                 }
             } else {
                 0
@@ -127,6 +128,7 @@ impl<'cxt> TestGenDB {
             2 => ArgType::ArrayType,
             3 => ArgType::ObjectType,
             4 => ArgType::CallbackType,
+            5 => ArgType::LibFunctionType,
             _ => ArgType::AnyType,
         }
     }
@@ -138,6 +140,7 @@ impl<'cxt> TestGenDB {
         arg_pos: Option<usize>,
         ret_vals_pool: &Vec<ArgVal>,
         cb_arg_vals_pool: &Vec<ArgVal>,
+        mod_rep: &NpmModule,
     ) -> ArgVal {
         // gen AnyType? only if ret_vals_pool is non-empty
         let arg_type = match (arg_type, (ret_vals_pool.len() + cb_arg_vals_pool.len()) > 0) {
@@ -200,6 +203,12 @@ impl<'cxt> TestGenDB {
                 let sigs = Vec::new();
                 let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
                 self.gen_random_callback(Some(random_sig), arg_pos)
+            }
+            ArgType::LibFunctionType => {
+                let lib_name = mod_rep.get_mod_js_var_name();
+                ArgVal::LibFunction(
+                    lib_name + "." + mod_rep.get_fns().keys().choose(&mut thread_rng()).unwrap(),
+                )
             }
             ArgType::AnyType => {
                 let rand_index =
@@ -323,7 +332,7 @@ impl<'cxt> TestGenDB {
             None, /* position of arg in parent call of cb this is in */
             None, /* parent call node ID */
         );
-        ret_call.init_args_with_random(self, ret_vals_pool, cb_arg_vals_pool);
+        ret_call.init_args_with_random(self, ret_vals_pool, cb_arg_vals_pool, mod_rep);
         ret_call
     }
 

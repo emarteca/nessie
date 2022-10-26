@@ -83,6 +83,7 @@ impl FunctionCall {
         testgen_db: &TestGenDB,
         ret_vals_pool: Vec<ArgVal>,
         cb_arg_vals_pool: Vec<ArgVal>,
+        mod_rep: &NpmModule,
     ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
@@ -91,6 +92,7 @@ impl FunctionCall {
                 Some(i),
                 &ret_vals_pool,
                 &cb_arg_vals_pool,
+                mod_rep,
             ))?;
         }
         Ok(())
