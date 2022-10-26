@@ -135,9 +135,10 @@ impl<'cxt> TestGenDB {
         arg_type: ArgType,
         arg_pos: Option<usize>,
         ret_vals_pool: &Vec<ArgVal>,
+        cb_arg_vals_pool: &Vec<ArgVal>,
     ) -> ArgVal {
         // gen AnyType? only if ret_vals_pool is non-empty
-        let arg_type = match (arg_type, ret_vals_pool.len() > 0) {
+        let arg_type = match (arg_type, (ret_vals_pool.len() + cb_arg_vals_pool.len()) > 0) {
             (ArgType::AnyType, false) => {
                 self.choose_random_arg_type(true, false /* no AnyType */)
             }
@@ -198,7 +199,19 @@ impl<'cxt> TestGenDB {
                 let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
                 self.gen_random_callback(Some(random_sig), arg_pos)
             }
-            ArgType::AnyType => ret_vals_pool.choose(&mut thread_rng()).unwrap().clone(),
+            ArgType::AnyType => {
+                let rand_index =
+                    thread_rng().gen_range(0..(ret_vals_pool.len() + cb_arg_vals_pool.len()));
+                if rand_index < ret_vals_pool.len() {
+                    ret_vals_pool
+                } else {
+                    cb_arg_vals_pool
+                }
+                .get(rand_index)
+                .unwrap()
+                .clone()
+                // ret_vals_pool.choose(&mut thread_rng()).unwrap().clone()
+            }
         }
     }
 
@@ -257,6 +270,7 @@ impl<'cxt> TestGenDB {
         &mut self,
         mod_rep: &NpmModule,
         ret_vals_pool: Vec<ArgVal>,
+        cb_arg_vals_pool: Vec<ArgVal>,
     ) -> FunctionCall {
         let lib_name = mod_rep.get_mod_js_var_name();
         let lib_fcts_weights = self
@@ -307,7 +321,7 @@ impl<'cxt> TestGenDB {
             None, /* position of arg in parent call of cb this is in */
             None, /* parent call node ID */
         );
-        ret_call.init_args_with_random(self, ret_vals_pool);
+        ret_call.init_args_with_random(self, ret_vals_pool, cb_arg_vals_pool);
         ret_call
     }
 

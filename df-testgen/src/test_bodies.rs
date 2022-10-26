@@ -2,12 +2,26 @@ use crate::module_reps::*; // all the representation structs
 use crate::testgen::{Callback, FunctionCall, Test};
 
 impl Callback {
+    pub(crate) fn get_cb_arg_name_base(&self, context_uniq_id: &Option<String>) -> String {
+        "cb_".to_owned()
+            + &match context_uniq_id {
+                Some(ref id) => id.clone(),
+                None => String::new(),
+            }
+            + &match self.cb_arg_pos {
+                Some(id) => "_".to_owned() + &id.to_string(),
+                None => String::new(),
+            }
+            + "_arg_"
+    }
+
     pub fn get_string_rep(
         &self,
         extra_body_code: Option<String>,
         context_uniq_id: Option<String>,
         print_instrumented: bool,
     ) -> String {
+        let cb_arg_name_base = self.get_cb_arg_name_base(&context_uniq_id);
         let print_args = self
             .sig
             .get_arg_list()
@@ -16,15 +30,13 @@ impl Callback {
             .map(|(i, fct_arg)| {
                 if print_instrumented {
                     [
-                        "console.log({\"",
-                        "in_cb_arg_",
-                        &i.to_string(),
+                        "\tconsole.log({\"",
+                        "in_",
+                        &cb_arg_name_base,
                         "_",
-                        &match &context_uniq_id {
-                            Some(str_id) => str_id.clone(),
-                            None => String::new(),
-                        },
-                        "\": cb_arg_",
+                        &i.to_string(),
+                        "\": ",
+                        &cb_arg_name_base,
                         &i.to_string(),
                         "});",
                     ]
@@ -34,11 +46,11 @@ impl Callback {
                 }
             })
             .collect::<Vec<String>>()
-            .join("\n\t");
+            .join("\n");
         let cb_code = [
             &("(".to_owned()
                 + &(0..self.sig.get_arg_list().len())
-                    .map(|i| "cb_arg_".to_owned() + &i.to_string())
+                    .map(|i| cb_arg_name_base.clone() + &i.to_string())
                     .collect::<Vec<String>>()
                     .join(", ")
                 + " ) => {"),

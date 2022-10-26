@@ -85,6 +85,16 @@ impl Callback {
     pub fn set_cb_arg_pos(&mut self, cb_arg_pos: Option<usize>) {
         self.cb_arg_pos = cb_arg_pos;
     }
+
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
+        let cb_arg_name_base = self.get_cb_arg_name_base(&Some(context_uniq_id.clone()));
+        self.sig
+            .get_arg_list()
+            .iter()
+            .enumerate()
+            .map(|(pos, _)| ArgVal::Variable(cb_arg_name_base.clone() + &pos.to_string()))
+            .collect::<Vec<ArgVal>>()
+    }
 }
 
 impl std::default::Default for Callback {
@@ -149,6 +159,7 @@ impl FunctionCall {
         &mut self,
         testgen_db: &TestGenDB,
         ret_vals_pool: Vec<ArgVal>,
+        cb_arg_vals_pool: Vec<ArgVal>,
     ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
@@ -156,6 +167,7 @@ impl FunctionCall {
                 arg_type,
                 Some(i),
                 &ret_vals_pool,
+                &cb_arg_vals_pool,
             ))?;
         }
         Ok(())
@@ -167,6 +179,10 @@ impl FunctionCall {
 
     pub fn set_parent_arg_position_nesting(&mut self, parent_arg_position_nesting: Option<String>) {
         self.parent_arg_position_nesting = parent_arg_position_nesting;
+    }
+
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
+        self.sig.get_all_cb_args_vals(context_uniq_id)
     }
 }
 
@@ -221,14 +237,17 @@ impl<'cxt> Test {
             }
         }
 
-        let ret_vals_pool: Vec<ArgVal> = if ext_id.is_some() {
-            base_test.get_ret_values_accessible_from_ext_point(ext_id.unwrap())
+        let (ret_vals_pool, cb_arg_vals_pool): (Vec<ArgVal>, Vec<ArgVal>) = if ext_id.is_some() {
+            (
+                base_test.get_ret_values_accessible_from_ext_point(ext_id.unwrap()),
+                base_test.get_cb_arg_values_accessible_from_ext_point(ext_id.unwrap()),
+            )
         } else {
-            Vec::new()
+            (Vec::new(), Vec::new())
         };
-        println!("ree: {:?}", ret_vals_pool.clone());
+
         // select random function to call, and create corresponding node
-        let mut ext_call = testgen_db.gen_random_call(mod_rep, ret_vals_pool);
+        let mut ext_call = testgen_db.gen_random_call(mod_rep, ret_vals_pool, cb_arg_vals_pool);
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
         // update callback args of ext_call to have the ext_call ID
@@ -400,6 +419,26 @@ impl<'cxt> Test {
                 uniq_id.matches("_").count() == 0 // only the returns from outermost nested functions are available
             })
             .map(|id| ArgVal::Variable(ret_base_var_name.clone() + "_" + &id))
+            .collect::<Vec<ArgVal>>()
+    }
+
+    pub fn get_cb_arg_values_accessible_from_ext_point(
+        &self,
+        ext_id: ExtensionPointID,
+    ) -> Vec<ArgVal> {
+        let ext_node = self.fct_tree.get(ext_id).unwrap();
+        let ext_node_uniq_id = self.get_uniq_id_for_call(ext_node);
+
+        // can only use cb args from the direct nesting parents (i.e., the ancestors)
+        ext_id
+            .ancestors(&self.fct_tree)
+            .map(|node_id| {
+                let node = self.fct_tree.get(node_id).unwrap();
+                // get all the cb args
+                let uniq_id = self.get_uniq_id_for_call(node);
+                node.get().get_all_cb_args_vals(&uniq_id)
+            })
+            .flatten()
             .collect::<Vec<ArgVal>>()
     }
 }

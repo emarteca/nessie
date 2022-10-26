@@ -91,7 +91,7 @@ fn gen_args_for_fct_with_cb(
         let arg_type = arg.get_type();
         arg.set_arg_val(match arg_type {
             ArgType::CallbackType => ArgVal::Callback(CallbackVal::Var("cb".to_string())),
-            _ => testgen_db.gen_random_value_of_type(arg_type, Some(i), &Vec::new()),
+            _ => testgen_db.gen_random_value_of_type(arg_type, Some(i), &Vec::new(), &Vec::new()),
         })?;
     }
     Ok(cur_sig.get_arg_list().to_vec())

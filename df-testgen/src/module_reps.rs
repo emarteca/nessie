@@ -241,6 +241,19 @@ impl FunctionSignature {
         posns
     }
 
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
+        self.arg_list
+            .iter()
+            .filter_map(|arg| match arg.get_arg_val() {
+                Some(ArgVal::Callback(CallbackVal::RawCallback(cb))) => {
+                    Some(cb.get_all_cb_args_vals(context_uniq_id))
+                }
+                _ => None,
+            })
+            .flatten()
+            .collect::<Vec<ArgVal>>()
+    }
+
     /// getter for arg list
     pub fn get_arg_list(&self) -> &Vec<FunctionArgument> {
         &self.arg_list
