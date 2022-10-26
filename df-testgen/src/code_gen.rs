@@ -1,5 +1,5 @@
-use crate::module_reps::*; // all the representation structs
-use crate::testgen::{Callback, FunctionCall, Test};
+use crate::functions::*;
+use crate::tests::{FunctionCall, Test};
 
 impl Callback {
     pub(crate) fn get_cb_arg_name_base(&self, context_uniq_id: &Option<String>) -> String {
@@ -356,11 +356,11 @@ pub fn get_function_call_code(
             String::new()
         }),
         &(if print_instrumented {
-            ("\tconsole.log({\"".to_owned()
+            "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
                 + "\": typeof "
                 + &ret_val_basename
-                + "});")
+                + "});"
         } else {
             String::new()
         }),

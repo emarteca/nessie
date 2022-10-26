@@ -1,7 +1,9 @@
 use crate::decisions;
 use crate::decisions::TestGenDB;
+use crate::errors::*;
+use crate::functions::*;
 use crate::module_reps::*; // all the representation structs
-use crate::testgen::*;
+use crate::tests::*;
 
 use std::collections::HashMap;
 use std::convert::TryFrom;

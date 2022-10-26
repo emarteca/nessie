@@ -1,5 +1,7 @@
+use crate::errors::*;
+use crate::functions::*;
 use crate::module_reps::*; // all the representation structs for the Npm modules
-use crate::testgen::*; // tests and related structs
+use crate::tests::*; // tests and related structs
 use rand::{
     distributions::{Alphanumeric, WeightedIndex},
     prelude::*,
