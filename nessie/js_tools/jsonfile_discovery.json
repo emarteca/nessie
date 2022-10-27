@@ -1,0 +1,81 @@
+{
+  "lib": "jsonfile",
+  "fns": {
+    "readFileSync": {
+      "name": "readFileSync",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": 1
+    },
+    "writeFileSync": {
+      "name": "writeFileSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "writeFile": {
+      "name": "writeFile",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "CallbackCalledAsync"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "readFile": {
+      "name": "readFile",
+      "sigs": [],
+      "num_api_args": null
+    }
+  }
+}

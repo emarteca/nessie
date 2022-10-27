@@ -1,0 +1,1743 @@
+{
+  "lib": "fs-extra",
+  "fns": {
+    "ensureSymlinkSync": {
+      "name": "ensureSymlinkSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "accessSync": {
+      "name": "accessSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "gracefulify": {
+      "name": "gracefulify",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": 1
+    },
+    "lchownSync": {
+      "name": "lchownSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "symlink": {
+      "name": "symlink",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "readv": {
+      "name": "readv",
+      "sigs": [],
+      "num_api_args": 4
+    },
+    "futimes": {
+      "name": "futimes",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "mkdtemp": {
+      "name": "mkdtemp",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "copy": {
+      "name": "copy",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-132.5547482434497"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"egDLU\": \"js_tools/toy_fs_dir/a/b/test/directory\"}"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"jjKJg\": \"js_tools/toy_fs_dir/a/b/test/directory\", \"e75Vm\": -714.3284889112063, \"njsxL\": \"js_tools/toy_fs_dir/a/b/file\"}"
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "464.25910037632616"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{}"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/test/dir\", -454.052967862439, 881.9844439179137, \"js_tools/toy_fs_dir/a/b/test/directory\", -742.9571525384268, \"js_tools/toy_fs_dir/a/b/file\", \"js_tools/toy_fs_dir/a/b/test/dir\", 896.6420253369706, \"js_tools/toy_fs_dir/a/b/test/dir\"]"
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{}"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[-82.08984876689351, \"js_tools/toy_fs_dir/a/b/test/directory\", -827.2323180904673, -247.13743958258715, 420.4128344707701]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "fchmod": {
+      "name": "fchmod",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "closeSync": {
+      "name": "closeSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "open": {
+      "name": "open",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "mkdirp": {
+      "name": "mkdirp",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "mkdirpSync": {
+      "name": "mkdirpSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "unwatchFile": {
+      "name": "unwatchFile",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "truncate": {
+      "name": "truncate",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "renameSync": {
+      "name": "renameSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "ensureDir": {
+      "name": "ensureDir",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "outputJSONSync": {
+      "name": "outputJSONSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "readFileSync": {
+      "name": "readFileSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "read": {
+      "name": "read",
+      "sigs": [],
+      "num_api_args": 6
+    },
+    "ftruncate": {
+      "name": "ftruncate",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "fsync": {
+      "name": "fsync",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "watch": {
+      "name": "watch",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "moveSync": {
+      "name": "moveSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "lchown": {
+      "name": "lchown",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "writeJson": {
+      "name": "writeJson",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "cpSync": {
+      "name": "cpSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "createFile": {
+      "name": "createFile",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"rF0yx\": -553.4145990787769}"
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/test/directory\"]"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/test/dir\", \"js_tools/toy_fs_dir/a/b/test/directory\", \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"js_tools/toy_fs_dir/a/b/test/dir\", \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"js_tools/toy_fs_dir/a/b/test/dir\", \"js_tools/toy_fs_dir/a/b/file\", \"js_tools/toy_fs_dir/a/b/test/dir\", \"js_tools/toy_fs_dir/a/b/test/directory/file.json\"]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "link": {
+      "name": "link",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "fchown": {
+      "name": "fchown",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "emptydirSync": {
+      "name": "emptydirSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "lstat": {
+      "name": "lstat",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "Dir": {
+      "name": "Dir",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "rmSync": {
+      "name": "rmSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "fstatSync": {
+      "name": "fstatSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "stat": {
+      "name": "stat",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "move": {
+      "name": "move",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/test/directory\", \"js_tools/toy_fs_dir/a/b/test/dir\"]"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"js_tools/toy_fs_dir/a/b/file\"]"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"Mun9g\": \"js_tools/toy_fs_dir/a/b/test/dir\", \"QSYV6\": 420.5013522148531}"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[675.0327935873947]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "353.35319437484054"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"6bD71\": 896.4428669526155, \"f3ENc\": \"js_tools/toy_fs_dir/a/b/file\", \"UI5iv\": 201.97210541056256}"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"IaUle\": 873.4601032251428, \"xvE1N\": \"js_tools/toy_fs_dir/a/b/file\", \"zkAuW\": \"js_tools/toy_fs_dir/a/b/file\"}"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "CallbackCalledAsync"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "writeJSON": {
+      "name": "writeJSON",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "readSync": {
+      "name": "readSync",
+      "sigs": [],
+      "num_api_args": 5
+    },
+    "pathExists": {
+      "name": "pathExists",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[-686.7614093233594, -387.5742737051064, 509.607268739054, 313.7992886777888, 637.1560759322738, -219.7742677257968, -779.0735673889046, 952.733930304634]"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/test/directory\", \"js_tools/toy_fs_dir/a/b/file\", \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"js_tools/toy_fs_dir/a/b/test/directory\", \"js_tools/toy_fs_dir/a/b/test/dir\"]"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{}"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"G5yLr\": 128.01142608409282, \"HYZph\": \"js_tools/toy_fs_dir/a/b/test/directory/file.json\"}"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{}"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "rmdir": {
+      "name": "rmdir",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "opendir": {
+      "name": "opendir",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "watchFile": {
+      "name": "watchFile",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "cp": {
+      "name": "cp",
+      "sigs": [],
+      "num_api_args": 4
+    },
+    "copySync": {
+      "name": "copySync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "fchownSync": {
+      "name": "fchownSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "emptydir": {
+      "name": "emptydir",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[-945.6869605715061, 583.6334371979417, -180.9673571350312, -71.70000876683207, -946.8991355428935]"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "CallbackCalledAsync"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "rmdirSync": {
+      "name": "rmdirSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "realpath": {
+      "name": "realpath",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "chmodSync": {
+      "name": "chmodSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "emptyDirSync": {
+      "name": "emptyDirSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "FileWriteStream": {
+      "name": "FileWriteStream",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"hhSCu\": \"js_tools/toy_fs_dir/a/b/test/directory/file.json\"}"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": 2
+    },
+    "FileReadStream": {
+      "name": "FileReadStream",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "Dirent": {
+      "name": "Dirent",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "symlinkSync": {
+      "name": "symlinkSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "utimes": {
+      "name": "utimes",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "lstatSync": {
+      "name": "lstatSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "outputFile": {
+      "name": "outputFile",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory\""
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "25.380928807885084"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{}"
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "89.52193424773168"
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-661.2851052398221"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "lutimes": {
+      "name": "lutimes",
+      "sigs": [],
+      "num_api_args": 4
+    },
+    "remove": {
+      "name": "remove",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory\""
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-829.288419668404"
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{}"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[987.798404465896, 581.5751080238799, 3.486603674134358]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "chown": {
+      "name": "chown",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "readJSON": {
+      "name": "readJSON",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "ensureFile": {
+      "name": "ensureFile",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "rename": {
+      "name": "rename",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "readlink": {
+      "name": "readlink",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "writeJsonSync": {
+      "name": "writeJsonSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "utimesSync": {
+      "name": "utimesSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "readJsonSync": {
+      "name": "readJsonSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "createFileSync": {
+      "name": "createFileSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "_toUnixTimestamp": {
+      "name": "_toUnixTimestamp",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "outputJsonSync": {
+      "name": "outputJsonSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "ensureLink": {
+      "name": "ensureLink",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"8AUBI\": \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"nFXxJ\": -33.928170312585735, \"M8IQL\": \"js_tools/toy_fs_dir/a/b/file\"}"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/test/dir\", \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"js_tools/toy_fs_dir/a/b/file\"]"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[-243.66483066570538, 352.0289833963095, 10.182112392286513, -122.3977911297394, -330.1841602584408, -482.33992094793666, -43.78026484145357, 816.0818740016964, -489.55851084364934]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "277.0155619538955"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "copyFileSync": {
+      "name": "copyFileSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "readJson": {
+      "name": "readJson",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "fstat": {
+      "name": "fstat",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "fdatasyncSync": {
+      "name": "fdatasyncSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "statSync": {
+      "name": "statSync",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[763.0157841637711, 878.1791191346872, \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"js_tools/toy_fs_dir/a/b/test/dir\", 570.1052472648262, 177.54901609370268, \"js_tools/toy_fs_dir/a/b/test/dir\"]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": 2
+    },
+    "ftruncateSync": {
+      "name": "ftruncateSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "outputJSON": {
+      "name": "outputJSON",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "createReadStream": {
+      "name": "createReadStream",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "readvSync": {
+      "name": "readvSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "lchmod": {
+      "name": "lchmod",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-196.97377450407362"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"N7QMY\": 823.2913372883429}"
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-961.2412105649595"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"dJwOg\": \"js_tools/toy_fs_dir/a/b/file\", \"P00BK\": \"js_tools/toy_fs_dir/a/b/test/dir\"}"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "CallbackCalledAsync"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "mkdirs": {
+      "name": "mkdirs",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory\""
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-568.7816392919638"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "writeSync": {
+      "name": "writeSync",
+      "sigs": [],
+      "num_api_args": 5
+    },
+    "pathExistsSync": {
+      "name": "pathExistsSync",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": 1
+    },
+    "readJSONSync": {
+      "name": "readJSONSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "createSymlinkSync": {
+      "name": "createSymlinkSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "readdirSync": {
+      "name": "readdirSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "writeFileSync": {
+      "name": "writeFileSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "ensureDirSync": {
+      "name": "ensureDirSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "close": {
+      "name": "close",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "readdir": {
+      "name": "readdir",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "ensureSymlink": {
+      "name": "ensureSymlink",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"kcvZr\": \"js_tools/toy_fs_dir/a/b/test/directory/file.json\", \"gC1Xu\": \"js_tools/toy_fs_dir/a/b/file\"}"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[758.9368071614349, -574.6652738864077, -414.4907417673029, -504.07912498085494, 63.08607825557556, 681.7776047052596, -871.5595423388352]"
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "880.4452250926911"
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"ica8v\": -541.4027741207251}"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "WriteStream": {
+      "name": "WriteStream",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "ensureFileSync": {
+      "name": "ensureFileSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "openSync": {
+      "name": "openSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "Stats": {
+      "name": "Stats",
+      "sigs": [],
+      "num_api_args": 14
+    },
+    "fsyncSync": {
+      "name": "fsyncSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "realpathSync": {
+      "name": "realpathSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "mkdtempSync": {
+      "name": "mkdtempSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "copyFile": {
+      "name": "copyFile",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "emptyDir": {
+      "name": "emptyDir",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-278.49711421239135"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[291.776553558404, -275.0651478846811, 244.9989110132483, 8.10415904622539]"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[-531.5617412321214, 156.77669678000916, \"js_tools/toy_fs_dir/a/b/test/directory\", -743.2906763576499, -869.095673123732, 778.4036252031008]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "CallbackCalledAsync"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "532.2496247415761"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "792.5895015376775"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "exists": {
+      "name": "exists",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "NumberType",
+              "arg_val": {
+                "Number": "-777.0594706054666"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[640.624473549293]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{}"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": 2
+    },
+    "mkdirSync": {
+      "name": "mkdirSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "outputJson": {
+      "name": "outputJson",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "outputFileSync": {
+      "name": "outputFileSync",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "lutimesSync": {
+      "name": "lutimesSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "createWriteStream": {
+      "name": "createWriteStream",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "lchmodSync": {
+      "name": "lchmodSync",
+      "sigs": [],
+      "num_api_args": 0
+    },
+    "mkdirsSync": {
+      "name": "mkdirsSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "truncateSync": {
+      "name": "truncateSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "access": {
+      "name": "access",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "chmod": {
+      "name": "chmod",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "writeFile": {
+      "name": "writeFile",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "fdatasync": {
+      "name": "fdatasync",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "removeSync": {
+      "name": "removeSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "appendFile": {
+      "name": "appendFile",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "createSymlink": {
+      "name": "createSymlink",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/file\", 684.7926569505769]"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/dir\""
+              }
+            },
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "ObjectType",
+              "arg_val": {
+                "Object": "{\"9BBHt\": \"js_tools/toy_fs_dir/a/b/file\", \"t0dYb\": \"js_tools/toy_fs_dir/a/b/test/dir\", \"A0Q9m\": -146.75947346936266, \"PyJBP\": \"js_tools/toy_fs_dir/a/b/test/dir\"}"
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[\"js_tools/toy_fs_dir/a/b/file\", \"js_tools/toy_fs_dir/a/b/test/directory\"]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "unlinkSync": {
+      "name": "unlinkSync",
+      "sigs": [],
+      "num_api_args": 1
+    },
+    "linkSync": {
+      "name": "linkSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "ensureLinkSync": {
+      "name": "ensureLinkSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "createLink": {
+      "name": "createLink",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/test/directory/file.json\""
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[-159.00649118254591, -562.2175084480618, -950.5138394529178, 507.3455915633183, 478.74357220299544, -953.7194059721643]"
+              }
+            },
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            },
+            {
+              "arg_type": "ArrayType",
+              "arg_val": {
+                "Array": "[-341.56992835911296, -386.81563972157335, -64.48232041462586]"
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": null
+    },
+    "writev": {
+      "name": "writev",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "readlinkSync": {
+      "name": "readlinkSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "readFile": {
+      "name": "readFile",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "createLinkSync": {
+      "name": "createLinkSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "unlink": {
+      "name": "unlink",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "ReadStream": {
+      "name": "ReadStream",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "fchmodSync": {
+      "name": "fchmodSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "writeJSONSync": {
+      "name": "writeJSONSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "chownSync": {
+      "name": "chownSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "write": {
+      "name": "write",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "existsSync": {
+      "name": "existsSync",
+      "sigs": [
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "StringType",
+              "arg_val": {
+                "String": "\"js_tools/toy_fs_dir/a/b/file\""
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        },
+        {
+          "arg_list": [
+            {
+              "arg_type": "CallbackType",
+              "arg_val": {
+                "Callback": {
+                  "Var": "cb"
+                }
+              }
+            }
+          ],
+          "call_test_result": {
+            "SingleCallback": "NoCallbackCalled"
+          },
+          "is_spread_args": false
+        }
+      ],
+      "num_api_args": 1
+    },
+    "rm": {
+      "name": "rm",
+      "sigs": [],
+      "num_api_args": null
+    },
+    "appendFileSync": {
+      "name": "appendFileSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "writevSync": {
+      "name": "writevSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "futimesSync": {
+      "name": "futimesSync",
+      "sigs": [],
+      "num_api_args": 3
+    },
+    "opendirSync": {
+      "name": "opendirSync",
+      "sigs": [],
+      "num_api_args": 2
+    },
+    "mkdir": {
+      "name": "mkdir",
+      "sigs": [],
+      "num_api_args": null
+    }
+  }
+}

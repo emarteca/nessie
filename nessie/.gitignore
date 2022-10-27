@@ -1,0 +1,9 @@
+/.cargo
+/target/
+
+node_modules/
+
+js_tools/*_output.json
+js_tools/node_modules/
+js_tools/toy_fs_dir/
+js_tools/test*.js
