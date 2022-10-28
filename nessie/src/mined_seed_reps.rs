@@ -4,7 +4,11 @@
 // only represents nesting relationships, and is going to get totally overhauled
 
 use crate::errors::*;
+use crate::functions::FunctionSignature;
+use crate::tests::FunctionCall;
+
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /*
@@ -33,7 +37,7 @@ use std::path::PathBuf;
         ]
     },
 */
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MinedNestingPairJSON {
     /// name of the module the outer call belongs to
     outer_pkg: String,
@@ -65,6 +69,17 @@ impl MinedNestingPairJSON {
         Ok(mined_data_rep)
     }
 
+    pub fn lib_map_from_list(all_pairs: Vec<Self>) -> HashMap<String, Vec<Self>> {
+        let mut ret_map = HashMap::new();
+        for pair in all_pairs {
+            ret_map
+                .entry(pair.get_outer_pkg())
+                .or_insert(Vec::new())
+                .push(pair);
+        }
+        ret_map
+    }
+
     pub fn get_outer_pkg(&self) -> String {
         // in the mined data, the package name is surrounded by "", so strip these
         self.outer_pkg.replace("\"", "")
@@ -87,7 +102,7 @@ impl MinedNestingPairJSON {
 }
 
 /// TODO when we redo the data mining, the structure of the params should be better
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MinedParam {
     // the param is either an ident, a callback, or an object
     // if callback, the string is just "CALLBACK"
@@ -113,4 +128,19 @@ impl MinedParam {
     pub fn is_callback(&self) -> bool {
         self.is_valid() && self.callback.is_some()
     }
+}
+
+pub struct MinedDataExtension {
+    pub fct_name: String,
+    pub sig: FunctionSignature,
+    // pair of: position of argument in outer function call, passed to position in inner call
+    pub outer_to_inner_dataflow: Option<(usize, usize)>,
+}
+
+pub fn choose_corresponding_mined_data(
+    outer_fct: Option<&FunctionCall>,
+    pkg_name: String,
+    mined_data: Vec<MinedNestingPairJSON>,
+) -> Option<MinedDataExtension> {
+    None
 }

@@ -18,4 +18,6 @@ pub const USE_MINED_NESTING_EXAMPLE: f64 = 0.5; // chance of using a mined nesti
 pub mod setup {
     pub const TOY_FS_DIRS: [&str; 2] = ["a/b/test/directory", "a/b/test/dir"];
     pub const TOY_FS_FILES: [&str; 2] = ["a/b/test/directory/file.json", "a/b/file"];
+    pub const TEST_DIR_PATH: &str = "js_tools";
+    pub const TEST_FILE_PREFIX: &str = "test";
 }

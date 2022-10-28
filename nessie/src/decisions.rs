@@ -72,15 +72,15 @@ impl<'cxt> TestGenDB {
     pub fn new(
         test_dir_path: String,
         test_file_prefix: String,
-        lib_mined_data: Option<LibMinedData>,
+        mined_data: Option<Vec<MinedNestingPairJSON>>,
     ) -> Self {
         Self {
             fs_strings: Vec::new(),
             possible_ext_points: Vec::new(),
             cur_test_index: 0,
             libs_fcts_weights: HashMap::new(),
-            lib_mined_data: match lib_mined_data {
-                Some(lmd) => lmd,
+            lib_mined_data: match mined_data {
+                Some(lmd) => MinedNestingPairJSON::lib_map_from_list(lmd),
                 None => HashMap::new(),
             },
             test_dir_path,
@@ -274,6 +274,7 @@ impl<'cxt> TestGenDB {
         mod_rep: &NpmModule,
         ret_vals_pool: Vec<ArgVal>,
         cb_arg_vals_pool: Vec<ArgVal>,
+        ext_fct: Option<&FunctionCall>,
     ) -> FunctionCall {
         let lib_name = mod_rep.get_mod_js_var_name();
         let lib_fcts_weights = self

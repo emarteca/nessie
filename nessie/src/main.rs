@@ -84,14 +84,12 @@ fn main() {
         None
     };
 
-    println!("{:?}", mined_data);
-
-    let test_dir_path = "js_tools";
-    let test_file_prefix = "test";
+    let test_dir_path = consts::setup::TEST_DIR_PATH;
+    let test_file_prefix = consts::setup::TEST_FILE_PREFIX;
     let mut testgen_db = decisions::TestGenDB::new(
         test_dir_path.to_string(),
         test_file_prefix.to_string(),
-        None,
+        mined_data,
     );
     testgen_db.set_fs_strings(toy_fs_paths);
 

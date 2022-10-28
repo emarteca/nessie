@@ -171,8 +171,15 @@ impl<'cxt> Test {
             (Vec::new(), Vec::new())
         };
 
+        let ext_fct: Option<&FunctionCall> = if ext_id.is_some() {
+            Some(base_test.fct_tree.get(ext_id.unwrap()).unwrap().get())
+        } else {
+            None
+        };
+
         // select random function to call, and create corresponding node
-        let mut ext_call = testgen_db.gen_random_call(mod_rep, ret_vals_pool, cb_arg_vals_pool);
+        let mut ext_call =
+            testgen_db.gen_random_call(mod_rep, ret_vals_pool, cb_arg_vals_pool, ext_fct);
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
         // update callback args of ext_call to have the ext_call ID
