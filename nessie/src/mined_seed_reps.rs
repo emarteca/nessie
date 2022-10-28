@@ -4,11 +4,12 @@
 // only represents nesting relationships, and is going to get totally overhauled
 
 use crate::errors::*;
-use crate::functions::FunctionSignature;
+use crate::functions::{ArgType, FunctionArgument, FunctionSignature};
 use crate::tests::FunctionCall;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::path::PathBuf;
 
 /*
@@ -128,19 +129,127 @@ impl MinedParam {
     pub fn is_callback(&self) -> bool {
         self.is_valid() && self.callback.is_some()
     }
+
+    pub fn get_arg_type(&self) -> Result<ArgType, DFError> {
+        if !self.is_valid() {
+            return Err(DFError::InvalidMinedData(self.to_string()));
+        }
+        // this is all the granularity we have in the mined data right now :'(
+        Ok(if self.callback.is_some() {
+            ArgType::CallbackType
+        } else if self.object.is_some() {
+            ArgType::ObjectType
+        } else {
+            ArgType::AnyType
+        })
+    }
 }
 
-pub struct MinedDataExtension {
+impl std::fmt::Display for MinedParam {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            format!(
+                "ident: {:?}, object: {:?}, callback: {:?}",
+                self.ident, self.object, self.callback
+            )
+        )
+    }
+}
+
+/// Representation of a generated inner function call, as a nested extension based
+/// on some mined data.
+/// It includes the name and signature of the inner function, and a list of the dataflow from
+/// arguments to the outer call to this inner call.
+#[derive(Debug, Clone)]
+pub struct MinedDataNestedExtension {
     pub fct_name: String,
     pub sig: FunctionSignature,
-    // pair of: position of argument in outer function call, passed to position in inner call
-    pub outer_to_inner_dataflow: Option<(usize, usize)>,
+    /// list of pairs of: position of argument in outer function call, passed to position in inner call
+    pub outer_to_inner_dataflow: Vec<(usize, usize)>,
 }
 
-pub fn choose_corresponding_mined_data(
+impl TryFrom<&MinedParam> for FunctionArgument {
+    type Error = DFError;
+
+    fn try_from(mined_param: &MinedParam) -> Result<Self, Self::Error> {
+        Ok(FunctionArgument::new(
+            mined_param.get_arg_type()?,
+            None, /* no arg val */
+        ))
+    }
+}
+
+impl TryFrom<&Vec<MinedParam>> for FunctionSignature {
+    type Error = DFError;
+
+    fn try_from(mined_params: &Vec<MinedParam>) -> Result<Self, Self::Error> {
+        let mut arg_list: Vec<FunctionArgument> = Vec::with_capacity(mined_params.len());
+        for param in mined_params {
+            arg_list.push(FunctionArgument::try_from(param)?);
+        }
+        Ok(FunctionSignature::new(
+            &arg_list, None, /* no call test result */
+        ))
+    }
+}
+
+/// Given a list of mined data pairs and an outer function to extend,
+/// return a random nested extension from the mined data (if one exists).
+pub fn get_rel_mined_data_nested_extensions(
     outer_fct: Option<&FunctionCall>,
-    pkg_name: String,
-    mined_data: Vec<MinedNestingPairJSON>,
-) -> Option<MinedDataExtension> {
-    None
+    pkg_name: &String,
+    mined_data: &Vec<MinedNestingPairJSON>,
+) -> Vec<MinedDataNestedExtension> {
+    if !outer_fct.is_some() {
+        return Vec::new();
+    }
+    let outer_fct = outer_fct.unwrap();
+    // can't nest if the outer function has no callback argument
+    if !outer_fct.sig.has_cb_arg() {
+        return Vec::new();
+    }
+    let outer_arg_len = outer_fct.sig.get_arg_list().len();
+    // println!("{:?}", outer_fct);
+    let outer_fct_name = outer_fct.get_name();
+
+    mined_data
+        .iter()
+        .filter_map(|mined_pair| {
+            let inner_fct_sig = FunctionSignature::try_from(&mined_pair.inner_params);
+            // note: right now we only support nestings from functions from the same package
+            if &mined_pair.get_outer_pkg() == pkg_name
+                && &mined_pair.get_inner_pkg() == pkg_name
+                && mined_pair.outer_fct == outer_fct_name
+                && mined_pair.outer_params.len() == outer_arg_len
+                && inner_fct_sig.is_ok()
+            {
+                let inner_fct_name = mined_pair.inner_fct.clone();
+                let inner_fct_sig = inner_fct_sig.unwrap();
+
+                let outer_to_inner_dataflow = mined_pair.inner_params
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(pos, inner_param)| {
+                        if let Some(var_name) = &inner_param.ident && var_name.starts_with("outer_arg_") {
+                            // get the string after the last _ and convert to a usize
+                            let (_, outer_pos) = var_name.rsplit_once("_").unwrap();
+                            Some((outer_pos.parse::<usize>().unwrap(), pos))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<(usize, usize)>>();
+
+                Some(MinedDataNestedExtension {
+                    fct_name: inner_fct_name,
+                    sig: inner_fct_sig,
+                    outer_to_inner_dataflow,
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<MinedDataNestedExtension>>()
 }

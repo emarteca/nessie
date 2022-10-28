@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 pub mod code_gen;
 pub mod consts;
 pub mod decisions;

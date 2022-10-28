@@ -81,8 +81,8 @@ impl FunctionCall {
     pub fn init_args_with_random(
         &mut self,
         testgen_db: &TestGenDB,
-        ret_vals_pool: Vec<ArgVal>,
-        cb_arg_vals_pool: Vec<ArgVal>,
+        ret_vals_pool: &Vec<ArgVal>,
+        cb_arg_vals_pool: &Vec<ArgVal>,
         mod_rep: &NpmModule,
     ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
@@ -171,15 +171,22 @@ impl<'cxt> Test {
             (Vec::new(), Vec::new())
         };
 
-        let ext_fct: Option<&FunctionCall> = if ext_id.is_some() {
-            Some(base_test.fct_tree.get(ext_id.unwrap()).unwrap().get())
+        let (ext_fct, ext_uniq_id): (Option<&FunctionCall>, String) = if ext_id.is_some() {
+            (
+                Some(base_test.fct_tree.get(ext_id.unwrap()).unwrap().get()),
+                base_test.get_uniq_id_for_call(base_test.fct_tree.get(ext_id.unwrap()).unwrap()),
+            )
         } else {
-            None
+            (None, String::new())
         };
 
         // select random function to call, and create corresponding node
-        let mut ext_call =
-            testgen_db.gen_random_call(mod_rep, ret_vals_pool, cb_arg_vals_pool, ext_fct);
+        let mut ext_call = testgen_db.gen_random_call(
+            mod_rep,
+            ret_vals_pool,
+            cb_arg_vals_pool,
+            (ext_fct, ext_type, ext_uniq_id),
+        );
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
         // update callback args of ext_call to have the ext_call ID

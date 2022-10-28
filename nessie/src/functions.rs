@@ -68,6 +68,16 @@ impl FunctionSignature {
             .collect::<Vec<ArgVal>>()
     }
 
+    /// Does the signature have at least one callback argument?
+    pub fn has_cb_arg(&self) -> bool {
+        for arg in self.arg_list.iter() {
+            if arg.is_callback() {
+                return true;
+            }
+        }
+        false
+    }
+
     /// getter for arg list
     pub fn get_arg_list(&self) -> &Vec<FunctionArgument> {
         &self.arg_list

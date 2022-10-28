@@ -1,6 +1,7 @@
 use crate::consts::*;
 use crate::errors::*;
 use crate::functions::*;
+use crate::mined_seed_reps;
 use crate::mined_seed_reps::MinedNestingPairJSON;
 use crate::module_reps::*; // all the representation structs for the Npm modules
 use crate::tests::*; // tests and related structs
@@ -20,7 +21,7 @@ pub fn gen_new_sig_with_cb(
     testgen_db: &TestGenDB,
 ) -> FunctionSignature {
     // look at the list of signatures CHOOSE_NEW_SIG_PCT of the time (if the list is non-empty)
-    if sigs.len() > 0 && (thread_rng().gen_range(0..=1) as f64) > CHOOSE_NEW_SIG_PCT {
+    if sigs.len() > 0 && (thread_rng().gen_range(0..=100) as f64) / 100. > CHOOSE_NEW_SIG_PCT {
         sigs.choose(&mut thread_rng()).unwrap().clone()
     } else {
         let num_args = num_args.unwrap_or(thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH));
@@ -203,17 +204,17 @@ impl<'cxt> TestGenDB {
                 )
             }
             ArgType::AnyType => {
-                let rand_index =
+                let mut rand_index =
                     thread_rng().gen_range(0..(ret_vals_pool.len() + cb_arg_vals_pool.len()));
                 if rand_index < ret_vals_pool.len() {
                     ret_vals_pool
                 } else {
+                    rand_index = rand_index - ret_vals_pool.len();
                     cb_arg_vals_pool
                 }
                 .get(rand_index)
                 .unwrap()
                 .clone()
-                // ret_vals_pool.choose(&mut thread_rng()).unwrap().clone()
             }
         }
     }
@@ -274,9 +275,55 @@ impl<'cxt> TestGenDB {
         mod_rep: &NpmModule,
         ret_vals_pool: Vec<ArgVal>,
         cb_arg_vals_pool: Vec<ArgVal>,
-        ext_fct: Option<&FunctionCall>,
+        ext_facts: (Option<&FunctionCall>, ExtensionType, String),
     ) -> FunctionCall {
         let lib_name = mod_rep.get_mod_js_var_name();
+
+        let (ext_fct, ext_type, ext_uniq_id) = ext_facts;
+
+        // should we try and use mined data?
+        if ext_type == ExtensionType::Nested
+            && (thread_rng().gen_range(0..=1) as f64) / 100. > USE_MINED_NESTING_EXAMPLE
+        {
+            let possible_nested_exts = mined_seed_reps::get_rel_mined_data_nested_extensions(
+                ext_fct,
+                &lib_name,
+                &match self.lib_mined_data.get(&lib_name) {
+                    Some(lib_list) => lib_list.to_vec(),
+                    None => Vec::new(),
+                },
+            );
+            if let Some(nested_ext) = possible_nested_exts.choose(&mut thread_rng()) {
+                let ext_fct = ext_fct.unwrap(); // if we can nest, outer fct exists
+                let fct_name = nested_ext.fct_name.clone();
+                let fct_sig = nested_ext.sig.clone();
+                let mut ret_call = FunctionCall::new(
+                    fct_name, fct_sig,
+                    None, /* position of arg in parent call of cb this is in */
+                    None, /* parent call node ID */
+                );
+                ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep);
+                let mut args = ret_call.sig.get_mut_args();
+                // let outer_sig = ext_fct.unwrap().sig;
+                // setup the dataflow
+                // THIS WILL CHANGE WHEN WE HAVE BETTER MINED DATA
+                // right now, the mined data assumes there is only one callback argument to the outer
+                // function, and that outer_pos is a valid argument position in this callback
+                if ext_fct.sig.get_callback_positions().len() == 1 {
+                    let outer_cb_args = ext_fct.sig.get_all_cb_args_vals(&ext_uniq_id);
+                    for (outer_pos, inner_pos) in nested_ext.outer_to_inner_dataflow.iter() {
+                        if *outer_pos < outer_cb_args.len() {
+                            args[*inner_pos] = FunctionArgument::new(
+                                ArgType::AnyType,
+                                Some(outer_cb_args[*outer_pos].clone()),
+                            );
+                        }
+                    }
+                    return ret_call;
+                }
+            }
+        }
+
         let lib_fcts_weights = self
             .libs_fcts_weights
             .entry(lib_name.clone())
@@ -304,7 +351,7 @@ impl<'cxt> TestGenDB {
         let num_args = if let Some(api_args) = fct_to_call.get_num_api_args() {
             api_args
         } else {
-            0
+            thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH)
         };
         let cb_position = if num_args == 0 {
             None
@@ -325,7 +372,7 @@ impl<'cxt> TestGenDB {
             None, /* position of arg in parent call of cb this is in */
             None, /* parent call node ID */
         );
-        ret_call.init_args_with_random(self, ret_vals_pool, cb_arg_vals_pool, mod_rep);
+        ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep);
         ret_call
     }
 

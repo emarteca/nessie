@@ -8,6 +8,8 @@ pub enum DFError {
     SpecFileError,
     /// error reading the mined data file
     MinedDataFileError,
+    /// error in the mined data, with an error message
+    InvalidMinedData(String),
     /// error printing test file
     WritingTestError,
     /// error running test (could be a timeout)
