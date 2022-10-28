@@ -1,4 +1,4 @@
-use crate::decisions;
+use crate::consts;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
 use crate::functions::*;
@@ -273,10 +273,10 @@ impl<'cxt> Test {
         let cur_test_file =
             self.write_test_to_file(true /* needs to be instrumented for tracking */)?;
 
-        let timeout = std::time::Duration::from_secs(decisions::TEST_TIMEOUT_SECONDS);
+        let timeout = std::time::Duration::from_secs(consts::TEST_TIMEOUT_SECONDS);
         let mut binding = Command::new("timeout");
         let run_test = binding
-            .arg(decisions::TEST_TIMEOUT_SECONDS.to_string())
+            .arg(consts::TEST_TIMEOUT_SECONDS.to_string())
             .arg("node")
             .arg(&cur_test_file);
 

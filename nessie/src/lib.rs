@@ -1,4 +1,5 @@
 pub mod code_gen;
+pub mod consts;
 pub mod decisions;
 pub mod discovery;
 pub mod errors;

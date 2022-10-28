@@ -3,17 +3,15 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use structopt::StructOpt;
 
-use df_testgen::module_reps::*; // all the representation structs
-
-use df_testgen::decisions;
-use df_testgen::discovery::run_discovery_phase;
-use df_testgen::testgen::run_testgen_phase;
+use nessie::consts;
+use nessie::decisions;
+use nessie::discovery::run_discovery_phase;
+use nessie::mined_seed_reps::MinedNestingPairJSON;
+use nessie::module_reps::*; // all the representation structs
+use nessie::testgen::run_testgen_phase;
 
 #[derive(Debug, StructOpt)]
-#[structopt(
-    name = "df_testgen_args",
-    about = "Arguments for the DF test generator"
-)]
+#[structopt(name = "nessie_args", about = "Arguments for the test generator")]
 struct Opt {
     /// name of the library/module to generate tests for
     #[structopt(long)]
@@ -37,14 +35,14 @@ struct Opt {
 
     /// file containing mined data
     #[structopt(long, short, parse(from_os_str))]
-    mined_data: Option<PathBuf>
+    mined_data: Option<PathBuf>,
 }
 
 /// function to set up a toy filesystem that the generated tests can interact with
 fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
     let mut toy_fs_paths: Vec<PathBuf> = Vec::new();
 
-    for dir in &decisions::setup::TOY_FS_DIRS {
+    for dir in &consts::setup::TOY_FS_DIRS {
         let cur_path = PathBuf::from(path_start.to_owned() + "/" + dir);
         toy_fs_paths.push(cur_path.clone());
         if Path::new(&(cur_path)).exists() {
@@ -55,7 +53,7 @@ fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
             .create(&cur_path)?;
     }
 
-    for file in &decisions::setup::TOY_FS_FILES {
+    for file in &consts::setup::TOY_FS_FILES {
         let cur_path = PathBuf::from(path_start.to_owned() + "/" + file);
         toy_fs_paths.push(cur_path.clone());
         if Path::new(&(cur_path)).exists() {
@@ -75,10 +73,26 @@ fn main() {
     let toy_fs_paths = setup_toy_fs("js_tools/toy_fs_dir")
         .expect("Error creating toy filesystem for tests; bailing out.");
 
+    let mined_data: Option<Vec<MinedNestingPairJSON>> = if let Some(ref mined_data_file) =
+        opt.mined_data
+    {
+        Some(
+            MinedNestingPairJSON::list_from_file(mined_data_file)
+                .expect(format!("failed to read mined data from {:?}", opt.mined_data).as_str()),
+        )
+    } else {
+        None
+    };
+
+    println!("{:?}", mined_data);
+
     let test_dir_path = "js_tools";
     let test_file_prefix = "test";
-    let mut testgen_db =
-        decisions::TestGenDB::new(test_dir_path.to_string(), test_file_prefix.to_string(), None);
+    let mut testgen_db = decisions::TestGenDB::new(
+        test_dir_path.to_string(),
+        test_file_prefix.to_string(),
+        None,
+    );
     testgen_db.set_fs_strings(toy_fs_paths);
 
     // if discovery file doesn't already exist

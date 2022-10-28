@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 pub enum DFError {
     /// error reading some sort of spec file from a previous stage of the pipeline
     SpecFileError,
+    /// error reading the mined data file
+    MinedDataFileError,
     /// error printing test file
     WritingTestError,
     /// error running test (could be a timeout)

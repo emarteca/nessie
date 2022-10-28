@@ -1,3 +1,4 @@
+use crate::consts;
 use crate::decisions;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
@@ -29,7 +30,7 @@ pub fn run_discovery_phase(
 
     for (func_name, func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
-        for _ in 0..decisions::DISCOVERY_PHASE_TESTING_BUDGET {
+        for _ in 0..consts::DISCOVERY_PHASE_TESTING_BUDGET {
             let args = gen_args_for_fct_with_cb(
                 &func_desc,
                 Some(cur_cb_position - 1),

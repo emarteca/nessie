@@ -1,9 +1,11 @@
 // representation of mined data
 // TODO: in the improved version of the test generator, we're going to mine
-// much more information -- the current struct representing a mined data point 
+// much more information -- the current struct representing a mined data point
 // only represents nesting relationships, and is going to get totally overhauled
 
+use crate::errors::*;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /*
     Example of what these pairs look like right now:
@@ -48,6 +50,21 @@ pub struct MinedNestingPairJSON {
 }
 
 impl MinedNestingPairJSON {
+    pub fn list_from_file(path: &PathBuf) -> Result<Vec<Self>, DFError> {
+        let file_conts = std::fs::read_to_string(path);
+        let file_conts_string = match file_conts {
+            Ok(fcs) => fcs,
+            _ => return Err(DFError::MinedDataFileError),
+        };
+
+        let mined_data_rep: Vec<Self> = match serde_json::from_str(&file_conts_string) {
+            Ok(rep) => rep,
+            Err(_) => return Err(DFError::MinedDataFileError),
+        };
+
+        Ok(mined_data_rep)
+    }
+
     pub fn get_outer_pkg(&self) -> String {
         // in the mined data, the package name is surrounded by "", so strip these
         self.outer_pkg.replace("\"", "")
@@ -76,8 +93,8 @@ pub struct MinedParam {
     // if callback, the string is just "CALLBACK"
     // if object, the string is just "OBJECT
     // if ident, then it's the name of the parameter: either "outer_arg_" or "inner_arg_" followed by
-    // the argument position. 
-    // The important part here is that it represents dataflow between the args of the outer to inner functions 
+    // the argument position.
+    // The important part here is that it represents dataflow between the args of the outer to inner functions
     ident: Option<String>,
     callback: Option<String>,
     object: Option<String>,
@@ -89,7 +106,7 @@ impl MinedParam {
             (Some(_), None, None) => true,
             (None, Some(_), None) => true,
             (None, None, Some(_)) => true,
-            _ => false
+            _ => false,
         }
     }
 

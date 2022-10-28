@@ -1,3 +1,4 @@
+use crate::consts::*;
 use crate::errors::*;
 use crate::functions::*;
 use crate::mined_seed_reps::MinedNestingPairJSON;
@@ -11,28 +12,6 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use strum::IntoEnumIterator;
-
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 3;
-pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
-pub const ALLOW_ANY_TYPE_ARGS: bool = true;
-pub const TEST_TIMEOUT_SECONDS: u64 = 30;
-
-pub const MAX_GENERATED_NUM: f64 = 1000.0;
-pub const MAX_GENERATED_ARRAY_LENGTH: usize = 10;
-pub const MAX_GENERATED_OBJ_LENGTH: usize = 5;
-pub const RANDOM_STRING_LENGTH: usize = 5;
-pub const DEFAULT_MAX_ARG_LENGTH: usize = 5;
-
-// choice percentages
-pub const CHOOSE_NEW_SIG_PCT: f64 = 0.5; // chance of new signature
-pub const RECHOOSE_LIB_FCT_WEIGHT_FACTOR: f64 = 0.8; // if we choose a function, now re-choosing is at its weight*<this>
-pub const USE_MINED_NESTING_EXAMPLE: f64 = 0.5; // chance of using a mined nesting example, if one is available
-
-/// metadata for the setup required before tests are generated
-pub mod setup {
-    pub const TOY_FS_DIRS: [&str; 2] = ["a/b/test/directory", "a/b/test/dir"];
-    pub const TOY_FS_FILES: [&str; 2] = ["a/b/test/directory/file.json", "a/b/file"];
-}
 
 pub fn gen_new_sig_with_cb(
     num_args: Option<usize>,
@@ -90,7 +69,11 @@ pub struct TestGenDB {
 
 // setup, and generate random values of particular types
 impl<'cxt> TestGenDB {
-    pub fn new(test_dir_path: String, test_file_prefix: String, lib_mined_data: Option<LibMinedData>) -> Self {
+    pub fn new(
+        test_dir_path: String,
+        test_file_prefix: String,
+        lib_mined_data: Option<LibMinedData>,
+    ) -> Self {
         Self {
             fs_strings: Vec::new(),
             possible_ext_points: Vec::new(),
