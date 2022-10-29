@@ -324,6 +324,8 @@ impl<'cxt> TestGenDB {
             }
         }
 
+        // not using mined data...
+
         let lib_fcts_weights = self
             .libs_fcts_weights
             .entry(lib_name.clone())
