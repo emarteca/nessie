@@ -107,12 +107,15 @@ impl NpmModule {
     }
 
     /// return JS code to import this module
-    pub fn get_js_for_basic_cjs_import(&self) -> String {
+    pub fn get_js_for_basic_cjs_import(&self, api_src_dir: Option<String>) -> String {
         [
             "let ",
             &self.get_mod_js_var_name(),
             " = require(\"",
-            &self.lib,
+            &match api_src_dir {
+                Some(dir) => dir,
+                None => self.lib.clone(),
+            },
             "\");",
         ]
         .join("")

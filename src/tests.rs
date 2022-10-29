@@ -3,10 +3,11 @@ use crate::decisions::TestGenDB;
 use crate::errors::*;
 use crate::functions::*;
 use crate::module_reps::*; // the representation structs, for components
-use serde::{Deserialize, Serialize};
 
 use indextree::Arena;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::process::Command;
 use strum_macros::EnumIter;
@@ -119,6 +120,7 @@ pub struct Test {
     pub(crate) include_basic_callback: bool,
     pub(crate) js_for_basic_cjs_import: String,
     pub(crate) mod_js_var_name: String,
+    pub(crate) root_level_tabs: RefCell<usize>,
 }
 
 pub type ExtensionPointID = indextree::NodeId;
@@ -129,6 +131,7 @@ impl<'cxt> Test {
         cur_test_id: usize,
         test_dir_path: String,
         test_file_prefix: String,
+        api_src_dir: Option<String>,
     ) -> Test {
         Self {
             fct_tree: Arena::new(),
@@ -139,8 +142,9 @@ impl<'cxt> Test {
                 test_file_prefix,
             },
             include_basic_callback: false,
-            js_for_basic_cjs_import: mod_rep.get_js_for_basic_cjs_import(),
+            js_for_basic_cjs_import: mod_rep.get_js_for_basic_cjs_import(api_src_dir),
             mod_js_var_name: mod_rep.get_mod_js_var_name(),
+            root_level_tabs: RefCell::new(0),
         }
     }
 
@@ -217,6 +221,8 @@ impl<'cxt> Test {
             }
         }
 
+        let base_test_root_tabs = *base_test.root_level_tabs.borrow();
+
         // return the new test
         Ok((
             ext_node_id,
@@ -227,6 +233,7 @@ impl<'cxt> Test {
                 include_basic_callback: false,
                 js_for_basic_cjs_import: base_test.js_for_basic_cjs_import,
                 mod_js_var_name: base_test.mod_js_var_name,
+                root_level_tabs: RefCell::new(base_test_root_tabs),
             },
         ))
     }
@@ -238,6 +245,7 @@ impl<'cxt> Test {
         cur_test_id: usize,
         test_dir_path: String,
         test_file_prefix: String,
+        api_src_dir: Option<String>,
     ) -> (ExtensionPointID, Test) {
         let mut fct_tree = Arena::new();
         let one_call_id = fct_tree.new_node(one_call);
@@ -252,8 +260,9 @@ impl<'cxt> Test {
                     test_file_prefix,
                 },
                 include_basic_callback,
-                js_for_basic_cjs_import: mod_rep.get_js_for_basic_cjs_import(),
+                js_for_basic_cjs_import: mod_rep.get_js_for_basic_cjs_import(api_src_dir),
                 mod_js_var_name: mod_rep.get_mod_js_var_name(),
+                root_level_tabs: RefCell::new(0),
             },
         )
     }
@@ -272,9 +281,13 @@ impl<'cxt> Test {
             + ".js"
     }
 
-    fn write_test_to_file(&self, print_instrumented: bool) -> Result<String, DFError> {
+    pub fn write_test_to_file(
+        &self,
+        print_instrumented: bool,
+        print_as_test_fct: bool,
+    ) -> Result<String, DFError> {
         let cur_test_file = self.get_file();
-        let cur_test = self.get_code(print_instrumented);
+        let cur_test = self.get_code(print_instrumented, print_as_test_fct);
         if matches!(std::fs::write(&cur_test_file, cur_test), Err(_)) {
             return Err(DFError::WritingTestError);
         }
@@ -284,8 +297,10 @@ impl<'cxt> Test {
     pub fn execute(
         &mut self,
     ) -> Result<HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>, DFError> {
-        let cur_test_file =
-            self.write_test_to_file(true /* needs to be instrumented for tracking */)?;
+        let cur_test_file = self.write_test_to_file(
+            true,  /* needs to be instrumented for tracking */
+            false, /* running these directly */
+        )?;
 
         let timeout = std::time::Duration::from_secs(consts::TEST_TIMEOUT_SECONDS);
         let mut binding = Command::new("timeout");

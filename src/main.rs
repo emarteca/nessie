@@ -17,9 +17,15 @@ struct Opt {
     #[structopt(long)]
     lib_name: String,
 
-    /// file containing setup code for the library
+    /// file containing source code for the library
+    /// note: this needs to be the root such that if we `require(lib_src_dir)` we
+    /// get the library
     #[structopt(long, short, parse(from_os_str))]
-    lib_setup_code: Option<PathBuf>,
+    lib_src_dir: Option<PathBuf>,
+
+    /// if not specified, generate into the current directory
+    #[structopt(long, short, parse(from_os_str))]
+    testing_dir: Option<PathBuf>,
 
     /// number of tests to generate
     #[structopt(long)]
@@ -70,7 +76,14 @@ fn main() {
 
     let discovery_filename = "js_tools/".to_owned() + &opt.lib_name + "_discovery.json";
 
-    let toy_fs_paths = setup_toy_fs("js_tools/toy_fs_dir")
+    let testing_dir = match &opt.testing_dir {
+        Some(ref dir) => dir.clone().into_os_string().into_string().unwrap(),
+        None => String::from("."),
+    };
+
+    let test_dir_path = consts::setup::TEST_DIR_PATH;
+
+    let toy_fs_paths = setup_toy_fs(&(testing_dir.clone() + "/" + test_dir_path + "/toy_fs_dir"))
         .expect("Error creating toy filesystem for tests; bailing out.");
 
     let mined_data: Option<Vec<MinedNestingPairJSON>> = if let Some(ref mined_data_file) =
@@ -84,12 +97,21 @@ fn main() {
         None
     };
 
-    let test_dir_path = consts::setup::TEST_DIR_PATH;
     let test_file_prefix = consts::setup::TEST_FILE_PREFIX;
     let mut testgen_db = decisions::TestGenDB::new(
         test_dir_path.to_string(),
         test_file_prefix.to_string(),
         mined_data,
+        match &opt.lib_src_dir {
+            Some(ref dir) => Some(
+                std::fs::canonicalize(dir.clone())
+                    .expect(format!("invalid directory {:?} for api source code", dir).as_str())
+                    .into_os_string()
+                    .into_string()
+                    .unwrap(),
+            ),
+            None => None,
+        },
     );
     testgen_db.set_fs_strings(toy_fs_paths);
 
@@ -99,10 +121,15 @@ fn main() {
     {
         // is the api spec file already there? if so, don't run
         let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
+        let mut api_spec_args = vec![opt.lib_name.clone()];
+        if let Some(ref dir) = opt.lib_src_dir {
+            let lib_src_dir_name = dir.clone().into_os_string().into_string().unwrap();
+            api_spec_args.push(lib_src_dir_name);
+        }
 
         if !Path::new(&api_spec_filename).exists() {
-            Command::new("./get_api_specs.sh")
-                .arg(&opt.lib_name)
+            let mut command = Command::new("./get_api_specs.sh")
+                .args(api_spec_args)
                 .output()
                 .expect(
                     format!(
@@ -119,12 +146,15 @@ fn main() {
             );
         }
 
-        if !Path::new(&("node_modules/".to_owned() + &opt.lib_name)).exists() {
-            Command::new("npm")
-                .arg("install")
-                .arg(&opt.lib_name)
-                .output()
-                .expect(format!("failed to install {:?} to test", &opt.lib_name).as_str());
+        // if we don't have the source code of the api, install it so it can be `require`d
+        if !opt.lib_src_dir.is_some() {
+            if !Path::new(&("node_modules/".to_owned() + &opt.lib_name)).exists() {
+                Command::new("npm")
+                    .arg("install")
+                    .arg(&opt.lib_name)
+                    .output()
+                    .expect(format!("failed to install {:?} to test", &opt.lib_name).as_str());
+            }
         }
 
         // if we got to this point, we successfully got the API and can construct the module object

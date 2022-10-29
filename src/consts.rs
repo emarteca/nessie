@@ -1,7 +1,10 @@
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 3;
+pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 50;
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;
 pub const ALLOW_ANY_TYPE_ARGS: bool = true;
 pub const TEST_TIMEOUT_SECONDS: u64 = 30;
+/// If we specify a nested extension but there's no valid test that can be extended
+/// in a nested way, false: error, or true: just return a fresh test
+pub const FRESH_TEST_IF_CANT_EXTEND: bool = true;
 
 pub const MAX_GENERATED_NUM: f64 = 1000.0;
 pub const MAX_GENERATED_ARRAY_LENGTH: usize = 10;
@@ -18,6 +21,6 @@ pub const USE_MINED_NESTING_EXAMPLE: f64 = 0.5; // chance of using a mined nesti
 pub mod setup {
     pub const TOY_FS_DIRS: [&str; 2] = ["a/b/test/directory", "a/b/test/dir"];
     pub const TOY_FS_FILES: [&str; 2] = ["a/b/test/directory/file.json", "a/b/file"];
-    pub const TEST_DIR_PATH: &str = "js_tools";
+    pub const TEST_DIR_PATH: &str = "test";
     pub const TEST_FILE_PREFIX: &str = "test";
 }

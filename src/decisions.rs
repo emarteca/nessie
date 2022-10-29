@@ -66,6 +66,7 @@ pub struct TestGenDB {
     lib_mined_data: LibMinedData,
     pub test_dir_path: String,
     pub test_file_prefix: String,
+    pub api_src_dir: Option<String>,
 }
 
 // setup, and generate random values of particular types
@@ -74,6 +75,7 @@ impl<'cxt> TestGenDB {
         test_dir_path: String,
         test_file_prefix: String,
         mined_data: Option<Vec<MinedNestingPairJSON>>,
+        api_src_dir: Option<String>,
     ) -> Self {
         Self {
             fs_strings: Vec::new(),
@@ -86,15 +88,8 @@ impl<'cxt> TestGenDB {
             },
             test_dir_path,
             test_file_prefix,
+            api_src_dir,
         }
-    }
-
-    pub fn get_test_dir_path(&self) -> String {
-        self.test_dir_path.clone()
-    }
-
-    pub fn get_test_file_prefix(&self) -> String {
-        self.test_file_prefix.clone()
     }
 
     pub fn set_fs_strings(&mut self, new_fs_paths: Vec<PathBuf>) {
@@ -234,8 +229,8 @@ impl<'cxt> TestGenDB {
                 // choose string from the list of valid files
                 let rand_index = thread_rng().gen_range(0..self.fs_strings.len());
                 "\"".to_owned()
-                    + &self.fs_strings[rand_index]
-                        .clone()
+                    + &std::fs::canonicalize(self.fs_strings[rand_index].clone().into_os_string())
+                        .unwrap()
                         .into_os_string()
                         .into_string()
                         .unwrap()
@@ -403,6 +398,7 @@ impl<'cxt> TestGenDB {
                     self.cur_test_index,
                     self.test_dir_path.clone(),
                     self.test_file_prefix.clone(),
+                    self.api_src_dir.clone(),
                 ),
                 None,
                 None,
@@ -417,6 +413,7 @@ impl<'cxt> TestGenDB {
             self.cur_test_index,
             self.test_dir_path.clone(),
             self.test_file_prefix.clone(),
+            self.api_src_dir.clone(),
         )
     }
 

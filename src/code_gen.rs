@@ -89,11 +89,19 @@ impl Callback {
 }
 
 impl Test {
-    pub(crate) fn get_code(&self, print_instrumented: bool) -> String {
+    pub(crate) fn get_code(&self, print_instrumented: bool, print_as_test_fct: bool) -> String {
         let setup_code = self.js_for_basic_cjs_import.clone();
         let (test_header, test_footer) = if print_instrumented {
             (get_instrumented_header(), get_instrumented_footer())
         } else {
+            ("", "")
+        };
+
+        let (test_fct_header, test_fct_footer) = if print_as_test_fct {
+            *self.root_level_tabs.borrow_mut() = 1;
+            ("module.exports = function() {", "}")
+        } else {
+            *self.root_level_tabs.borrow_mut() = 0;
             ("", "")
         };
 
@@ -105,7 +113,15 @@ impl Test {
             print_instrumented,
         );
 
-        [test_header, &setup_code, &test_body, test_footer].join("\n")
+        [
+            test_header,
+            &setup_code,
+            test_fct_header,
+            &test_body,
+            test_fct_footer,
+            test_footer,
+        ]
+        .join("\n")
     }
 
     fn fct_tree_code(
@@ -121,11 +137,10 @@ impl Test {
         // get root
         let mut iter = self.fct_tree.iter();
         let mut root_node = iter.next().unwrap();
-        const ROOT_LEVEL_TABS: usize = 0;
         let mut test_body = self.dfs_print(
             &base_var_name,
             root_node,
-            ROOT_LEVEL_TABS,
+            *self.root_level_tabs.borrow(),
             include_basic_callback,
             print_instrumented,
         );
@@ -140,7 +155,7 @@ impl Test {
                     + &self.dfs_print(
                         &base_var_name,
                         root_node,
-                        ROOT_LEVEL_TABS,
+                        *self.root_level_tabs.borrow(),
                         include_basic_callback,
                         print_instrumented,
                     );
@@ -388,4 +403,20 @@ pub fn get_function_call_code(
             .filter(|line| line.len() > 0)
             .collect::<Vec<&str>>()
             .join(&("\n".to_owned() + &indents))
+}
+
+pub fn get_meta_test_code(num_tests: i32) -> String {
+    let mut ret_code = String::new();
+    for i in 1..num_tests {
+        ret_code.push_str(
+            &[
+                &("\ndescribe('test".to_owned() + &i.to_string() + "!', function () {"),
+                "\tit('', async () => {",
+                &("\t\tawait require('./test".to_owned() + &i.to_string() + ".js')();"),
+                "\t});\n});",
+            ]
+            .join("\n"),
+        );
+    }
+    ret_code
 }

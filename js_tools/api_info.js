@@ -11,9 +11,14 @@ const DEFAULT_MAX_ARGS = 5;
 
 // argument is the name of the lib to be processed
 const libname = process.argv[2];
+let lib_require = libname;
+// then we provide a source dir for the api code -- require this
+if(process.argv.length == 4) {
+	lib_require = process.argv[3];
+}
 
 // import the lib, then get info required
-const lib = require(libname);
+const lib = require(lib_require);
 let fn_names = Object.getOwnPropertyNames(lib).filter((p) => typeof lib[p] === 'function');
 
 // for each function in the lib, get the number of arguments

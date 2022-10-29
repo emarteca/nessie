@@ -1,3 +1,5 @@
+use crate::code_gen;
+use crate::consts;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
 use crate::module_reps::*; // the representation structs, for components
@@ -5,16 +7,13 @@ use crate::tests::*;
 
 use rand::Rng;
 use std::convert::TryInto;
+use std::path::PathBuf;
 
 pub fn run_testgen_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
     testgen_db: &'cxt mut TestGenDB,
     num_tests: i32,
 ) -> Result<(), DFError> {
-    // if we specify a nested extension but there's no valid test that can be extended
-    // in a nested way, don't error, instead just return a fresh test
-    const FRESH_TEST_IF_CANT_EXTEND: bool = true;
-
     for cur_test_id in 1..=num_tests.try_into().unwrap() {
         let ext_type: ExtensionType = rand::thread_rng().gen();
 
@@ -23,16 +22,25 @@ pub fn run_testgen_phase<'cxt>(
             testgen_db,
             ext_type,
             cur_test_id,
-            FRESH_TEST_IF_CANT_EXTEND,
+            consts::FRESH_TEST_IF_CANT_EXTEND,
         )?;
 
         let test_results = cur_test.execute()?;
-        // TODO WHEN NOT DEBUGGING then, re-print the test not instrumented
-        // cur_test.write_test_to_file(false)?;
+        cur_test.write_test_to_file(false, true)?;
 
         testgen_db.set_cur_test_index(cur_test_id);
         testgen_db.add_extension_points_for_test(&cur_test, &test_results);
         println!("Test: {:?} of {:?}", cur_test_id, num_tests);
+    }
+    write_meta_test(testgen_db.test_dir_path.clone(), num_tests);
+    Ok(())
+}
+
+pub fn write_meta_test(test_dir: String, num_tests: i32) -> Result<(), DFError> {
+    let meta_test_code = code_gen::get_meta_test_code(num_tests);
+    let meta_test_file = PathBuf::from(test_dir + "/metatest.js");
+    if matches!(std::fs::write(&meta_test_file, meta_test_code), Err(_)) {
+        return Err(DFError::WritingTestError);
     }
     Ok(())
 }

@@ -49,8 +49,9 @@ pub fn run_discovery_phase(
                 fct_call.clone(),
                 true, /* include basic callback */
                 cur_test_id,
-                testgen_db.get_test_dir_path(),
-                testgen_db.get_test_file_prefix(),
+                testgen_db.test_dir_path.clone(),
+                testgen_db.test_file_prefix.clone(),
+                testgen_db.api_src_dir.clone(),
             );
 
             let test_results = cur_test.execute()?;
