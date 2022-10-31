@@ -1,10 +1,14 @@
+//! All the functionality for generation of random values.
+//! This includes `TestGenDB` -- the representation of the state of the current test generation run
+//! as this influences the new function calls and tests generated.
+
 use crate::consts::*;
 use crate::errors::*;
 use crate::functions::*;
 use crate::mined_seed_reps;
-use crate::mined_seed_reps::MinedNestingPairJSON;
-use crate::module_reps::*; // all the representation structs for the Npm modules
-use crate::tests::*; // tests and related structs
+use crate::mined_seed_reps::{LibMinedData, MinedNestingPairJSON};
+use crate::module_reps::*;
+use crate::tests::*;
 use rand::{
     distributions::{Alphanumeric, WeightedIndex},
     prelude::*,
@@ -14,6 +18,11 @@ use std::convert::TryFrom;
 use std::path::PathBuf;
 use strum::IntoEnumIterator;
 
+/// Generate a new signature with `num_args` arguments.
+/// `sigs` is a list of previous signatures, and there's a `CHOOSE_SIG_PCT` chance of
+/// returning a signature from this list.
+/// There's also an optional `cb_position` specifying a position for a callback argument.
+/// `testgen_db` is the state of the current test generation run.
 pub fn gen_new_sig_with_cb(
     num_args: Option<usize>,
     sigs: &Vec<FunctionSignature>, // TODO don't pick a sig we already picked
@@ -27,6 +36,8 @@ pub fn gen_new_sig_with_cb(
         let num_args = num_args.unwrap_or(thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH));
         let mut args: Vec<FunctionArgument> = Vec::with_capacity(num_args);
 
+        // generate random values for all arguments, unless `cb_position` is a valid
+        // position (if so, make this a callback).
         for arg_index in 0..num_args {
             args.push(
                 if cb_position.is_some() && i32::try_from(arg_index) == Ok(cb_position.unwrap()) {
@@ -50,27 +61,34 @@ pub fn gen_new_sig_with_cb(
     }
 }
 
-pub type LibMinedData = HashMap<String, Vec<MinedNestingPairJSON>>;
-
+/// Representation of the state of the test generator: configuration for
+/// random value generation, informed by previous tests generated/tried.
 pub struct TestGenDB {
+    /// List of strings representing (valid) paths in the toy filesystem the tests can interact with.
     fs_strings: Vec<PathBuf>,
+    /// List of possible extension points and types of extension for previous tests.
     possible_ext_points: Vec<(
         ExtensionType,
         (Test, Option<ExtensionPointID>, Option<String>),
     )>,
+    /// Current test index.
     cur_test_index: usize,
-    // keep track of all the functions tested, per library,
-    // so we can bias the generator to choose functions that haven't
-    // been tested yet
+    /// Keep track of all the functions tested, per library,
+    /// so we can bias the generator to choose functions that haven't
+    /// been tested yet.
     libs_fcts_weights: HashMap<String, Vec<(String, f64)>>,
+    /// Mined data.
     lib_mined_data: LibMinedData,
+    /// Directory the generated tests are written to.
     pub test_dir_path: String,
+    /// Prefix for the test files (just the file, not the path).
     pub test_file_prefix: String,
+    /// Optional: directory of the source code of the package we're generating tests for.
     pub api_src_dir: Option<String>,
 }
 
-// setup, and generate random values of particular types
 impl<'cxt> TestGenDB {
+    /// Constructor -- initial state of the generator before making any tests.
     pub fn new(
         test_dir_path: String,
         test_file_prefix: String,
@@ -92,13 +110,15 @@ impl<'cxt> TestGenDB {
         }
     }
 
+    /// Setter for the list of valid toy filesystem paths.
     pub fn set_fs_strings(&mut self, new_fs_paths: Vec<PathBuf>) {
         self.fs_strings = new_fs_paths;
     }
 
-    /// choose random type for argument
-    /// can't have allow_any without allow_cbs
+    /// Choose random type for argument of type `arg_type`.
+    /// Note: can't have `allow_any` without `allow_cbs`.
     pub fn choose_random_arg_type(&self, allow_cbs: bool, allow_any: bool) -> ArgType {
+        assert!(!(allow_cbs && !allow_any));
         let num_arg_types = 4;
         let max_arg_type_count = num_arg_types
             + if allow_cbs {
@@ -121,7 +141,13 @@ impl<'cxt> TestGenDB {
         }
     }
 
-    /// generate random value of specified argument type
+    /// Generate random value of specified argument type `arg_type`.
+    /// Can specify the position of the argument this will correspond to, with `arg_pos` (optional).
+    /// `ret_vals_pool` is a list of all the return values from previous function calls that are
+    /// in scope here (i.e., can be used as random values); `cb_arg_vals_pool` is the same for
+    /// callback argument values.
+    /// `mod_rep` is the representation of the API module that this generated value will be a part
+    /// of testing: its functions are valid potential random values.
     pub fn gen_random_value_of_type(
         &self,
         arg_type: ArgType,
@@ -130,7 +156,7 @@ impl<'cxt> TestGenDB {
         cb_arg_vals_pool: &Vec<ArgVal>,
         mod_rep: &NpmModule,
     ) -> ArgVal {
-        // gen AnyType? only if ret_vals_pool is non-empty
+        // gen AnyType? only if `ret_vals_pool` or `cb_arg_vals_pool` is non-empty
         let arg_type = match (arg_type, (ret_vals_pool.len() + cb_arg_vals_pool.len()) > 0) {
             (ArgType::AnyType, false) => {
                 self.choose_random_arg_type(true, false /* no AnyType */)
@@ -193,12 +219,15 @@ impl<'cxt> TestGenDB {
                 self.gen_random_callback(Some(random_sig), arg_pos)
             }
             ArgType::LibFunctionType => {
+                // choose a random function in the API
                 let lib_name = mod_rep.get_mod_js_var_name();
                 ArgVal::LibFunction(
                     lib_name + "." + mod_rep.get_fns().keys().choose(&mut thread_rng()).unwrap(),
                 )
             }
             ArgType::AnyType => {
+                // choose a random value from the pool of available returns/args
+                // `AnyType` is only a valid random type if at least one of these lists is non-empty
                 let mut rand_index =
                     thread_rng().gen_range(0..(ret_vals_pool.len() + cb_arg_vals_pool.len()));
                 if rand_index < ret_vals_pool.len() {
@@ -214,15 +243,16 @@ impl<'cxt> TestGenDB {
         }
     }
 
-    /// generate a random number
+    /// Generate a random number.
     fn gen_random_number_val(&self) -> ArgVal {
         ArgVal::Number((thread_rng().gen_range(-MAX_GENERATED_NUM..=MAX_GENERATED_NUM)).to_string())
     }
-    /// generate a random string; since we're working with file systems, these strings should sometimes correspond
-    /// to valid paths in the operating system
+    /// Generate a random string.
+    /// Since we're possibly working with file system APIs, these strings can be configured to correspond
+    /// to valid paths in the operating system with `include_fs_strings`.
     fn gen_random_string_val(&self, include_fs_strings: bool) -> ArgVal {
         // if string, choose something from the self.fs_strings half the time
-        // TODO actually, if we're including fs strings, always choose an fs string
+        // TODO if we're including fs strings, always choose an fs string
         let string_choice = 0; // self.thread_rng().gen_range(0..=1);
         ArgVal::String(match (string_choice, include_fs_strings) {
             (0, true) => {
@@ -248,9 +278,10 @@ impl<'cxt> TestGenDB {
             }
         })
     }
-    /// generate a random callback
-    /// the `opt_sig` signature should be generated based on the function pool etc
-    /// and these should be fields in the generator
+    /// Generate a random callback.
+    /// Use the `opt_sig` signature if it's specified, otherwise the default callback.
+    /// `arg_pos` is an option to specify the position that this callback is in an arguments list
+    /// e.g. if it's `cb` in `some_fct(x, y, cb)` then `arg_pos` would be 2.
     fn gen_random_callback(
         &self,
         opt_sig: Option<FunctionSignature>,
@@ -265,18 +296,27 @@ impl<'cxt> TestGenDB {
         ArgVal::Callback(CallbackVal::RawCallback(cb))
     }
 
+    /// Generate a random function call, for module `mod_rep`.
+    /// `ret_vals_pool` is the list of function return values in scope to be
+    /// used in this call; `cb_arg_vals_pool` is the same for callback argument
+    /// values.
+    /// `ext_facts` is a tuple specifying an optional other function call this generated
+    /// function will be extending (i.e., parent), along with the extension type and
+    /// unique ID for the parent.
     pub fn gen_random_call(
         &mut self,
         mod_rep: &NpmModule,
         ret_vals_pool: Vec<ArgVal>,
         cb_arg_vals_pool: Vec<ArgVal>,
         ext_facts: (Option<&FunctionCall>, ExtensionType, String),
-    ) -> FunctionCall {
+    ) -> Result<FunctionCall, DFError> {
         let lib_name = mod_rep.get_mod_js_var_name();
 
         let (ext_fct, ext_type, ext_uniq_id) = ext_facts;
 
         // should we try and use mined data?
+        // TODO: right now we only have mined data relevant for nested extensions,
+        // but this will change.
         if ext_type == ExtensionType::Nested
             && (thread_rng().gen_range(0..=1) as f64) / 100. > USE_MINED_NESTING_EXAMPLE
         {
@@ -297,8 +337,8 @@ impl<'cxt> TestGenDB {
                     None, /* position of arg in parent call of cb this is in */
                     None, /* parent call node ID */
                 );
-                ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep);
-                let mut args = ret_call.sig.get_mut_args();
+                ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
+                let args = ret_call.sig.get_mut_args();
                 // let outer_sig = ext_fct.unwrap().sig;
                 // setup the dataflow
                 // THIS WILL CHANGE WHEN WE HAVE BETTER MINED DATA
@@ -314,13 +354,13 @@ impl<'cxt> TestGenDB {
                             );
                         }
                     }
-                    return ret_call;
+                    return Ok(ret_call);
                 }
             }
         }
 
         // not using mined data...
-
+        // choose a random function to generate a call for
         let lib_fcts_weights = self
             .libs_fcts_weights
             .entry(lib_name.clone())
@@ -331,13 +371,12 @@ impl<'cxt> TestGenDB {
                     .map(|fct_name| (fct_name.clone(), 1.0))
                     .collect()
             });
-        let dist =
-            WeightedIndex::new(lib_fcts_weights.iter().map(|(fct_name, weight)| weight)).unwrap();
+        let dist = WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
-        let (fct_name, cur_fct_weight) = &lib_fcts_weights[rand_fct_index].clone();
+        let (fct_name, _) = &lib_fcts_weights[rand_fct_index].clone();
         let fct_to_call = &mod_rep.get_fns()[fct_name];
         // now update the weight of the function we just picked
-        if let Some((fct_name, cur_fct_weight)) = self
+        if let Some((_, cur_fct_weight)) = self
             .libs_fcts_weights
             .get_mut(&lib_name)
             .unwrap()
@@ -354,9 +393,9 @@ impl<'cxt> TestGenDB {
             None
         } else {
             Some(i32::try_from(thread_rng().gen_range(0..=(num_args * 2))).unwrap())
-            // x2 means there's a 50% chance of no callback (position never reached)
+            // x2 means there's a 50% chance of no callback (position doesnt correspond to valid arg pos)
         };
-        // choose a random signature -- either new, or an existing one if we know what it is
+        // choose a random signature -- either new, or an existing one (if theres some available)
         let random_sig = gen_new_sig_with_cb(
             fct_to_call.get_num_api_args(),
             fct_to_call.get_sigs(),
@@ -369,10 +408,13 @@ impl<'cxt> TestGenDB {
             None, /* position of arg in parent call of cb this is in */
             None, /* parent call node ID */
         );
-        ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep);
-        ret_call
+        // init the call with random values of the types specified in `random_sig`
+        ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
+        Ok(ret_call)
     }
 
+    /// Get a test that can be extended with the extension type specified.
+    /// If there's no valid test that can be extended, return a new blank one.
     pub fn get_test_to_extend(
         &mut self,
         mod_rep: &'cxt NpmModule,
@@ -406,6 +448,7 @@ impl<'cxt> TestGenDB {
         }
     }
 
+    /// Get a blank test for module `mod_rep` (i.e., with no calls).
     pub fn get_blank_test(&mut self, mod_rep: &'cxt NpmModule) -> Test {
         self.cur_test_index = self.cur_test_index + 1;
         Test::new(
@@ -417,11 +460,18 @@ impl<'cxt> TestGenDB {
         )
     }
 
+    /// Set the current test index to `cur_test_index`; future tests will
+    /// be generated with this index, which will then be incremented.
     pub fn set_cur_test_index(&mut self, cur_test_index: usize) {
         self.cur_test_index = cur_test_index;
     }
 
-    pub fn add_extension_point(
+    /// Add an extension point to the list of valid extension points.
+    /// Extension points are specified by their type `ext_type` and the
+    /// test ID: a tuple of the test, an optional ID for the extension
+    /// point this corresponds to, and an option of the position of a
+    /// callback argument in this extension point (needed for nested extension).
+    fn add_extension_point(
         &mut self,
         ext_type: ExtensionType,
         test_id: (Test, Option<ExtensionPointID>, Option<String>),
@@ -429,6 +479,8 @@ impl<'cxt> TestGenDB {
         self.possible_ext_points.push((ext_type, test_id));
     }
 
+    /// Add all valid extension points for test `test`, given the
+    /// results at each of `test`'s extension points in `ext_point_results`.
     pub fn add_extension_points_for_test(
         &mut self,
         test: &Test,
@@ -441,6 +493,8 @@ impl<'cxt> TestGenDB {
         {
             return;
         }
+        // for each of the extension points and their results, check if they
+        // can be extended with each type of extension.
         for (ext_id, (res, cb_arg_pos)) in ext_point_results.iter() {
             for ext_type in ExtensionType::iter() {
                 if res.can_be_extended(ext_type) {

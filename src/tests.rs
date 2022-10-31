@@ -185,19 +185,19 @@ impl<'cxt> Test {
         };
 
         // select random function to call, and create corresponding node
-        let mut ext_call = testgen_db.gen_random_call(
+        let ext_call = testgen_db.gen_random_call(
             mod_rep,
             ret_vals_pool,
             cb_arg_vals_pool,
             (ext_fct, ext_type, ext_uniq_id),
-        );
+        )?;
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);
         // update callback args of ext_call to have the ext_call ID
-        let mut new_node = base_test.fct_tree.get_mut(ext_node_id).unwrap();
+        let new_node = base_test.fct_tree.get_mut(ext_node_id).unwrap();
         new_node
             .get_mut()
-            .update_cb_args_with_id(ext_node_id.into());
+            .update_cb_args_with_id(ext_node_id.into())?;
 
         // do the extension, if it's a non-empty test
         if ext_id.is_some() {
@@ -302,7 +302,6 @@ impl<'cxt> Test {
             false, /* running these directly */
         )?;
 
-        let timeout = std::time::Duration::from_secs(consts::TEST_TIMEOUT_SECONDS);
         let mut binding = Command::new("timeout");
         let run_test = binding
             .arg(consts::TEST_TIMEOUT_SECONDS.to_string())
@@ -380,9 +379,6 @@ impl<'cxt> Test {
         &self,
         ext_id: ExtensionPointID,
     ) -> Vec<ArgVal> {
-        let ext_node = self.fct_tree.get(ext_id).unwrap();
-        let ext_node_uniq_id = self.get_uniq_id_for_call(ext_node);
-
         // can only use cb args from the direct nesting parents (i.e., the ancestors)
         ext_id
             .ancestors(&self.fct_tree)

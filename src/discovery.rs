@@ -56,7 +56,7 @@ pub fn run_discovery_phase(
 
             let test_results = cur_test.execute()?;
 
-            let (fct_result, cb_arg_pos) = test_results.get(&cur_fct_id).unwrap();
+            let (fct_result, _cb_arg_pos) = test_results.get(&cur_fct_id).unwrap();
             if fct_result != &FunctionCallResult::ExecutionError {
                 func_desc.add_sig(FunctionSignature::try_from((&args, *fct_result)).unwrap());
             }

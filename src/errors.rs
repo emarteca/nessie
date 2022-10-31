@@ -1,3 +1,5 @@
+//! Custom errors and results for the test generator.
+
 use crate::tests::ExtensionType;
 use serde::{Deserialize, Serialize};
 

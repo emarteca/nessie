@@ -128,7 +128,7 @@ fn main() {
         }
 
         if !Path::new(&api_spec_filename).exists() {
-            let mut command = Command::new("./get_api_specs.sh")
+            Command::new("./get_api_specs.sh")
                 .args(api_spec_args)
                 .output()
                 .expect(
@@ -158,7 +158,7 @@ fn main() {
         }
 
         // if we got to this point, we successfully got the API and can construct the module object
-        let mut mod_rep =
+        let mod_rep =
             match NpmModule::from_api_spec(PathBuf::from(&api_spec_filename), opt.lib_name.clone())
             {
                 Ok(mod_rep) => mod_rep,
@@ -186,6 +186,10 @@ fn main() {
     println!("Discovery phase returns: {}", mod_rep.short_display());
 
     let num_tests = opt.num_tests;
-
-    run_testgen_phase(&mut mod_rep, &mut testgen_db, num_tests);
+    if !opt.skip_testgen {
+        run_testgen_phase(&mut mod_rep, &mut testgen_db, num_tests)
+            .expect("Error running test generation phase: {:?}");
+    } else {
+        println!("`skip-testgen` specified: Skipping test generation phase.")
+    }
 }

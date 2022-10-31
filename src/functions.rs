@@ -139,7 +139,7 @@ impl FunctionArgument {
     }
 
     // don't need any of the function ID stuff here, since functions just print as "[function]"
-    pub fn get_string_rep_arg_val__short(&self) -> Option<String> {
+    pub fn get_string_rep_arg_val_short(&self) -> Option<String> {
         match self.arg_type {
             ArgType::CallbackType => Some("\"[function]\"".to_string()),
             _ => self.get_string_rep_arg_val(None, None, false).clone(),
@@ -168,7 +168,7 @@ impl FunctionArgument {
 
     pub fn set_cb_id(&mut self, cb_id: Option<String>) -> Result<(), TestGenError> {
         match self.arg_val.as_mut() {
-            Some(mut arg_val) => {
+            Some(arg_val) => {
                 arg_val.set_cb_id(cb_id)?;
                 Ok(())
             }

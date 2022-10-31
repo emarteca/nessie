@@ -27,7 +27,7 @@ impl Callback {
             .get_arg_list()
             .iter()
             .enumerate()
-            .map(|(i, fct_arg)| {
+            .map(|(i, _)| {
                 if print_instrumented {
                     [
                         "\tconsole.log({\"",
@@ -192,13 +192,12 @@ impl Test {
             // print those bodies accordingly -- this is equivalent to
             // iterating through the children
             let args = cur_node_call.sig.get_arg_list();
-            let mut args_rep = String::new();
             let mut cur_child = cur_root.first_child();
             args.iter()
                 .map(|arg| {
                     let extra_body_code =
                         if arg.get_type() == ArgType::CallbackType && cur_child.is_some() {
-                            let mut cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
+                            let cur_child_node = self.fct_tree.get(cur_child.unwrap()).unwrap();
                             let ret_val = if cur_child_node.get().get_parent_call_id()
                                 == Some(cur_call_node_id.to_string())
                             {
@@ -329,7 +328,7 @@ pub fn get_function_call_code(
                             &i.to_string(),
                             "\": ",
                             &fct_arg
-                                .get_string_rep_arg_val__short()
+                                .get_string_rep_arg_val_short()
                                 .as_ref()
                                 .unwrap()
                                 .clone(),

@@ -1,8 +1,10 @@
+//! Driver for the generation of the tests.
+
 use crate::code_gen;
 use crate::consts;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
-use crate::module_reps::*; // the representation structs, for components
+use crate::module_reps::*;
 use crate::tests::*;
 
 use rand::Rng;
@@ -19,7 +21,7 @@ pub fn run_testgen_phase<'cxt>(
         // get a random extension type
         let ext_type: ExtensionType = rand::thread_rng().gen();
 
-        let (cur_fct_id, mut cur_test) = Test::extend(
+        let (_cur_fct_id, mut cur_test) = Test::extend(
             mod_rep,
             testgen_db,
             ext_type,
@@ -41,7 +43,7 @@ pub fn run_testgen_phase<'cxt>(
         println!("Test: {:?} of {:?}", cur_test_id, num_tests);
     }
     // print the runner for the mocha test suite
-    write_meta_test(testgen_db.test_dir_path.clone(), num_tests);
+    write_meta_test(testgen_db.test_dir_path.clone(), num_tests)?;
     Ok(())
 }
 

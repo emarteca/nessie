@@ -54,6 +54,8 @@ pub struct MinedNestingPairJSON {
     inner_params: Vec<MinedParam>,
 }
 
+pub type LibMinedData = HashMap<String, Vec<MinedNestingPairJSON>>;
+
 impl MinedNestingPairJSON {
     pub fn list_from_file(path: &PathBuf) -> Result<Vec<Self>, DFError> {
         let file_conts = std::fs::read_to_string(path);
@@ -70,7 +72,7 @@ impl MinedNestingPairJSON {
         Ok(mined_data_rep)
     }
 
-    pub fn lib_map_from_list(all_pairs: Vec<Self>) -> HashMap<String, Vec<Self>> {
+    pub fn lib_map_from_list(all_pairs: Vec<Self>) -> LibMinedData {
         let mut ret_map = HashMap::new();
         for pair in all_pairs {
             ret_map
