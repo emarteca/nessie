@@ -1,7 +1,7 @@
 use crate::tests::ExtensionType;
 use serde::{Deserialize, Serialize};
 
-/// errors in the DF testgen pipeline
+/// Errors in the Data- and Feedback- driven test generation pipeline
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DFError {
     /// error reading some sort of spec file from a previous stage of the pipeline
@@ -22,6 +22,7 @@ pub enum DFError {
     TestGenError(TestGenError),
 }
 
+/// Errors in the test generation.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TestGenError {
     /// type mismatch between arg value and specified arg type
@@ -36,9 +37,10 @@ impl From<TestGenError> for DFError {
     }
 }
 
-/// representation of the different test outcomes we care about
-/// in this case, the only test is only about the callback arguments (whether or not
-/// they were called, and in what order)
+/// Representation of the different test outcomes we're tracking.
+/// TODO might track other outcomes in the extended test generator.
+/// In this case, the only test is only about the callback arguments (whether or not
+/// they were called, and in what order).
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
 pub enum SingleCallCallbackTestResult {
     /// callback is called and executed synchronously, and no error
@@ -49,8 +51,10 @@ pub enum SingleCallCallbackTestResult {
     NoCallbackCalled,
 }
 
+/// Possible results of one function execution.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
 pub enum FunctionCallResult {
+    /// result WRT whether a callback argument was executed when this function is called
     SingleCallback(SingleCallCallbackTestResult),
     /// there is an error in the execution of the function
     ExecutionError,
@@ -58,6 +62,8 @@ pub enum FunctionCallResult {
 }
 
 impl FunctionCallResult {
+    /// Test if the function result means the function that was executed can be
+    /// used as an extension point of type `ExtensionType`.
     pub fn can_be_extended(&self, ext_type: ExtensionType) -> bool {
         match (self, ext_type) {
             // can never extend if there's an execution error
