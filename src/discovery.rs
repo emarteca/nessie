@@ -1,19 +1,26 @@
+//! API discovery phase of the test generator.
+//! These are throwaway tests, not part of the generated suite.
+//! TODO: in the improved version of the test generator we are going
+//! to remove the discovery phase, and derive the same information from
+//! the test generation phase itself. This means we'll be continuously
+//! discovering the API, with more complex tests than those generated here.
+
 use crate::consts;
 use crate::decisions;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
 use crate::functions::*;
-use crate::module_reps::*; // all the representation structs
+use crate::module_reps::*;
 use crate::tests::*;
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-/// for all the functions in the mod_rep, run discovery
-/// generate tests, and they are instrumented
-/// the instrumented tests output a JSON of information about the dynamic types of args and return
-/// the output of execution is a JSON, which is parsed and then analyzed
-/// then this information is used to construct signatures for the module functions
+/// For all the functions in the module `mod_rep`, run the discovery:
+/// We're discovering the position and asynchronicity of callback arguments.
+/// The generated (instrumented) tests output a JSON of information about the dynamic
+/// types of arguments and returns, which is parsed and then analyzed
+/// to construct signatures for the module functions.
 pub fn run_discovery_phase(
     mod_rep: NpmModule,
     testgen_db: TestGenDB,
@@ -23,6 +30,7 @@ pub fn run_discovery_phase(
     let mut cur_test_id: usize = 0;
 
     let mut fcts = mod_rep.get_fns().clone();
+    // results of test executions
     let mut test_res_pairs: Vec<(
         Test,
         HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
@@ -57,6 +65,7 @@ pub fn run_discovery_phase(
             let test_results = cur_test.execute()?;
 
             let (fct_result, _cb_arg_pos) = test_results.get(&cur_fct_id).unwrap();
+            // if there was no execution error, then the generated signature is valid
             if fct_result != &FunctionCallResult::ExecutionError {
                 func_desc.add_sig(FunctionSignature::try_from((&args, *fct_result)).unwrap());
             }
@@ -81,9 +90,9 @@ pub fn run_discovery_phase(
     Ok((mod_rep, testgen_db))
 }
 
-/// generate arguments for a function with a callback at specified position
-/// if the position specified is invalid (i.e., if it's not in the range of valid indices)
-/// then there is no callback argument included
+/// Generate arguments for a function with a callback at specified position `cb_position`.
+/// If the position specified is invalid (i.e., if it's not in the range of valid indices)
+/// then there is no callback argument included.
 fn gen_args_for_fct_with_cb(
     mod_fct: &ModuleFunction,
     cb_position: Option<i32>,
