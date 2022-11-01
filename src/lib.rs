@@ -1,5 +1,7 @@
 #![feature(let_chains)]
 
+//! Data and feedback directed automated test generator for JavaScript libraries.
+
 pub mod code_gen;
 pub mod consts;
 pub mod decisions;

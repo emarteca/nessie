@@ -133,7 +133,7 @@ impl NpmModule {
                     .iter()
                     .map(|arg| arg.get_type().to_string())
                     .collect();
-                fn_sigs.push(serde_json::json!({"args": args.join(", "), "callback_res": sig.get_callback_res()}));
+                fn_sigs.push(serde_json::json!({"args": args.join(", "), "callback_res": sig.get_call_res()}));
             }
             sigs[fn_name] = serde_json::json!(fn_sigs);
         }

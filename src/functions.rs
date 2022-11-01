@@ -1,11 +1,13 @@
+//! Representations of functions, callbacks, and all components
+//! (arguments, values, signatures).
+
 use crate::errors::*;
-/// functions, callbacks, and all components (arguments, values, signatures)
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
-/// representation of a single signature of a module function
-/// this includes the number and types of arguments, etc
-/// note that functions may have multiple valid signatures
+/// Representation of a single signature of a module function.
+/// This includes the number and types of arguments, etc.
+/// Note that functions may have multiple valid signatures.
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FunctionSignature {
     /// list of arguments: their type, and value if tested
@@ -32,7 +34,7 @@ impl TryFrom<(&Vec<FunctionArgument>, FunctionCallResult)> for FunctionSignature
 }
 
 impl FunctionSignature {
-    /// constructor
+    /// Constructor.
     pub fn new(
         arg_list: &Vec<FunctionArgument>,
         call_test_result: Option<FunctionCallResult>,
@@ -44,7 +46,7 @@ impl FunctionSignature {
         }
     }
 
-    /// get the positions of callback arguments for this function
+    /// Get the positions of callback arguments for this function signature.
     pub fn get_callback_positions(&self) -> Vec<usize> {
         let mut posns = Vec::new();
         for (pos, arg) in self.arg_list.iter().enumerate() {
@@ -55,10 +57,21 @@ impl FunctionSignature {
         posns
     }
 
+    /// Get the list of `ArgVal` representations of all the arguments to the callback
+    /// arguments in this signature.
+    /// i.e., if the signature has arg values `(1, 2, (cb0, cb1) => {...})`
+    /// where the 3rd argument is a callback, then this function will return the
+    /// list of variables `[cb0, cb1]`.
+    /// If there are multiple callback arguments in the signature, this function returns
+    /// a merged list of all the callbacks' arguments.
+    ///
+    /// Note: this is designed for use in getting the list of all callback arguments in scope
+    /// at a given extension point.
     pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
         self.arg_list
             .iter()
             .filter_map(|arg| match arg.get_arg_val() {
+                // get the list of all arguments for each callback arg
                 Some(ArgVal::Callback(CallbackVal::RawCallback(cb))) => {
                     Some(cb.get_all_cb_args_vals(context_uniq_id))
                 }
@@ -78,22 +91,23 @@ impl FunctionSignature {
         false
     }
 
-    /// getter for arg list
+    /// Getter for arg list.
     pub fn get_arg_list(&self) -> &Vec<FunctionArgument> {
         &self.arg_list
     }
 
-    /// mutable getter for the arg list
+    /// Mutable getter for the arg list.
     pub fn get_mut_args(&mut self) -> &mut Vec<FunctionArgument> {
         &mut self.arg_list
     }
 
-    /// getter for callback res
-    pub fn get_callback_res(&self) -> Option<FunctionCallResult> {
+    /// Getter for the result of calling the function with this signature.
+    pub fn get_call_res(&self) -> Option<FunctionCallResult> {
         self.call_test_result
     }
 }
 
+/// Default signature is empty, with the spread argument, and untested.
 impl std::default::Default for FunctionSignature {
     fn default() -> Self {
         Self {
@@ -104,26 +118,34 @@ impl std::default::Default for FunctionSignature {
     }
 }
 
-/// representation of a function argument
+/// Representation of a function argument: type and optional value.
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FunctionArgument {
-    /// type of the argument
+    /// Type of the argument.
     arg_type: ArgType,
-    // if tested, list of values tested with
-    // TODO figure out how to represent these values
+    /// Optional value of the argument.
     arg_val: Option<ArgVal>,
 }
 
 impl FunctionArgument {
+    /// Constructor.
     pub fn new(arg_type: ArgType, arg_val: Option<ArgVal>) -> Self {
         Self { arg_type, arg_val }
     }
 
+    /// Is this argument a callback?
     pub fn is_callback(&self) -> bool {
         self.arg_type == ArgType::CallbackType
     }
 
-    /// getter for string representation of argument value
+    /// Getter for string representation of argument value.
+    /// Also takes optional bits of code that will make up the instrumentation,
+    /// if the string representation is being instrumented (this is not relevant
+    /// for primitive argument values, but if a callback is being instrumented
+    /// then the `extra_body_code` is extra instrumentation code to be included
+    /// in the body of the function, and `context_uniq_id` is the unique ID of the
+    /// function this argument is being passed to, which is information needed
+    /// for the instrumentation).
     pub fn get_string_rep_arg_val(
         &self,
         extra_body_code: Option<String>,
@@ -138,7 +160,8 @@ impl FunctionArgument {
         )
     }
 
-    // don't need any of the function ID stuff here, since functions just print as "[function]"
+    /// Short string representation of the argument.
+    /// We don't need any of the instrumentation info here, since function args print as `[function]`.
     pub fn get_string_rep_arg_val_short(&self) -> Option<String> {
         match self.arg_type {
             ArgType::CallbackType => Some("\"[function]\"".to_string()),
@@ -146,6 +169,8 @@ impl FunctionArgument {
         }
     }
 
+    /// Setter for the value of this argument.
+    /// Returns an error if the value `arg_val` is not compatible with the type of this arg.
     pub fn set_arg_val(&mut self, arg_val: ArgVal) -> Result<(), TestGenError> {
         if !(arg_val.get_type().can_be_repd_as(self.arg_type)) {
             return Err(TestGenError::ArgTypeValMismatch);
@@ -154,18 +179,24 @@ impl FunctionArgument {
         Ok(())
     }
 
+    /// Getter for the argument value.
     pub fn get_arg_val(&self) -> &Option<ArgVal> {
         &self.arg_val
     }
 
+    /// Mutable getter for the argument value.
     pub fn get_arg_val_mut(&mut self) -> &Option<ArgVal> {
         &mut self.arg_val
     }
 
+    /// Getter for the type of this argument.
     pub fn get_type(&self) -> ArgType {
         self.arg_type
     }
 
+    /// Setter for the callback ID of this argument (this is a no-op if
+    /// this argument is not a callback).
+    /// Returns an error if the value of this argument is not set.
     pub fn set_cb_id(&mut self, cb_id: Option<String>) -> Result<(), TestGenError> {
         match self.arg_val.as_mut() {
             Some(arg_val) => {
@@ -177,28 +208,30 @@ impl FunctionArgument {
     }
 }
 
-/// list of types being tracked, for arguments
-/// this can be modified for an arbitrary amount of granularity
+/// List of types of arguments that are represented.
+/// Note: this can be modified for an arbitrary amount of granularity;
+/// so far we have mainly stuck to the default types available in JavaScript,
+/// with the added distinction between generated callbacks and API library functions.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum ArgType {
-    /// number
+    /// Number.
     NumberType,
-    /// string
+    /// String.
     StringType,
-    /// array type
+    /// Array.
     ArrayType,
-    /// non-callback, non-array, object
+    /// Non-callback, non-array, object.
     ObjectType,
-    /// callback (TODO maybe more granularity here)
+    /// Generated callback (TODO maybe more granularity here).
     CallbackType,
-    /// library function -- distinct from callbacks, since we're not building them
+    /// API library function -- distinct from callbacks, since we're not building them.
     LibFunctionType,
-    /// the "any" dynamic type (basically a no-op)
+    /// The `any` dynamic type.
     AnyType,
 }
 
 impl ArgType {
-    // return true if the receiver (`self`) can be represented
+    // Return `true` if the receiver (`self`) can be represented
     // by the other type `ot`.
     pub fn can_be_repd_as(&self, ot: Self) -> bool {
         *self == ot || ot == Self::AnyType
@@ -219,18 +252,28 @@ impl std::fmt::Display for ArgType {
     }
 }
 
+/// Kinds of argument values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ArgVal {
+    /// Number.
     Number(String),
+    /// String.
     String(String),
+    /// Array.
     Array(String),
+    /// Non-callback, non-array, object.
     Object(String),
+    /// Generated callback.
     Callback(CallbackVal),
+    /// API library function.
     LibFunction(String),
+    /// Variable (so far, this means scope-available previous function return or callback argument).
     Variable(String),
 }
 
 impl ArgVal {
+    /// Get the string representation of this argument value.
+    /// Instrumentation code is passed in and used to instrument callback values.
     pub fn get_string_rep(
         &self,
         extra_body_code: Option<String>,
@@ -250,6 +293,12 @@ impl ArgVal {
         }
     }
 
+    /// Get the type of this argument.
+    /// `ArgVal` closely follows the `ArgType` enum, with the main distinction
+    /// being the lack of value corresponding to the `any` type, and the addition
+    /// of the `Variable` kind.
+    /// Here, we consider `Variable` values to have the `any` type; this is used
+    /// when passing previous return/callback arg values to later function calls.
     pub fn get_type(&self) -> ArgType {
         match self {
             Self::Number(_) => ArgType::NumberType,
@@ -262,6 +311,8 @@ impl ArgVal {
         }
     }
 
+    /// Setter for the callback ID.
+    /// Returns an error if the value is not a callback.
     pub fn set_cb_id(&mut self, cb_id: Option<String>) -> Result<(), TestGenError> {
         match self {
             Self::Callback(CallbackVal::RawCallback(cb)) => {
@@ -273,13 +324,18 @@ impl ArgVal {
     }
 }
 
+/// Kinds of callback value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CallbackVal {
+    /// Variable: if the callback is stored as a named function earlier, and represented by name.
     Var(String),
+    /// Anonymous callback, represented as the raw signature/function-body.
     RawCallback(Callback),
 }
 
 impl CallbackVal {
+    /// Get the string representation of this callback value.
+    /// Instrumentation code is passed in and used to instrument raw callback values.
     pub fn get_string_rep(
         &self,
         extra_body_code: Option<String>,
@@ -295,16 +351,21 @@ impl CallbackVal {
     }
 }
 
+/// Representation of a callback function.
+/// This is used to represent the generated callback arguments to library function calls.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Callback {
+    /// Signature of the callback function.
     pub(crate) sig: FunctionSignature,
-    // unique ID, used when printing to determine what the CB is
+    /// Unique ID, used in instrumentation.
     cb_id: Option<String>,
-    // the argument position that this callback is in
+    /// The argument position that this callback occupies, in the function call
+    /// for which this is an argument.
     pub(crate) cb_arg_pos: Option<usize>,
 }
 
 impl Callback {
+    /// Constructor.
     pub fn new(sig: FunctionSignature) -> Self {
         Self {
             sig,
@@ -313,14 +374,18 @@ impl Callback {
         }
     }
 
+    /// Setter for the unique ID of this callback.
     pub fn set_cb_id(&mut self, cb_id: Option<String>) {
         self.cb_id = cb_id;
     }
 
+    /// Setter for the argument position that this callback occupies.
     pub fn set_cb_arg_pos(&mut self, cb_arg_pos: Option<usize>) {
         self.cb_arg_pos = cb_arg_pos;
     }
 
+    /// Getter for the list of all the arguments to this callback.
+    /// This is the list of parameter names in this callback's signature.
     pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
         let cb_arg_name_base = self.get_cb_arg_name_base(&Some(context_uniq_id.clone()));
         self.sig
@@ -332,6 +397,7 @@ impl Callback {
     }
 }
 
+/// Default callback is just empty, with the default signature (empty, with the spread argument).
 impl std::default::Default for Callback {
     fn default() -> Self {
         Self {
