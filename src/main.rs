@@ -13,38 +13,41 @@ use nessie::testgen::run_testgen_phase;
 #[derive(Debug, StructOpt)]
 #[structopt(name = "nessie_args", about = "Arguments for the test generator")]
 struct Opt {
-    /// name of the library/module to generate tests for
+    /// Name of the library/module to generate tests for.
     #[structopt(long)]
     lib_name: String,
 
-    /// file containing source code for the library
-    /// note: this needs to be the root such that if we `require(lib_src_dir)` we
-    /// get the library
+    /// File containing source code for the library.
+    /// Note: this needs to be the root such that if we `require(lib_src_dir)` we
+    /// get the library.
     #[structopt(long, short, parse(from_os_str))]
     lib_src_dir: Option<PathBuf>,
 
-    /// if not specified, generate into the current directory
+    /// Directory to generate tests into;
+    /// if not specified, generate into the current directory.
     #[structopt(long, short, parse(from_os_str))]
     testing_dir: Option<PathBuf>,
 
-    /// number of tests to generate
+    /// Number of tests to generate.
     #[structopt(long)]
     num_tests: i32,
 
-    /// running the discovery phase? default: no if there is an existing discovery output file
+    /// Running the discovery phase?
+    /// Default: no if there is an existing discovery output file.
     #[structopt(long)]
     run_discover: bool,
 
-    /// running the test generation phase? default: yes
+    /// Running the test generation phase?
+    /// Default: yes.
     #[structopt(long)]
     skip_testgen: bool,
 
-    /// file containing mined data
+    /// File containing mined data.
     #[structopt(long, short, parse(from_os_str))]
     mined_data: Option<PathBuf>,
 }
 
-/// function to set up a toy filesystem that the generated tests can interact with
+/// Function to set up a toy filesystem that the generated tests can interact with.
 fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
     let mut toy_fs_paths: Vec<PathBuf> = Vec::new();
 
@@ -98,6 +101,8 @@ fn main() {
     };
 
     let test_file_prefix = consts::setup::TEST_FILE_PREFIX;
+
+    // setup the initial test gen database.
     let mut testgen_db = decisions::TestGenDB::new(
         test_dir_path.to_string(),
         test_file_prefix.to_string(),

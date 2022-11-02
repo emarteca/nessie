@@ -1,4 +1,5 @@
-/// the data structures representing a module
+//! The data structures representing a JavaScript module.
+
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
@@ -8,28 +9,29 @@ use serde::{Deserialize, Serialize};
 use crate::errors::*;
 use crate::functions::*;
 
-/// serializable representation of the module
-/// at the api_info stage (i.e., only statically looked at the library)
+/// Serializable representation of the module,
+/// at the `api_info` stage (i.e., only statically looked at the properties of
+/// importing the library).
 #[derive(Debug, Serialize, Deserialize)]
 struct NpmModuleJSON {
-    /// name of the npm module
+    /// Name of the module.
     lib: String,
-    /// map of functions making up the module
-    /// indexed by the name of the function
-    /// here the functions are the output of the api_info phase
+    /// Map of functions making up the module,
+    /// indexed by the name of the function.
+    /// Here the functions are the output of the `api_info` phase
     fns: HashMap<String, ModFctAPIJSON>,
 }
 
-/// serializable representation of the function as discovered by the api_info
-/// this is just static info from the api
+/// Serializable representation of the function as discovered by the `api_info`.
+/// This is just static info from the API.
 #[derive(Debug, Serialize, Deserialize)]
 struct ModFctAPIJSON {
-    /// name of the function
+    /// Name of the function.
     name: String,
-    /// number of arguments
+    /// Number of arguments.
     num_args: usize,
-    /// indicator of whether or not the API function has a specified
-    /// number of args
+    /// Indicator of whether or not the API function has a specified
+    /// number of args.
     used_default_args: Option<bool>,
 }
 
@@ -39,14 +41,14 @@ struct ModFctAPIJSON {
 /// - each function is composed of a list of signatures
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct NpmModule {
-    /// name of the npm module
-    lib: String,
-    /// map of functions making up the module
+    /// Name of the npm module.
+    pub(crate) lib: String,
+    /// Map of functions making up the module,
     /// indexed by the name of the function
     fns: HashMap<String, ModuleFunction>,
 }
 
-/// pretty printing for the NpmModule (JSON style)
+/// Pretty printing for the NpmModule (JSON style).
 impl std::fmt::Debug for NpmModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match serde_json::to_string_pretty(&self) {
@@ -57,21 +59,24 @@ impl std::fmt::Debug for NpmModule {
 }
 
 impl NpmModule {
+    /// Setter for the list of functions in the module.
     pub fn set_fns(&mut self, new_fcts: HashMap<String, ModuleFunction>) {
         self.fns = new_fcts;
     }
 
-    pub fn get_mut_fns(&mut self) -> &mut HashMap<String, ModuleFunction> {
-        &mut self.fns
-    }
-
+    /// Getter for the module functions.
     pub fn get_fns(&self) -> &HashMap<String, ModuleFunction> {
         &self.fns
     }
 
-    /// create an NpmModule object from a JSON file resulting from running the api_info
+    /// Mutable getter for the module functions.
+    pub fn get_mut_fns(&mut self) -> &mut HashMap<String, ModuleFunction> {
+        &mut self.fns
+    }
+
+    /// Create an `NpmModule` object from a JSON file resulting from running the `api_info`
     /// phase: this is just a list of all the functions for a module, without having
-    /// run the discovery phase yet (i.e., no arg info yet)
+    /// run the discovery phase yet (i.e., no arg info yet).
     pub fn from_api_spec(path: PathBuf, _mod_name: String) -> Result<Self, DFError> {
         let file_conts = std::fs::read_to_string(path);
         let file_conts_string = match file_conts {
@@ -100,27 +105,13 @@ impl NpmModule {
         })
     }
 
-    /// get the variable name corresponding to this module when it's imported in generated tests
-    /// it's just the name of this module, switching hyphens to underscores
+    /// Get the variable name corresponding to this module when it's imported in generated tests
+    /// (it's just the name of this module, switching hyphens to underscores).
     pub fn get_mod_js_var_name(&self) -> String {
         str::replace(&self.lib, "-", "_").to_string()
     }
 
-    /// return JS code to import this module
-    pub fn get_js_for_basic_cjs_import(&self, api_src_dir: Option<String>) -> String {
-        [
-            "let ",
-            &self.get_mod_js_var_name(),
-            " = require(\"",
-            &match api_src_dir {
-                Some(dir) => dir,
-                None => self.lib.clone(),
-            },
-            "\");",
-        ]
-        .join("")
-    }
-
+    /// Short string representation of the module, mainly for debugging/display.
     pub fn short_display(&self) -> String {
         let mut to_print = serde_json::json!({"lib": self.lib});
         let mut sigs = serde_json::json!({});
@@ -143,41 +134,43 @@ impl NpmModule {
     }
 }
 
-/// representation of a function in a given module
+/// Representation of a function in a given module;
 /// each function has a list of valid signatures
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct ModuleFunction {
-    /// name of the function
+    /// Name of the function.
     name: String,
-    /// list of valid signatures
+    /// List of valid signatures.
     sigs: Vec<FunctionSignature>,
-    /// number of arguments according to the API docs
+    /// Number of arguments according to the API docs (`None` if
+    /// this info couldn't be found, e.g., if the signature has
+    /// the spread args).
     num_api_args: Option<usize>,
 }
 
 impl ModuleFunction {
-    /// getter for num_api_args
+    /// Getter for `num_api_args`.
     pub fn get_num_api_args(&self) -> Option<usize> {
         self.num_api_args
     }
 
-    /// getter for signatures
+    /// Getter for signatures of this function.
     pub fn get_sigs(&self) -> &Vec<FunctionSignature> {
         &self.sigs
     }
 
-    /// add a signature to the list of signatures
+    /// Add a signature to the list of signatures of this function.
     pub fn add_sig(&mut self, sig: FunctionSignature) {
         self.sigs.push(sig);
     }
 
-    // getter for name
+    // Getter for function name.
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
 }
 
-/// convert ModFctAPIJSON into a modulefunction
+/// Convert `ModFctAPIJSON` into a `ModuleFunction`.
 impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
     type Error = DFError;
 

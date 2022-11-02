@@ -1,8 +1,10 @@
+//! Representations of the tests and test building components.
+
 use crate::consts;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
 use crate::functions::*;
-use crate::module_reps::*; // the representation structs, for components
+use crate::module_reps::*;
 
 use indextree::Arena;
 use serde::{Deserialize, Serialize};
@@ -12,16 +14,20 @@ use std::collections::HashMap;
 use std::process::Command;
 use strum_macros::EnumIter;
 
-// tests and test components
-
+/// Test identifying information: ID and file path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestLocID {
+    /// Test ID.
     pub cur_test_id: usize,
+    /// Directory for the test file.
     pub test_dir_path: String,
+    /// Prefix for the test file (only the file, not the full path).
     pub test_file_prefix: String,
 }
 
 impl TestLocID {
+    /// Make a new `TestLocID` copying the location/name, but with
+    /// a new ID.
     pub fn copy_with_new_test_id(&self, new_test_id: usize) -> Self {
         Self {
             cur_test_id: new_test_id,
@@ -31,17 +37,22 @@ impl TestLocID {
     }
 }
 
+/// Structure of a function call within a test.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FunctionCall {
+    /// Name of the function.
     name: String,
-    // signature has the arguments
+    /// Signature of the function; it includes the arguments.
     pub(crate) sig: FunctionSignature,
-    // argument position in the parent call, of the callback within which this call is nested
+    /// Argument position in the parent call, of the callback within which this call is nested
+    /// (`None` if not a nested call).
     parent_arg_position_nesting: Option<String>,
+    /// ID of the parent call (if nested, `None` if not nested).
     parent_call_id: Option<String>,
 }
 
 impl FunctionCall {
+    /// Constructor.
     pub fn new(
         name: String,
         sig: FunctionSignature,
@@ -59,10 +70,12 @@ impl FunctionCall {
         }
     }
 
+    /// Getter for the ID of the nesting parent call.
     pub fn get_parent_call_id(&self) -> Option<String> {
         self.parent_call_id.clone()
     }
 
+    /// Setter for the ID of the nesting parent call.
     pub fn set_parent_call_id(&mut self, parent_call_id: Option<ExtensionPointID>) {
         self.parent_call_id = match parent_call_id {
             Some(id) => Some(id.to_string()),
@@ -70,6 +83,22 @@ impl FunctionCall {
         }
     }
 
+    /// Getter for the name of the function.
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    /// Setter for the argument position of the callback in the nesting parent call.
+    pub fn set_parent_arg_position_nesting(&mut self, parent_arg_position_nesting: Option<String>) {
+        self.parent_arg_position_nesting = parent_arg_position_nesting;
+    }
+
+    /// Get the list of parameter names for all the callback arguments to this function.
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
+        self.sig.get_all_cb_args_vals(context_uniq_id)
+    }
+
+    /// Update the callback arguments of this function to have the specified ID.
     pub fn update_cb_args_with_id(&mut self, call_id: usize) -> Result<(), TestGenError> {
         for arg in self.sig.get_mut_args() {
             if arg.get_type() == ArgType::CallbackType {
@@ -79,6 +108,8 @@ impl FunctionCall {
         Ok(())
     }
 
+    /// Initialize all the arguments in the function signature with random
+    /// values, corresponding to their type.
     pub fn init_args_with_random(
         &mut self,
         testgen_db: &TestGenDB,
@@ -98,34 +129,39 @@ impl FunctionCall {
         }
         Ok(())
     }
-
-    pub fn get_name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn set_parent_arg_position_nesting(&mut self, parent_arg_position_nesting: Option<String>) {
-        self.parent_arg_position_nesting = parent_arg_position_nesting;
-    }
-
-    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
-        self.sig.get_all_cb_args_vals(context_uniq_id)
-    }
 }
 
+/// Representation of a test.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Test {
+    /// Tree of function calls in the test; sibling nodes are
+    /// sequential calls and child nodes are nested calls.
     pub(crate) fct_tree: Arena<FunctionCall>,
+    /// List of extension points in this test.
     ext_points: Vec<ExtensionPoint>,
+    /// ID/location information for this test.
     loc_id: TestLocID,
+    /// Whether or not to include the default/basic callback.
     pub(crate) include_basic_callback: bool,
+    /// Code for importing the module being tested in this test.
     pub(crate) js_for_basic_cjs_import: String,
+    /// Variable representing the import of the module (this is
+    /// the root for all the generated library function calls).
     pub(crate) mod_js_var_name: String,
+    /// Number of tabs (i.e., indentation level) of the base
+    /// level of the test.
+    /// Only relevant for the code generation.
+    /// Example of why this might not be 0: if the generated test is
+    /// to be part of a `mocha` test suite then the body of the test is inside
+    /// of a function, so the `root_level_tabs` is 1.
     pub(crate) root_level_tabs: RefCell<usize>,
 }
 
+/// ID type for nodes in the test function tree.
 pub type ExtensionPointID = indextree::NodeId;
 
 impl<'cxt> Test {
+    /// Constructor.
     pub fn new(
         mod_rep: &'cxt NpmModule,
         cur_test_id: usize,
@@ -148,8 +184,13 @@ impl<'cxt> Test {
         }
     }
 
-    // the testgenDB can deal with random function generation, given a module (which has all the functions)
-    // also, the testgenDB will return a test given the extensiontype
+    /// Create a new test, for a function in the module `mod_rep`, given the test
+    /// generation database `testgen_db`, of extension type `ext_type`, with `new_test_id` ID.
+    /// The function to be tested in this extension is randomly generated, using `testgen_db`.
+    /// The last parameter, `fresh_test_if_cant_extend` specifies the behaviour if there is no
+    /// valid test to be extended with the specifications provided: if this parameter is true,
+    /// then if there is no valid test to be extended a fresh (one call) test is generated.
+    /// Otherwise, a lack of viable extension options would result in an error.
     pub fn extend(
         mod_rep: &'cxt NpmModule,
         testgen_db: &mut TestGenDB,
@@ -166,6 +207,9 @@ impl<'cxt> Test {
             }
         }
 
+        // get the return values and callback argument values accessible at the
+        // extension point we're extending from (these are part of the valid inputs pool
+        // for the function we're about to test)
         let (ret_vals_pool, cb_arg_vals_pool): (Vec<ArgVal>, Vec<ArgVal>) = if ext_id.is_some() {
             (
                 base_test.get_ret_values_accessible_from_ext_point(ext_id.unwrap()),
@@ -175,6 +219,7 @@ impl<'cxt> Test {
             (Vec::new(), Vec::new())
         };
 
+        // info on the function we're extending from
         let (ext_fct, ext_uniq_id): (Option<&FunctionCall>, String) = if ext_id.is_some() {
             (
                 Some(base_test.fct_tree.get(ext_id.unwrap()).unwrap().get()),
@@ -238,6 +283,7 @@ impl<'cxt> Test {
         ))
     }
 
+    /// Generate a test for the one call `one_call` specified.
     pub fn test_one_call(
         mod_rep: &NpmModule,
         one_call: FunctionCall,
@@ -267,10 +313,13 @@ impl<'cxt> Test {
         )
     }
 
+    /// Is the test tree empty?
     pub fn is_empty(&self) -> bool {
         self.fct_tree.count() == 0
     }
 
+    /// Getter for the name of the file this test should be printed to;
+    /// this is the full path to the file.
     fn get_file(&self) -> String {
         [
             self.loc_id.test_dir_path.clone(),
@@ -281,6 +330,9 @@ impl<'cxt> Test {
             + ".js"
     }
 
+    /// Generate the code for this test and write it to the specified file.
+    /// Options for instrumenting the test and for printing it as part of a `mocha`
+    /// test suite.
     pub fn write_test_to_file(
         &self,
         print_instrumented: bool,
@@ -294,6 +346,9 @@ impl<'cxt> Test {
         Ok(cur_test_file)
     }
 
+    /// Execute the test and return the results for all the extension points.
+    /// Test execution includes writing the test out to a file, and dispatching a
+    /// call to `nodejs` to run the test.
     pub fn execute(
         &mut self,
     ) -> Result<HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>, DFError> {
@@ -302,7 +357,7 @@ impl<'cxt> Test {
             false, /* running these directly */
         )?;
 
-        let mut binding = Command::new("timeout");
+        let mut binding = Command::new("timeout"); // timeout if the test doesn't terminate within time bound
         let run_test = binding
             .arg(consts::TEST_TIMEOUT_SECONDS.to_string())
             .arg("node")
@@ -327,10 +382,12 @@ impl<'cxt> Test {
         Ok(test_results)
     }
 
+    /// Getter for the function tree.
     pub fn get_fct_tree(&self) -> &Arena<FunctionCall> {
         &self.fct_tree
     }
 
+    /// Get the unique ID for a function call node in the test tree.
     pub fn get_uniq_id_for_call(&self, fc: &indextree::Node<FunctionCall>) -> String {
         self.fct_tree.get_node_id(fc).unwrap().to_string()
             + &match &fc.get().parent_call_id {
@@ -343,6 +400,8 @@ impl<'cxt> Test {
             }
     }
 
+    /// Get the unique ID for the node in the test tree that corresponds to the
+    /// function call specified.
     pub fn get_node_id_for_call_data(&self, fc_d: FunctionCall) -> Option<String> {
         for fc in self.fct_tree.iter() {
             if &fc_d == fc.get() {
@@ -352,6 +411,8 @@ impl<'cxt> Test {
         None
     }
 
+    /// Get the (top-level) library function return values that are accessible at
+    /// the extension point specified.
     pub fn get_ret_values_accessible_from_ext_point(
         &self,
         ext_id: ExtensionPointID,
@@ -365,16 +426,21 @@ impl<'cxt> Test {
             .iter()
             .map(|node| self.get_uniq_id_for_call(node))
             .filter(|uniq_id| {
-                uniq_id < &ext_node_uniq_id // earlier than current node
+                // earlier than current node (alphabetical sort is fine)
+                uniq_id < &ext_node_uniq_id
                 &&
-                !ext_node_uniq_id.starts_with(uniq_id) // exclude nesting parents (since they're not accessible in their nest)
+                // exclude nesting parents (since they're not accessible in their nest)
+                !ext_node_uniq_id.starts_with(uniq_id)
                 &&
-                uniq_id.matches("_").count() == 0 // only the returns from outermost nested functions are available
+                // only the returns from outermost nested functions are available
+                uniq_id.matches("_").count() == 0
             })
             .map(|id| ArgVal::Variable(ret_base_var_name.clone() + "_" + &id))
             .collect::<Vec<ArgVal>>()
     }
 
+    /// Get all the callback arguments to (recursive) nesting parents, that are
+    /// accessible at the extension point specified.
     pub fn get_cb_arg_values_accessible_from_ext_point(
         &self,
         ext_id: ExtensionPointID,
@@ -393,9 +459,11 @@ impl<'cxt> Test {
     }
 }
 
-// should somehow return a tree of results, that corresponds to the test tree itself
-// we can use this to build a list of extension points
-// note: we should only extend a test if it has no execution errors
+/// Given the output of running a test, this function parses the output and
+/// returns a list of results that corresponds to the test's tree.
+/// We can use this to build a list of extension points.
+/// Note: we should only extend a test if it has no execution errors; if there
+/// are execution errors the test has no valid extension points.
 fn diagnose_test_correctness(
     test: &Test,
     output_json: &Value,
@@ -473,14 +541,20 @@ fn diagnose_test_correctness(
     fct_tree_results
 }
 
+/// Structure of a test extension point.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ExtensionPoint {
+    /// ID of the node (function call) at which to extend.
     node_id: ExtensionPointID,
+    /// Type of extension that can be made here.
     ext_type: ExtensionType,
 }
 
+/// Type of test extension.
 #[derive(Debug, Clone, Eq, PartialEq, Copy, EnumIter, Rand)]
 pub enum ExtensionType {
+    /// Sequential function calls.
     Sequential,
+    /// Function calls nested in the callback argument of another function call.
     Nested,
 }

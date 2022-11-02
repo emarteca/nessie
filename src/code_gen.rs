@@ -1,7 +1,15 @@
+//! Functionality for generating the code for the generated tests.
+
 use crate::functions::*;
+use crate::module_reps::NpmModule;
 use crate::tests::{FunctionCall, Test};
 
+/// Code generation for `Callback` objects.
 impl Callback {
+    /// Get the base of the names for all the parameters of this callback.
+    /// These look like `cb_<optional unique ID from surrounding context>_<this callback's position in
+    /// the argument list of the function it's being called in>_arg_`.
+    /// Each callback parameter starts with this name, followed by the position in the argument list.
     pub(crate) fn get_cb_arg_name_base(&self, context_uniq_id: &Option<String>) -> String {
         "cb_".to_owned()
             + &match context_uniq_id {
@@ -15,6 +23,9 @@ impl Callback {
             + "_arg_"
     }
 
+    /// Get the string representation of the code of this callback.
+    /// Optional parameters for adding `extra_body_code` instrumentation code in the body of the
+    /// callback, and `context_uniq_id` to be added as part of the ID of the callback arguments.
     pub fn get_string_rep(
         &self,
         extra_body_code: Option<String>,
@@ -22,6 +33,8 @@ impl Callback {
         print_instrumented: bool,
     ) -> String {
         let cb_arg_name_base = self.get_cb_arg_name_base(&context_uniq_id);
+        // code to print the values of all the callback arguments;
+        // included if we're instrumenting
         let print_args = self
             .sig
             .get_arg_list()
@@ -47,14 +60,18 @@ impl Callback {
             })
             .collect::<Vec<String>>()
             .join("\n");
+        // body of the callback itself
         let cb_code = [
+            // signature
             &("(".to_owned()
                 + &(0..self.sig.get_arg_list().len())
                     .map(|i| cb_arg_name_base.clone() + &i.to_string())
                     .collect::<Vec<String>>()
                     .join(", ")
                 + " ) => {"),
+            // print the argument values
             &print_args,
+            // print that the callback is executing
             &if print_instrumented {
                 [
                     "\tconsole.log({\"callback_exec_",
@@ -73,6 +90,8 @@ impl Callback {
             } else {
                 String::new()
             },
+            // extra code for the callback body (if there's a nested function it
+            // is included here)
             &match extra_body_code {
                 Some(str) => str.clone(),
                 None => String::new(),
@@ -88,7 +107,11 @@ impl Callback {
     }
 }
 
+// Code generation for the tests.
 impl Test {
+    /// Get the code representation for the test;
+    /// Options to instrument the test, and to generate the test as a function
+    /// that can then be called as part of a `mocha` test suite.
     pub(crate) fn get_code(&self, print_instrumented: bool, print_as_test_fct: bool) -> String {
         let setup_code = self.js_for_basic_cjs_import.clone();
         let (test_header, test_footer) = if print_instrumented {
@@ -124,6 +147,7 @@ impl Test {
         .join("\n")
     }
 
+    /// Get the code for the tree of function calls in the test.
     fn fct_tree_code(
         &self,
         base_var_name: String,
@@ -165,6 +189,7 @@ impl Test {
         test_body
     }
 
+    /// Recursively generate the code for a function call in the test's function tree.
     fn dfs_print(
         &self,
         base_var_name: &str,
@@ -248,22 +273,42 @@ impl Test {
     }
 }
 
-/// simplest callback: just print that it has executed
+/// Code generation for modules.
+impl NpmModule {
+    /// Return JS code to import this module.
+    pub fn get_js_for_basic_cjs_import(&self, api_src_dir: Option<String>) -> String {
+        [
+            "let ",
+            &self.get_mod_js_var_name(),
+            " = require(\"",
+            &match api_src_dir {
+                Some(dir) => dir,
+                None => self.lib.clone(),
+            },
+            "\");",
+        ]
+        .join("")
+    }
+}
+
+/// Simplest callback: just print that it has executed.
 pub fn basic_callback() -> &'static str {
     r#"let cb = function() { console.log({"callback_exec": true}); }"#
 }
 
+/// Small variation on the basic callback that includes a unique ID
+/// to print when it is executed.
 pub fn basic_callback_with_id(cur_call_uniq_id: String) -> String {
     "let cb = function() { console.log({\"callback_exec_".to_owned()
         + &cur_call_uniq_id
         + "\": true}); }"
 }
 
-/// returns a string of JS code that redefines the console.log
-/// printing function so that it pushes the argument to console.log
+/// Returns a string of JS code that redefines the `console.log`
+/// printing function so that it pushes the argument to `console.log`
 /// onto an array.
-/// this instrumentation allows us to track what's being printed and
-/// in what order
+/// This instrumentation allows us to track what's being printed and
+/// in what order.
 pub fn get_instrumented_header() -> &'static str {
     r#"
 let orig_log = console.log;
@@ -273,10 +318,10 @@ console.log = function(e) {
 }"#
 }
 
-/// returns a string of JS code that prints the global array that
-/// console.log is redefined to add to, to the console on process exit
+/// Returns a string of JS code that prints the global array that
+/// `console.log` is redefined to add to, to the console on process exit
 /// (if there are async functions, this will be after all the async functions
-/// have finished executing)
+/// have finished executing).
 pub fn get_instrumented_footer() -> &'static str {
     r#"
 process.on("exit", function f() {
@@ -284,10 +329,12 @@ process.on("exit", function f() {
 })"#
 }
 
-/// wrap the given call in a try-catch
-/// print the return value, and the argument values before the call
-/// print an error in the catch
-/// remember at this point "print" has been redefined to push to the array
+/// Generate the code for a given function call:
+/// -- wrap the given call in a try-catch, to catch runtime errors
+/// -- print the return value, and the argument values before the call
+/// -- print an error in the catch
+/// Remember that "print" (i.e., `console.log`) has been redefined to push to the
+/// global array on the `process` object.
 pub fn get_function_call_code(
     cur_node_call_sig: &FunctionSignature,
     fct_name: &str,
@@ -299,6 +346,7 @@ pub fn get_function_call_code(
     indents: String,
     print_instrumented: bool,
 ) -> String {
+    // print the arguments to the specified signature
     let print_args = |title: String| {
         if print_instrumented {
             if cur_node_call_sig.is_spread_args {
@@ -404,6 +452,8 @@ pub fn get_function_call_code(
             .join(&("\n".to_owned() + &indents))
 }
 
+/// Generate the code for the `mocha` test suite driver
+/// for `num_tests` number of generated tests.
 pub fn get_meta_test_code(num_tests: i32) -> String {
     let mut ret_code = String::new();
     for i in 1..num_tests {
