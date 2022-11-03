@@ -62,7 +62,10 @@ pub fn run_discovery_phase(
                 testgen_db.api_src_dir.clone(),
             );
 
-            let test_results = cur_test.execute()?;
+            let test_results = match cur_test.execute() {
+                Ok(res) => res,
+                Err(_) => continue,
+            };
 
             let (fct_result, _cb_arg_pos) = test_results.get(&cur_fct_id).unwrap();
             // if there was no execution error, then the generated signature is valid

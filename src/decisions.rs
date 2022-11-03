@@ -259,11 +259,14 @@ impl<'cxt> TestGenDB {
                 // choose string from the list of valid files
                 let rand_index = thread_rng().gen_range(0..self.fs_strings.len());
                 "\"".to_owned()
-                    + &std::fs::canonicalize(self.fs_strings[rand_index].clone().into_os_string())
-                        .unwrap()
+                    // if there's an error in the generation of a file path, just return a random string
+                    // ... this can happen when testing filesystem APIs, if a function deletes a file
+                    + &match std::fs::canonicalize(self.fs_strings[rand_index].clone().into_os_string()) {
+                        Ok(s) => s
                         .into_os_string()
                         .into_string()
-                        .unwrap()
+                        .unwrap(),
+                        Err(_) => return self.gen_random_string_val(false),}
                     + "\""
             }
             _ => {

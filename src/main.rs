@@ -65,10 +65,10 @@ fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
     for file in &consts::setup::TOY_FS_FILES {
         let cur_path = PathBuf::from(path_start.to_owned() + "/" + file);
         toy_fs_paths.push(cur_path.clone());
-        if Path::new(&(cur_path)).exists() {
+        if Path::new(&(cur_path)).is_file() {
             continue;
         }
-        std::fs::File::create(path_start.to_owned() + "/" + file)?;
+        std::fs::File::create(cur_path)?;
     }
 
     Ok(toy_fs_paths)

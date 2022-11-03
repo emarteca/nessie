@@ -455,7 +455,13 @@ pub fn get_function_call_code(
 /// Generate the code for the `mocha` test suite driver
 /// for `num_tests` number of generated tests.
 pub fn get_meta_test_code(num_tests: i32) -> String {
-    let mut ret_code = String::new();
+    // async error handler -- this avoids the test suite bailing out early if
+    // there is an error in one of the tests
+    let mut ret_code = [
+        "if (!process.hasUncaughtExceptionCaptureCallback()) process.setUncaughtExceptionCaptureCallback(() => {",
+        "\tconsole.log(\"{\"async_error_in_test\": true}\");",
+        "});",          
+    ].join("\n");
     for i in 1..num_tests {
         ret_code.push_str(
             &[
