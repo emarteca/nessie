@@ -459,7 +459,7 @@ pub fn get_meta_test_code(num_tests: i32) -> String {
     // there is an error in one of the tests
     let mut ret_code = [
         "if (!process.hasUncaughtExceptionCaptureCallback()) process.setUncaughtExceptionCaptureCallback(() => {",
-        "\tconsole.log(\"{\"async_error_in_test\": true}\");",
+        "\tconsole.log(\"{\\\"async_error_in_test\\\": true}\");",
         "});",          
     ].join("\n");
     for i in 1..num_tests {
