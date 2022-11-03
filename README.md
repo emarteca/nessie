@@ -25,6 +25,7 @@ cargo run -- --lib-name <name of package to generate tests for>
              --num-tests <number of tests to generate>
              [--lib-src-dir <path to directory for the source code of the package>] # optional
              [--testing-dir <path to directory where the generated tests should be written to] # optional
+             [--module-import-code <path to file containing custom module import>] # optional
              [--mined-data <path to JSON file containing mined function nesting examples] # optional
              [--run-discover] # optional: flag to rerun the API discovery phase even if the discovery file exists
              [--skip-testgen] # optional: skip the test generation phase
@@ -84,7 +85,6 @@ Feel free to reach out or make an issue or PR if you have improvement ideas.
 
 Some improvements we're already planning / working on:
 * adding support for chained function call generation (e.g., promise chains)
-* adding support for modules that are represented differently than just the base import of the package
 * merging the API discovery and test generation phases
 * incorporating more type information into the feedback for signatures (i.e., more than just callback/not-callback and asynchronicity of calls)
 * more advanced static analysis for mined data (right now only nesting pairs are supported)

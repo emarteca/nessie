@@ -17,16 +17,21 @@ struct Opt {
     #[structopt(long)]
     lib_name: String,
 
-    /// File containing source code for the library.
+    /// Directory containing source code for the library.
     /// Note: this needs to be the root such that if we `require(lib_src_dir)` we
     /// get the library.
-    #[structopt(long, short, parse(from_os_str))]
+    #[structopt(long, parse(from_os_str))]
     lib_src_dir: Option<PathBuf>,
 
     /// Directory to generate tests into;
     /// if not specified, generate into the current directory.
-    #[structopt(long, short, parse(from_os_str))]
+    #[structopt(long, parse(from_os_str))]
     testing_dir: Option<PathBuf>,
+
+    /// File containing custom import code for the library.
+    /// If this is not specified, then we use the default `require(lib-name or lib-src-dir)`.
+    #[structopt(long, parse(from_os_str))]
+    module_import_code: Option<PathBuf>,
 
     /// Number of tests to generate.
     #[structopt(long)]
@@ -43,7 +48,7 @@ struct Opt {
     skip_testgen: bool,
 
     /// File containing mined data.
-    #[structopt(long, short, parse(from_os_str))]
+    #[structopt(long, parse(from_os_str))]
     mined_data: Option<PathBuf>,
 }
 
@@ -133,59 +138,64 @@ fn main() {
     }
 
     // if discovery file doesn't already exist
-    let (mut mod_rep, mut testgen_db) = if (!Path::new(&discovery_filename).exists())
-        || opt.run_discover
-    {
-        // is the api spec file already there? if so, don't run
-        let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
-        let mut api_spec_args = vec![opt.lib_name.clone()];
-        if let Some(ref dir) = opt.lib_src_dir {
-            let lib_src_dir_name = dir.clone().into_os_string().into_string().unwrap();
-            api_spec_args.push(lib_src_dir_name);
-        }
+    let (mut mod_rep, mut testgen_db) =
+        if (!Path::new(&discovery_filename).exists()) || opt.run_discover {
+            // is the api spec file already there? if so, don't run
+            let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
+            let mut api_spec_args = vec!["lib_name=".to_owned() + &opt.lib_name.clone()];
+            if let Some(ref dir) = opt.lib_src_dir {
+                let lib_src_dir_name = dir.clone().into_os_string().into_string().unwrap();
+                api_spec_args.push("lib_src_dir=".to_owned() + &lib_src_dir_name);
+            }
+            if let Some(ref import_file) = opt.module_import_code {
+                let import_file_name = import_file.clone().into_os_string().into_string().unwrap();
+                api_spec_args.push("import_code_file=".to_owned() + &import_file_name);
+            }
 
-        if !Path::new(&api_spec_filename).exists() {
-            Command::new("./get_api_specs.sh")
-                .args(api_spec_args)
-                .output()
-                .expect(
-                    format!(
-                        "failed to execute API info gathering process for {:?}",
-                        &opt.lib_name
-                    )
-                    .as_str(),
+            if !Path::new(&api_spec_filename).exists() {
+                Command::new("./get_api_specs.sh")
+                    .args(api_spec_args)
+                    .output()
+                    .expect(
+                        format!(
+                            "failed to execute API info gathering process for {:?}",
+                            &opt.lib_name
+                        )
+                        .as_str(),
+                    );
+                println!("Generating API spec");
+            } else {
+                println!(
+                    "API spec file exists, reading from {:?}",
+                    &api_spec_filename
                 );
-            println!("Generating API spec");
-        } else {
-            println!(
-                "API spec file exists, reading from {:?}",
-                &api_spec_filename
-            );
-        }
+            }
 
-        // if we got to this point, we successfully got the API and can construct the module object
-        let mod_rep =
-            match NpmModule::from_api_spec(PathBuf::from(&api_spec_filename), opt.lib_name.clone())
-            {
+            // if we got to this point, we successfully got the API and can construct the module object
+            let mod_rep = match NpmModule::from_api_spec(
+                PathBuf::from(&api_spec_filename),
+                opt.lib_name.clone(),
+                opt.module_import_code,
+            ) {
                 Ok(mod_rep) => mod_rep,
                 _ => panic!("Error reading the module spec from the api_info file"),
             };
-        let (mod_rep, testgen_db) =
-            run_discovery_phase(mod_rep, testgen_db).expect("Error running discovery phase: {:?}");
-        let mut disc_file =
-            std::fs::File::create(&discovery_filename).expect("Error creating discovery JSON file");
-        // print discovery to a file
-        disc_file
-            .write_all(format!("{:?}", mod_rep).as_bytes())
-            .expect("Error writing to discovery JSON file");
-        (mod_rep, testgen_db)
-    } else {
-        let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
-        (
-            serde_json::from_str(&file_conts_string).unwrap(),
-            testgen_db,
-        )
-    };
+            let (mod_rep, testgen_db) = run_discovery_phase(mod_rep, testgen_db)
+                .expect("Error running discovery phase: {:?}");
+            let mut disc_file = std::fs::File::create(&discovery_filename)
+                .expect("Error creating discovery JSON file");
+            // print discovery to a file
+            disc_file
+                .write_all(format!("{:?}", mod_rep).as_bytes())
+                .expect("Error writing to discovery JSON file");
+            (mod_rep, testgen_db)
+        } else {
+            let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
+            (
+                serde_json::from_str(&file_conts_string).unwrap(),
+                testgen_db,
+            )
+        };
 
     // at this point, the mod_rep has the results from the discovery phase
 

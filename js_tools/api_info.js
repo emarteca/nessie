@@ -6,20 +6,44 @@ let fs = require("fs");
 
 const DEFAULT_MAX_ARGS = 5;
 
-
-
+// https://stackoverflow.com/a/54098693
+function get_args () {
+    const args = {};
+    process.argv
+        .slice(2, process.argv.length)
+        .forEach( arg => {
+        // args, all specified with --
+        if (arg.slice(0,2) === '--') {
+            const longArg = arg.split('=');
+            const longArgFlag = longArg[0].slice(2,longArg[0].length);
+            const longArgValue = longArg.length > 1 ? longArg[1] : true;
+            args[longArgFlag] = longArgValue;
+        }
+    });
+    return args;
+}
+const args = get_args();
 
 // argument is the name of the lib to be processed
-const libname = process.argv[2];
-let lib_require = libname;
+const libname = args["lib_name"];
+let lib_require = "require(\"" + libname + "\");";
+
+
 // then we provide a source dir for the api code -- require this
-if(process.argv.length == 4) {
-	lib_require = process.argv[3];
+if(args["lib_src_dir"]) {
+	lib_require = "require(\"" + args["lib_src_dir"] + "\");";
 }
 
+// but if we specified a custom import for the module, then this takes precedence
+if(args["import_code_file"]) {
+	lib_require = fs.readFileSync(args["import_code_file"], 'utf-8');
+}
+
+
 // import the lib, then get info required
-const lib = require(lib_require);
+const lib = eval(lib_require);
 let fn_names = Object.getOwnPropertyNames(lib).filter((p) => typeof lib[p] === 'function');
+
 
 // for each function in the lib, get the number of arguments
 let fn_info = {};

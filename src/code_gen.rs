@@ -280,12 +280,20 @@ impl NpmModule {
         [
             "let ",
             &self.get_mod_js_var_name(),
-            " = require(\"",
-            &match api_src_dir {
-                Some(dir) => dir,
-                None => self.lib.clone(),
+            " = ",
+            &match &self.import_code {
+                Some(code) => code.clone(),
+                None => [
+                    "require(\"",
+                    &match api_src_dir {
+                        Some(dir) => dir,
+                        None => self.lib.clone(),
+                    },
+                    "\")",
+                ]
+                .join(""),
             },
-            "\");",
+            ";",
         ]
         .join("")
     }

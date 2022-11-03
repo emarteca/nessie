@@ -43,6 +43,8 @@ struct ModFctAPIJSON {
 pub struct NpmModule {
     /// Name of the npm module.
     pub(crate) lib: String,
+    /// Optional custom import code for the module.
+    pub(crate) import_code: Option<String>,
     /// Map of functions making up the module,
     /// indexed by the name of the function
     fns: HashMap<String, ModuleFunction>,
@@ -77,11 +79,23 @@ impl NpmModule {
     /// Create an `NpmModule` object from a JSON file resulting from running the `api_info`
     /// phase: this is just a list of all the functions for a module, without having
     /// run the discovery phase yet (i.e., no arg info yet).
-    pub fn from_api_spec(path: PathBuf, _mod_name: String) -> Result<Self, DFError> {
+    pub fn from_api_spec(
+        path: PathBuf,
+        _mod_name: String,
+        import_code_file: Option<PathBuf>,
+    ) -> Result<Self, DFError> {
         let file_conts = std::fs::read_to_string(path);
         let file_conts_string = match file_conts {
             Ok(fcs) => fcs,
             _ => return Err(DFError::SpecFileError),
+        };
+
+        let import_code = match import_code_file {
+            Some(filename) => match std::fs::read_to_string(filename) {
+                Ok(conts) => Some(conts),
+                _ => return Err(DFError::SpecFileError),
+            },
+            None => None,
         };
 
         let mod_json_rep: NpmModuleJSON = match serde_json::from_str(&file_conts_string) {
@@ -101,7 +115,8 @@ impl NpmModule {
             .collect();
         Ok(Self {
             lib: lib_name,
-            fns: fns,
+            fns,
+            import_code,
         })
     }
 
