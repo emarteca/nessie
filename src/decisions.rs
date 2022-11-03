@@ -66,6 +66,8 @@ pub fn gen_new_sig_with_cb(
 pub struct TestGenDB {
     /// List of strings representing (valid) paths in the toy filesystem the tests can interact with.
     fs_strings: Vec<PathBuf>,
+    /// Base of the toy directory for file system playground
+    toy_dir_base: String,
     /// List of possible extension points and types of extension for previous tests.
     possible_ext_points: Vec<(
         ExtensionType,
@@ -97,6 +99,7 @@ impl<'cxt> TestGenDB {
     ) -> Self {
         Self {
             fs_strings: Vec::new(),
+            toy_dir_base: String::from("."),
             possible_ext_points: Vec::new(),
             cur_test_index: 0,
             libs_fcts_weights: HashMap::new(),
@@ -111,8 +114,9 @@ impl<'cxt> TestGenDB {
     }
 
     /// Setter for the list of valid toy filesystem paths.
-    pub fn set_fs_strings(&mut self, new_fs_paths: Vec<PathBuf>) {
+    pub fn set_fs_strings(&mut self, new_fs_paths: Vec<PathBuf>, toy_dir_base: &String) {
         self.fs_strings = new_fs_paths;
+        self.toy_dir_base = toy_dir_base.clone();
     }
 
     /// Choose random type for argument of type `arg_type`.
@@ -266,7 +270,8 @@ impl<'cxt> TestGenDB {
                         .into_os_string()
                         .into_string()
                         .unwrap(),
-                        Err(_) => return self.gen_random_string_val(false),}
+                        Err(_) => self.toy_dir_base.clone() + "/" 
+                                + &self.gen_random_string_val(false).get_string_rep(None, None, false),}
                     + "\""
             }
             _ => {

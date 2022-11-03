@@ -86,8 +86,9 @@ fn main() {
 
     let test_dir_path = consts::setup::TEST_DIR_PATH;
 
-    let toy_fs_paths = setup_toy_fs(&(testing_dir.clone() + "/" + test_dir_path + "/toy_fs_dir"))
-        .expect("Error creating toy filesystem for tests; bailing out.");
+    let toy_dir_base = &(testing_dir.clone() + "/" + test_dir_path + "/toy_fs_dir");
+    let toy_fs_paths =
+        setup_toy_fs(&toy_dir_base).expect("Error creating toy filesystem for tests; bailing out.");
 
     let mined_data: Option<Vec<MinedNestingPairJSON>> = if let Some(ref mined_data_file) =
         opt.mined_data
@@ -118,7 +119,18 @@ fn main() {
             None => None,
         },
     );
-    testgen_db.set_fs_strings(toy_fs_paths);
+    testgen_db.set_fs_strings(toy_fs_paths, toy_dir_base);
+
+    // if we don't have the source code of the api, install it so it can be `require`d
+    if !opt.lib_src_dir.is_some() {
+        if !Path::new(&("node_modules/".to_owned() + &opt.lib_name)).exists() {
+            Command::new("npm")
+                .arg("install")
+                .arg(&opt.lib_name)
+                .output()
+                .expect(format!("failed to install {:?} to test", &opt.lib_name).as_str());
+        }
+    }
 
     // if discovery file doesn't already exist
     let (mut mod_rep, mut testgen_db) = if (!Path::new(&discovery_filename).exists())
@@ -149,17 +161,6 @@ fn main() {
                 "API spec file exists, reading from {:?}",
                 &api_spec_filename
             );
-        }
-
-        // if we don't have the source code of the api, install it so it can be `require`d
-        if !opt.lib_src_dir.is_some() {
-            if !Path::new(&("node_modules/".to_owned() + &opt.lib_name)).exists() {
-                Command::new("npm")
-                    .arg("install")
-                    .arg(&opt.lib_name)
-                    .output()
-                    .expect(format!("failed to install {:?} to test", &opt.lib_name).as_str());
-            }
         }
 
         // if we got to this point, we successfully got the API and can construct the module object

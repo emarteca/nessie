@@ -462,7 +462,7 @@ pub fn get_meta_test_code(num_tests: i32) -> String {
         "\tconsole.log(\"{\\\"async_error_in_test\\\": true}\");",
         "});",          
     ].join("\n");
-    for i in 1..num_tests {
+    for i in 1..=num_tests {
         ret_code.push_str(
             &[
                 &("\ndescribe('test".to_owned() + &i.to_string() + "!', function () {"),

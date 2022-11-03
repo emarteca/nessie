@@ -4,7 +4,7 @@
 
 // configuration for the test generator itself
 /// Number of tests generated per function in the API discovery phase.
-pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 50;
+pub const DISCOVERY_PHASE_TESTING_BUDGET: i32 = 10;
 /// Timeout (in seconds) after which an executing test is killed.
 pub const TEST_TIMEOUT_SECONDS: u64 = 30;
 /// If we specify a nested extension but there's no valid test that can be extended
