@@ -27,15 +27,15 @@ const args = get_args();
 // argument is the name of the lib to be processed
 const libname = args["lib_name"];
 let lib_require = "require(\"" + libname + "\");";
-
+console.log(args);
 
 // then we provide a source dir for the api code -- require this
-if(args["lib_src_dir"]) {
+if(args["lib_src_dir"] != "") {
 	lib_require = "require(\"" + args["lib_src_dir"] + "\");";
 }
 
 // but if we specified a custom import for the module, then this takes precedence
-if(args["import_code_file"]) {
+if(args["import_code_file"] != "") {
 	lib_require = fs.readFileSync(args["import_code_file"], 'utf-8');
 }
 

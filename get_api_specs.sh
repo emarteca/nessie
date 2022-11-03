@@ -10,20 +10,29 @@ for arg in "$@"; do
 	arg_name_len=${#arg_name}
 	arg_val="${arg:$arg_name_len+1}"
 
+	# need absolute paths here
+	if [[ "$arg_name" == "lib_src_dir" ]]; then
+		arg_val=`realpath $arg_val`
+	fi
+
+	if [[ "$arg_name" == "import_code_file" ]]; then
+		arg_val=`realpath $arg_val`
+	fi
+
 	export "$arg_name"="$arg_val"
 done
 
 cur_dir=`pwd`
 
 # if no path to api codebase specified
-# if [ -z $lib_src_dir ]; then
-# 	cd $cur_dir/js_tools
-# 	npm install $lib_name
-# else
-# 	cd $lib_src_dir
-# 	npm install
-# 	cd $cur_dir/js_tools
-# fi
-node js_tools/api_info.js --lib_name=$lib_name --lib_src_dir=$lib_src_dir --import_code_file=$import_code_file
+if [ -z $lib_src_dir ]; then
+	cd $cur_dir/js_tools
+	npm install $lib_name
+else
+	cd $lib_src_dir
+	npm install
+	cd $cur_dir/js_tools
+fi
+node api_info.js --lib_name=$lib_name --lib_src_dir=$lib_src_dir --import_code_file=$import_code_file
 
 cd $cur_dir
