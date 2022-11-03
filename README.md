@@ -5,6 +5,7 @@ To use `nessie`, you'll need to install:
 - [rustup](https://doc.rust-lang.org/cargo/getting-started/installation.html) 
 - [nodejs](https://nodejs.org/en/download/)
 - npm (installs with nodejs)
+- [yarn](https://yarnpkg.com/) (you can install this with npm)
 
 Note: `nessie` has only been tested on linux.
 Some of the functionality might require some minor adapting to work for other OSs (e.g., the timeout for executing tests uses the linux `timeout` utility).
@@ -43,6 +44,9 @@ The pipeline of `nessie` is as follows:
   - for each test, collect the output as feedback and use this to build up a database of valid extension points of previous tests
   - output these tests to `testing-dir` (the default value is a directory `test` in the `nessie` root directory)
 
+*Note*: if using the source directory of a module with `lib-src-dir`, the `get_api_specs` script will try and install with the `yarn` package manager if `yarn.lock` exists, and tries to run `npm run build` if the `build` script is present. 
+However, if the module has a custom build setup then you'll need to go in `get_api_specs` and change the build/setup code.
+
 
 #### Example: generating 100 tests for `jsonfile` package
 
@@ -59,6 +63,8 @@ cd node-jsonfile
 npm install
 cd ..
 ```
+`jsonfile` doesn't have a build script and uses `npm` (i.e. not `yarn`) so at this point it's set up.
+
 Then, run `nessie` using the local source of `jsonfile`.
 ```
 cargo run -- --lib-name jsonfile --num-tests 100 --lib-src-dir node-jsonfile
@@ -72,9 +78,6 @@ To find the coverage these generated tests achieve on the local `jsonfile` sourc
 
 First, install `mocha` and `nyc` test library and coverage tools.
 ```
-cd node-jsonfile
-rm test/* # get rid of the existing test suite, or just move it
-cp ../test/*.js test # copy over our generated tests
 nyc mocha test/metatest.js
 ```
 The resulting output displays the coverage of all source files in `node-jsonfile`.

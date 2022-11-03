@@ -271,7 +271,7 @@ impl<'cxt> TestGenDB {
                         .into_string()
                         .unwrap(),
                         Err(_) => self.toy_dir_base.clone() + "/" 
-                                + &self.gen_random_string_val(false).get_string_rep(None, None, false),}
+                                + &self.gen_random_string_val(false).get_string_rep(None, None, false).replace("\"", ""),}
                     + "\""
             }
             _ => {

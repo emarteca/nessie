@@ -30,7 +30,13 @@ if [ -z $lib_src_dir ]; then
 	npm install $lib_name
 else
 	cd $lib_src_dir
-	npm install
+	if [ -f "yarn.lock" ]; then
+		yarn
+	else 
+		npm install
+	fi
+	# note: if there's a custom build for the module, you may need to edit this
+	npm run build --if-present
 	cd $cur_dir/js_tools
 fi
 node api_info.js --lib_name=$lib_name --lib_src_dir=$lib_src_dir --import_code_file=$import_code_file
