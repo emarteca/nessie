@@ -105,6 +105,10 @@ impl FunctionSignature {
     pub fn get_call_res(&self) -> Option<FunctionCallResult> {
         self.call_test_result
     }
+
+    pub fn set_call_res(&mut self, res: FunctionCallResult) {
+        self.call_test_result = Some(res);
+    }
 }
 
 /// Default signature is empty, with the spread argument, and untested.

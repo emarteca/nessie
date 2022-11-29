@@ -85,11 +85,11 @@ pub fn run_discovery_phase(
             test_res_pairs.push((cur_test, test_results));
         }
     }
-    testgen_db.set_cur_test_index(cur_test_id);
-    for (cur_test, test_results) in test_res_pairs.iter() {
-        testgen_db.add_extension_points_for_test(cur_test, test_results);
-    }
-    mod_rep.set_fns(fcts);
+    // testgen_db.set_cur_test_index(cur_test_id);
+    // for (cur_test, test_results) in test_res_pairs.iter() {
+    //     testgen_db.add_extension_points_for_test(cur_test, test_results);
+    // }
+    // mod_rep.set_fns(fcts);
     Ok((mod_rep, testgen_db))
 }
 

@@ -180,14 +180,6 @@ fn main() {
                 Ok(mod_rep) => mod_rep,
                 _ => panic!("Error reading the module spec from the api_info file"),
             };
-            let (mod_rep, testgen_db) = run_discovery_phase(mod_rep, testgen_db)
-                .expect("Error running discovery phase: {:?}");
-            let mut disc_file = std::fs::File::create(&discovery_filename)
-                .expect("Error creating discovery JSON file");
-            // print discovery to a file
-            disc_file
-                .write_all(format!("{:?}", mod_rep).as_bytes())
-                .expect("Error writing to discovery JSON file");
             (mod_rep, testgen_db)
         } else {
             let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
@@ -197,9 +189,8 @@ fn main() {
             )
         };
 
-    // at this point, the mod_rep has the results from the discovery phase
-
-    println!("Discovery phase returns: {}", mod_rep.short_display());
+    // at this point, the mod_rep has the results from the API listing phase, or
+    // a previously run discovery if applicable
 
     let num_tests = opt.num_tests;
     if !opt.skip_testgen {
@@ -208,4 +199,11 @@ fn main() {
     } else {
         println!("`skip-testgen` specified: Skipping test generation phase.")
     }
+
+    let mut disc_file =
+        std::fs::File::create(&discovery_filename).expect("Error creating discovery JSON file");
+    // print discovery to a file
+    disc_file
+        .write_all(format!("{:?}", mod_rep).as_bytes())
+        .expect("Error writing to discovery JSON file AFTER TESTGEN OMG");
 }

@@ -184,6 +184,13 @@ impl<'cxt> Test {
         }
     }
 
+    pub fn get_fct_call_from_id(&self, ext_id: &ExtensionPointID) -> Option<&FunctionCall> {
+        match self.fct_tree.get(*ext_id) {
+            Some(node) => Some(node.get()),
+            None => None,
+        }
+    }
+
     /// Create a new test, for a function in the module `mod_rep`, given the test
     /// generation database `testgen_db`, of extension type `ext_type`, with `new_test_id` ID.
     /// The function to be tested in this extension is randomly generated, using `testgen_db`.

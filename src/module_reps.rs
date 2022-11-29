@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::*;
 use crate::functions::*;
+use crate::tests::{ExtensionPointID, Test};
 
 /// Serializable representation of the module,
 /// at the `api_info` stage (i.e., only statically looked at the properties of
@@ -74,6 +75,24 @@ impl NpmModule {
     /// Mutable getter for the module functions.
     pub fn get_mut_fns(&mut self) -> &mut HashMap<String, ModuleFunction> {
         &mut self.fns
+    }
+
+    pub fn add_function_sigs_from_test(
+        &mut self,
+        test: &Test,
+        ext_point_results: &HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
+    ) {
+        for (ext_point_id, (fct_result, _)) in ext_point_results.iter() {
+            let rel_fct = test.get_fct_call_from_id(ext_point_id);
+            if rel_fct.is_some() && fct_result != &FunctionCallResult::ExecutionError {
+                let fct_name = rel_fct.unwrap().get_name();
+                let mut new_sig = rel_fct.unwrap().sig.clone();
+                new_sig.set_call_res(*fct_result);
+                if let Some(mut_fct_desc) = self.fns.get_mut(fct_name) {
+                    mut_fct_desc.add_sig(new_sig.clone());
+                }
+            }
+        }
     }
 
     /// Create an `NpmModule` object from a JSON file resulting from running the `api_info`
