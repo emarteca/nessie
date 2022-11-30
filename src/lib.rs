@@ -5,7 +5,6 @@
 pub mod code_gen;
 pub mod consts;
 pub mod decisions;
-pub mod discovery;
 pub mod errors;
 pub mod functions;
 pub mod mined_seed_reps;

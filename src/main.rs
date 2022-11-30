@@ -5,7 +5,6 @@ use structopt::StructOpt;
 
 use nessie::consts;
 use nessie::decisions;
-use nessie::discovery::run_discovery_phase;
 use nessie::mined_seed_reps::MinedNestingPairJSON;
 use nessie::module_reps::*; // all the representation structs
 use nessie::testgen::run_testgen_phase;
@@ -37,10 +36,10 @@ struct Opt {
     #[structopt(long)]
     num_tests: i32,
 
-    /// Running the discovery phase?
+    /// Redo the API discovery?
     /// Default: no if there is an existing discovery output file.
     #[structopt(long)]
-    run_discover: bool,
+    redo_discovery: bool,
 
     /// Running the test generation phase?
     /// Default: yes.
@@ -139,7 +138,7 @@ fn main() {
 
     // if discovery file doesn't already exist
     let (mut mod_rep, mut testgen_db) =
-        if (!Path::new(&discovery_filename).exists()) || opt.run_discover {
+        if (!Path::new(&discovery_filename).exists()) || opt.redo_discovery {
             // is the api spec file already there? if so, don't run
             let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
             let mut api_spec_args = vec!["lib_name=".to_owned() + &opt.lib_name.clone()];
@@ -190,7 +189,7 @@ fn main() {
         };
 
     // at this point, the mod_rep has the results from the API listing phase, or
-    // a previously run discovery if applicable
+    // a previously run's API discovery if applicable
 
     let num_tests = opt.num_tests;
     if !opt.skip_testgen {
@@ -201,9 +200,9 @@ fn main() {
     }
 
     let mut disc_file =
-        std::fs::File::create(&discovery_filename).expect("Error creating discovery JSON file");
+        std::fs::File::create(&discovery_filename).expect("Error creating API discovery JSON file");
     // print discovery to a file
     disc_file
         .write_all(format!("{:?}", mod_rep).as_bytes())
-        .expect("Error writing to discovery JSON file AFTER TESTGEN OMG");
+        .expect("Error writing to API discovery JSON file");
 }
