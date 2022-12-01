@@ -199,7 +199,7 @@ impl<'cxt> Test {
     /// then if there is no valid test to be extended a fresh (one call) test is generated.
     /// Otherwise, a lack of viable extension options would result in an error.
     pub fn extend(
-        mod_rep: &'cxt NpmModule,
+        mod_rep: &'cxt mut NpmModule,
         testgen_db: &mut TestGenDB,
         ext_type: ExtensionType,
         new_test_id: usize,

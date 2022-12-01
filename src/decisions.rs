@@ -25,13 +25,19 @@ use strum::IntoEnumIterator;
 /// `testgen_db` is the state of the current test generation run.
 pub fn gen_new_sig_with_cb(
     num_args: Option<usize>,
-    sigs: &Vec<FunctionSignature>, // TODO don't pick a sig we already picked
+    weighted_sigs: &HashMap<Vec<ArgType>, f64>,
     cb_position: Option<i32>,
     testgen_db: &TestGenDB,
 ) -> FunctionSignature {
     // look at the list of signatures CHOOSE_NEW_SIG_PCT of the time (if the list is non-empty)
-    if sigs.len() > 0 && (thread_rng().gen_range(0..=100) as f64) / 100. > CHOOSE_NEW_SIG_PCT {
-        sigs.choose(&mut thread_rng()).unwrap().clone()
+    if weighted_sigs.len() > 0
+        && (thread_rng().gen_range(0..=100) as f64) / 100. > CHOOSE_NEW_SIG_PCT
+    {
+        let vec_sigs_weights = weighted_sigs.iter().collect::<Vec<(&Vec<ArgType>, &f64)>>();
+        let dist = WeightedIndex::new(vec_sigs_weights.iter().map(|(_, weight)| **weight)).unwrap();
+        let rand_sig_index = dist.sample(&mut thread_rng());
+        let (abstract_sig, _) = &vec_sigs_weights[rand_sig_index].clone();
+        FunctionSignature::from(*abstract_sig)
     } else {
         let num_args = num_args.unwrap_or(thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH));
         let mut args: Vec<FunctionArgument> = Vec::with_capacity(num_args);
@@ -78,7 +84,7 @@ pub struct TestGenDB {
     /// Keep track of all the functions tested, per library,
     /// so we can bias the generator to choose functions that haven't
     /// been tested yet.
-    libs_fcts_weights: HashMap<String, Vec<(String, f64)>>,
+    libs_fcts_weights: HashMap<String, Vec<(String, f64, HashMap<Vec<ArgType>, f64>)>>,
     /// Mined data.
     lib_mined_data: LibMinedData,
     /// Directory the generated tests are written to.
@@ -218,7 +224,7 @@ impl<'cxt> TestGenDB {
                     // NOTE: this is for the signature of the callback being generated -- a
                     // callback is always returned from this branch of the match
                 };
-                let sigs = Vec::new();
+                let sigs = HashMap::new();
                 let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
                 self.gen_random_callback(Some(random_sig), arg_pos)
             }
@@ -313,7 +319,7 @@ impl<'cxt> TestGenDB {
     /// unique ID for the parent.
     pub fn gen_random_call(
         &mut self,
-        mod_rep: &NpmModule,
+        mod_rep: &mut NpmModule,
         ret_vals_pool: Vec<ArgVal>,
         cb_arg_vals_pool: Vec<ArgVal>,
         ext_facts: (Option<&FunctionCall>, ExtensionType, String),
@@ -375,23 +381,26 @@ impl<'cxt> TestGenDB {
             .or_insert_with(|| {
                 mod_rep
                     .get_fns()
-                    .keys()
-                    .map(|fct_name| (fct_name.clone(), 1.0))
+                    .iter()
+                    .map(|(fct_name, fct_obj)| {
+                        (
+                            fct_name.clone(),
+                            1.0,
+                            fct_obj
+                                .get_sigs()
+                                .iter()
+                                .map(|sig| (sig.get_abstract_sig(), 1.0))
+                                .collect::<HashMap<Vec<ArgType>, f64>>(),
+                        )
+                    })
                     .collect()
             });
-        let dist = WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight)| weight)).unwrap();
+        let dist =
+            WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight, _)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
-        let (fct_name, _) = &lib_fcts_weights[rand_fct_index].clone();
+        let (fct_name, _, fct_sigs_weights) = &lib_fcts_weights[rand_fct_index].clone();
         let fct_to_call = &mod_rep.get_fns()[fct_name];
-        // now update the weight of the function we just picked
-        if let Some((_, cur_fct_weight)) = self
-            .libs_fcts_weights
-            .get_mut(&lib_name)
-            .unwrap()
-            .get_mut(rand_fct_index)
-        {
-            *cur_fct_weight = *cur_fct_weight * RECHOOSE_LIB_FCT_WEIGHT_FACTOR;
-        }
+
         let num_args = if let Some(api_args) = fct_to_call.get_num_api_args() {
             api_args
         } else {
@@ -406,10 +415,24 @@ impl<'cxt> TestGenDB {
         // choose a random signature -- either new, or an existing one (if theres some available)
         let random_sig = gen_new_sig_with_cb(
             fct_to_call.get_num_api_args(),
-            fct_to_call.get_sigs(),
+            fct_sigs_weights,
             cb_position,
             self,
         );
+
+        // now update the weight of the function we just picked, and its signature
+        if let Some((_, cur_fct_weight, cur_fct_sig_weights)) = self
+            .libs_fcts_weights
+            .get_mut(&lib_name)
+            .unwrap()
+            .get_mut(rand_fct_index)
+        {
+            *cur_fct_weight = *cur_fct_weight * RECHOOSE_LIB_FCT_WEIGHT_FACTOR;
+            *cur_fct_sig_weights
+                .entry(random_sig.get_abstract_sig())
+                .or_insert(1.0) *= RECHOOSE_FCT_SIG_WEIGHT_FACTOR;
+        }
+
         let mut ret_call = FunctionCall::new(
             fct_name.clone(),
             random_sig,

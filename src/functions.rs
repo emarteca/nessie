@@ -33,6 +33,19 @@ impl TryFrom<(&Vec<FunctionArgument>, FunctionCallResult)> for FunctionSignature
     }
 }
 
+impl From<&Vec<ArgType>> for FunctionSignature {
+    fn from(arg_types: &Vec<ArgType>) -> Self {
+        Self {
+            arg_list: arg_types
+                .iter()
+                .map(|ty| FunctionArgument::new(*ty, None))
+                .collect::<Vec<FunctionArgument>>(),
+            call_test_result: None,
+            is_spread_args: false,
+        }
+    }
+}
+
 impl FunctionSignature {
     /// Constructor.
     pub fn new(
@@ -44,6 +57,15 @@ impl FunctionSignature {
             call_test_result,
             is_spread_args: false,
         }
+    }
+
+    /// Get the abstract (i.e., non-concrete, with no values) signature -- this is the list of
+    /// argument types.
+    pub fn get_abstract_sig(&self) -> Vec<ArgType> {
+        self.arg_list
+            .iter()
+            .map(|arg| arg.get_type())
+            .collect::<Vec<ArgType>>()
     }
 
     /// Get the positions of callback arguments for this function signature.
@@ -216,7 +238,7 @@ impl FunctionArgument {
 /// Note: this can be modified for an arbitrary amount of granularity;
 /// so far we have mainly stuck to the default types available in JavaScript,
 /// with the added distinction between generated callbacks and API library functions.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ArgType {
     /// Number.
     NumberType,
