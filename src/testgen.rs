@@ -48,10 +48,10 @@ pub fn run_testgen_phase<'cxt>(
 
         // after running the test, reprint file without all the instrumentation
         // and as part of a mocha test suite
-        // cur_test.write_test_to_file(
-        //     false, /* no instrumentation */
-        //     true,  /* as part of a mocha test suite */
-        // )?;
+        cur_test.write_test_to_file(
+             false, /* no instrumentation */
+             true,  /* as part of a mocha test suite */
+         )?;
 
         testgen_db.set_cur_test_index(cur_test_id);
         mod_rep.add_function_sigs_from_test(&cur_test, &test_results);

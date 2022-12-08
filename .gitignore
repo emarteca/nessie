@@ -2,6 +2,7 @@
 /target/
 
 node_modules/
+.nyc_output/
 
 js_tools/*_output.json
 js_tools/node_modules/
