@@ -182,6 +182,49 @@ pub struct ModuleFunction {
     num_api_args: Option<usize>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub enum FieldNameType {
+    StringField(String),
+    IndexField(usize),
+}
+type ParamIndexType = usize;
+
+/// Representation of access paths, rooted in a module import
+/// (APs are defined in a bunch of papers including
+/// [ours](https://drops.dagstuhl.de/opus/volltexte/2021/14029/pdf/DARTS-7-2-5.pdf))
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub enum AccessPathModuleCentred {
+    /// Base case: the module import, with the module name
+    RootPath(String),
+    /// Recursive cases:
+    /// Return of calling a function represented by another access path
+    ReturnPath(Box<AccessPathModuleCentred>),
+    /// Accessing a field (with specified name/index) represented by another access path
+    FieldAccPath(Box<AccessPathModuleCentred>, FieldNameType),
+    /// A parameter (of specified index) of a function call represented by another access path
+    ParamPath(Box<AccessPathModuleCentred>, ParamIndexType),
+    /// A new instance of a constructor represented by another access path (i.e., `new SomeClassFromModule()`)
+    InstancePath(Box<AccessPathModuleCentred>),
+}
+
+impl std::fmt::Display for AccessPathModuleCentred {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::RootPath(mod_name) => write!(f, "(module {})", mod_name),
+            Self::ReturnPath(rec_ap_box) => write!(f, "(return {})", *rec_ap_box),
+            Self::FieldAccPath(rec_ap_box, field_name) => write!(
+                f,
+                "({})",
+                format!("member {:?} {}", field_name, *rec_ap_box)
+            ),
+            Self::ParamPath(rec_ap_box, param_index) => {
+                write!(f, "({})", format!("param {} {}", param_index, *rec_ap_box))
+            }
+            Self::InstancePath(rec_ap_box) => write!(f, "(new {})", *rec_ap_box),
+        }
+    }
+}
+
 impl ModuleFunction {
     /// Getter for `num_api_args`.
     pub fn get_num_api_args(&self) -> Option<usize> {
