@@ -49,6 +49,8 @@ pub struct FunctionCall {
     parent_arg_position_nesting: Option<String>,
     /// ID of the parent call (if nested, `None` if not nested).
     parent_call_id: Option<String>,
+    /// Access path abstract representation of the function to be called
+    acc_path: Option<AccessPathModuleCentred>,
 }
 
 impl FunctionCall {
@@ -58,6 +60,7 @@ impl FunctionCall {
         sig: FunctionSignature,
         parent_arg_position_nesting: Option<String>,
         parent_call_id: Option<ExtensionPointID>,
+        acc_path: Option<AccessPathModuleCentred>,
     ) -> Self {
         Self {
             name,
@@ -67,7 +70,18 @@ impl FunctionCall {
                 Some(id) => Some(id.to_string()),
                 None => None,
             },
+            acc_path,
         }
+    }
+
+    /// Getter for the access path representation of the function being called.
+    pub fn get_acc_path(&self) -> &Option<AccessPathModuleCentred> {
+        &self.acc_path
+    }
+
+    /// Setter for the access path representation of the function being called.
+    pub fn set_acc_path(&mut self, acc_path: Option<AccessPathModuleCentred>) {
+        self.acc_path = acc_path
     }
 
     /// Getter for the ID of the nesting parent call.
@@ -113,7 +127,7 @@ impl FunctionCall {
     pub fn init_args_with_random(
         &mut self,
         testgen_db: &TestGenDB,
-        ret_vals_pool: &Vec<ArgVal>,
+        ret_vals_pool: &Vec<ArgValAPTracked>,
         cb_arg_vals_pool: &Vec<ArgVal>,
         mod_rep: &NpmModule,
     ) -> Result<(), TestGenError> {
@@ -217,14 +231,15 @@ impl<'cxt> Test {
         // get the return values and callback argument values accessible at the
         // extension point we're extending from (these are part of the valid inputs pool
         // for the function we're about to test)
-        let (ret_vals_pool, cb_arg_vals_pool): (Vec<ArgVal>, Vec<ArgVal>) = if ext_id.is_some() {
-            (
-                base_test.get_ret_values_accessible_from_ext_point(ext_id.unwrap()),
-                base_test.get_cb_arg_values_accessible_from_ext_point(ext_id.unwrap()),
-            )
-        } else {
-            (Vec::new(), Vec::new())
-        };
+        let (ret_vals_pool, cb_arg_vals_pool): (Vec<ArgValAPTracked>, Vec<ArgVal>) =
+            if ext_id.is_some() {
+                (
+                    base_test.get_ret_values_accessible_from_ext_point(ext_id.unwrap()),
+                    base_test.get_cb_arg_values_accessible_from_ext_point(ext_id.unwrap()),
+                )
+            } else {
+                (Vec::new(), Vec::new())
+            };
 
         // info on the function we're extending from
         let (ext_fct, ext_uniq_id): (Option<&FunctionCall>, String) = if ext_id.is_some() {
@@ -419,11 +434,12 @@ impl<'cxt> Test {
     }
 
     /// Get the (top-level) library function return values that are accessible at
-    /// the extension point specified.
+    /// the extension point specified, along with their access path representations
+    /// (wrapped in the `ArgValAPTracked` struct).
     pub fn get_ret_values_accessible_from_ext_point(
         &self,
         ext_id: ExtensionPointID,
-    ) -> Vec<ArgVal> {
+    ) -> Vec<ArgValAPTracked> {
         let ext_node = self.fct_tree.get(ext_id).unwrap();
         let ext_node_uniq_id = self.get_uniq_id_for_call(ext_node);
 
@@ -431,8 +447,8 @@ impl<'cxt> Test {
 
         self.fct_tree
             .iter()
-            .map(|node| self.get_uniq_id_for_call(node))
-            .filter(|uniq_id| {
+            .map(|node| (self.get_uniq_id_for_call(node), node.get().get_acc_path()))
+            .filter(|(uniq_id, _)| {
                 // earlier than current node (alphabetical sort is fine)
                 uniq_id < &ext_node_uniq_id
                 &&
@@ -442,8 +458,19 @@ impl<'cxt> Test {
                 // only the returns from outermost nested functions are available
                 uniq_id.matches("_").count() == 0
             })
-            .map(|id| ArgVal::Variable(ret_base_var_name.clone() + "_" + &id))
-            .collect::<Vec<ArgVal>>()
+            .map(|(id, opt_fct_acc_path_rep)| match opt_fct_acc_path_rep {
+                Some(fct_acc_path_rep) => ArgValAPTracked {
+                    val: ArgVal::Variable(ret_base_var_name.clone() + "_" + &id),
+                    acc_path: Some(AccessPathModuleCentred::ReturnPath(Box::new(
+                        fct_acc_path_rep.clone(),
+                    ))),
+                },
+                None => ArgValAPTracked {
+                    val: ArgVal::Variable(ret_base_var_name.clone() + "_" + &id),
+                    acc_path: None,
+                },
+            })
+            .collect::<Vec<ArgValAPTracked>>()
     }
 
     /// Get all the callback arguments to (recursive) nesting parents, that are

@@ -2,6 +2,8 @@
 //! (arguments, values, signatures).
 
 use crate::errors::*;
+use crate::module_reps::AccessPathModuleCentred;
+
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
@@ -295,6 +297,12 @@ pub enum ArgVal {
     LibFunction(String),
     /// Variable (so far, this means scope-available previous function return or callback argument).
     Variable(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArgValAPTracked {
+    pub(crate) val: ArgVal,
+    pub(crate) acc_path: Option<AccessPathModuleCentred>,
 }
 
 impl ArgVal {

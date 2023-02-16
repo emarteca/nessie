@@ -162,7 +162,7 @@ impl<'cxt> TestGenDB {
         &self,
         arg_type: ArgType,
         arg_pos: Option<usize>,
-        ret_vals_pool: &Vec<ArgVal>,
+        ret_vals_pool: &Vec<ArgValAPTracked>,
         cb_arg_vals_pool: &Vec<ArgVal>,
         mod_rep: &NpmModule,
     ) -> ArgVal {
@@ -242,9 +242,12 @@ impl<'cxt> TestGenDB {
                     thread_rng().gen_range(0..(ret_vals_pool.len() + cb_arg_vals_pool.len()));
                 if rand_index < ret_vals_pool.len() {
                     ret_vals_pool
+                        .iter()
+                        .map(|tracked_val| tracked_val.val.clone())
+                        .collect::<Vec<ArgVal>>()
                 } else {
                     rand_index = rand_index - ret_vals_pool.len();
-                    cb_arg_vals_pool
+                    cb_arg_vals_pool.to_vec()
                 }
                 .get(rand_index)
                 .unwrap()
@@ -312,7 +315,7 @@ impl<'cxt> TestGenDB {
 
     /// Generate a random function call, for module `mod_rep`.
     /// `ret_vals_pool` is the list of function return values in scope to be
-    /// used in this call; `cb_arg_vals_pool` is the same for callback argument
+    /// used in this call (with acc paths rep); `cb_arg_vals_pool` is the same for callback argument
     /// values.
     /// `ext_facts` is a tuple specifying an optional other function call this generated
     /// function will be extending (i.e., parent), along with the extension type and
@@ -320,11 +323,12 @@ impl<'cxt> TestGenDB {
     pub fn gen_random_call(
         &mut self,
         mod_rep: &mut NpmModule,
-        ret_vals_pool: Vec<ArgVal>,
+        ret_vals_pool: Vec<ArgValAPTracked>,
         cb_arg_vals_pool: Vec<ArgVal>,
         ext_facts: (Option<&FunctionCall>, ExtensionType, String),
     ) -> Result<FunctionCall, DFError> {
         let lib_name = mod_rep.get_mod_js_var_name();
+        let module_root_path = AccessPathModuleCentred::RootPath(lib_name.clone());
 
         let (ext_fct, ext_type, ext_uniq_id) = ext_facts;
 
@@ -346,10 +350,16 @@ impl<'cxt> TestGenDB {
                 let ext_fct = ext_fct.unwrap(); // if we can nest, outer fct exists
                 let fct_name = nested_ext.fct_name.clone();
                 let fct_sig = nested_ext.sig.clone();
+                let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
+                    Box::new(module_root_path.clone()),
+                    FieldNameType::StringField(fct_name.clone()),
+                );
                 let mut ret_call = FunctionCall::new(
-                    fct_name, fct_sig,
-                    None, /* position of arg in parent call of cb this is in */
-                    None, /* parent call node ID */
+                    fct_name,
+                    fct_sig,
+                    None,                   /* position of arg in parent call of cb this is in */
+                    None,                   /* parent call node ID */
+                    Some(fct_acc_path_rep), /* access path rep of the call */
                 );
                 ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
                 let args = ret_call.sig.get_mut_args();
@@ -400,6 +410,10 @@ impl<'cxt> TestGenDB {
         let rand_fct_index = dist.sample(&mut thread_rng());
         let (fct_name, _, fct_sigs_weights) = &lib_fcts_weights[rand_fct_index].clone();
         let fct_to_call = &mod_rep.get_fns()[fct_name];
+        let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
+            Box::new(module_root_path.clone()),
+            FieldNameType::StringField(fct_name.clone()),
+        );
 
         let num_args = if let Some(api_args) = fct_to_call.get_num_api_args() {
             api_args
@@ -436,8 +450,9 @@ impl<'cxt> TestGenDB {
         let mut ret_call = FunctionCall::new(
             fct_name.clone(),
             random_sig,
-            None, /* position of arg in parent call of cb this is in */
-            None, /* parent call node ID */
+            None,                   /* position of arg in parent call of cb this is in */
+            None,                   /* parent call node ID */
+            Some(fct_acc_path_rep), /* access path rep of the fct being called */
         );
         // init the call with random values of the types specified in `random_sig`
         ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
