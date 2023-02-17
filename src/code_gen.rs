@@ -1,7 +1,7 @@
 //! Functionality for generating the code for the generated tests.
 
 use crate::functions::*;
-use crate::module_reps::NpmModule;
+use crate::module_reps::{AccessPathModuleCentred, NpmModule};
 use crate::tests::{FunctionCall, Test};
 
 /// Code generation for `Callback` objects.
@@ -205,6 +205,12 @@ impl Test {
 
         let indents = "\t".repeat(num_tabs);
         let ret_val_basename = "ret_val_".to_owned() + base_var_name + "_" + &cur_call_uniq_id;
+        let ret_val_acc_path = match cur_node_call.get_acc_path() {
+            Some(fct_acc_path_rep) => Some(AccessPathModuleCentred::ReturnPath(Box::new(
+                fct_acc_path_rep.clone(),
+            ))),
+            None => None,
+        };
         let extra_cb_code = if include_basic_callback {
             basic_callback_with_id(cur_call_uniq_id.clone())
         } else {
@@ -263,7 +269,7 @@ impl Test {
             &cur_node_call.sig,
             cur_node_call.get_name(),
             args_rep,
-            ret_val_basename,
+            (ret_val_basename, ret_val_acc_path),
             extra_cb_code,
             base_var_name,
             cur_call_uniq_id,
@@ -347,7 +353,7 @@ pub fn get_function_call_code(
     cur_node_call_sig: &FunctionSignature,
     fct_name: &str,
     args_rep: String,
-    ret_val_basename: String,
+    (ret_val_basename, ret_val_acc_path): (String, Option<AccessPathModuleCentred>),
     extra_cb_code: String,
     base_var_name: &str,
     cur_call_uniq_id: String,
@@ -428,9 +434,18 @@ pub fn get_function_call_code(
         &(if print_instrumented {
             "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
-                + "\": typeof "
+                + "_type\": typeof "
                 + &ret_val_basename
                 + "});"
+        } else {
+            String::new()
+        }),
+        &(if print_instrumented && ret_val_acc_path.is_some() {
+            "\tconsole.log({\"".to_owned()
+                + &ret_val_basename
+                + "_acc_path\": \""
+                + &ret_val_acc_path.unwrap().to_string().replace("\"", "\\\"")
+                + "\"});"
         } else {
             String::new()
         }),
