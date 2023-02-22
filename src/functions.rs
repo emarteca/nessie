@@ -10,7 +10,7 @@ use std::convert::TryFrom;
 /// Representation of a single signature of a module function.
 /// This includes the number and types of arguments, etc.
 /// Note that functions may have multiple valid signatures.
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct FunctionSignature {
     /// list of arguments: their type, and value if tested
     arg_list: Vec<FunctionArgument>,
@@ -147,7 +147,7 @@ impl std::default::Default for FunctionSignature {
 }
 
 /// Representation of a function argument: type and optional value.
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct FunctionArgument {
     /// Type of the argument.
     arg_type: ArgType,
@@ -281,7 +281,7 @@ impl std::fmt::Display for ArgType {
 }
 
 /// Kinds of argument values.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum ArgVal {
     /// Number.
     Number(String),
@@ -299,7 +299,7 @@ pub enum ArgVal {
     Variable(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct ArgValAPTracked {
     pub(crate) val: ArgVal,
     pub(crate) acc_path: Option<AccessPathModuleCentred>,
@@ -359,7 +359,7 @@ impl ArgVal {
 }
 
 /// Kinds of callback value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum CallbackVal {
     /// Variable: if the callback is stored as a named function earlier, and represented by name.
     Var(String),
@@ -387,7 +387,7 @@ impl CallbackVal {
 
 /// Representation of a callback function.
 /// This is used to represent the generated callback arguments to library function calls.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Callback {
     /// Signature of the callback function.
     pub(crate) sig: FunctionSignature,

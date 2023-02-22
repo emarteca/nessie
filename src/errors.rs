@@ -43,7 +43,7 @@ impl From<TestGenError> for DFError {
 /// TODO might track other outcomes in the extended test generator.
 /// In this case, the only test is only about the callback arguments (whether or not
 /// they were called, and in what order).
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, Hash)]
 pub enum SingleCallCallbackTestResult {
     /// callback is called and executed synchronously, and no error
     CallbackCalledSync,
@@ -54,7 +54,7 @@ pub enum SingleCallCallbackTestResult {
 }
 
 /// Possible results of one function execution.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Deserialize, Serialize, Hash)]
 pub enum FunctionCallResult {
     /// result WRT whether a callback argument was executed when this function is called
     SingleCallback(SingleCallCallbackTestResult),

@@ -182,7 +182,7 @@ pub struct ModuleFunction {
     num_api_args: Option<usize>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum FieldNameType {
     StringField(String),
     IndexField(usize),
@@ -192,7 +192,7 @@ type ParamIndexType = usize;
 /// Representation of access paths, rooted in a module import
 /// (APs are defined in a bunch of papers including
 /// [ours](https://drops.dagstuhl.de/opus/volltexte/2021/14029/pdf/DARTS-7-2-5.pdf))
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum AccessPathModuleCentred {
     /// Base case: the module import, with the module name
     RootPath(String),

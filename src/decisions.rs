@@ -84,7 +84,14 @@ pub struct TestGenDB {
     /// Keep track of all the functions tested, per library,
     /// so we can bias the generator to choose functions that haven't
     /// been tested yet.
-    libs_fcts_weights: HashMap<String, Vec<(String, f64, HashMap<Vec<ArgType>, f64>)>>,
+    libs_fcts_weights: HashMap<
+        String,
+        Vec<(
+            (AccessPathModuleCentred, String),
+            f64,
+            HashMap<Vec<ArgType>, f64>,
+        )>,
+    >,
     /// Mined data.
     lib_mined_data: LibMinedData,
     /// Directory the generated tests are written to.
@@ -361,6 +368,7 @@ impl<'cxt> TestGenDB {
                     None,                   /* position of arg in parent call of cb this is in */
                     None,                   /* parent call node ID */
                     Some(fct_acc_path_rep), /* access path rep of the call */
+                    None, /* receiver of the call -- it's the module import by default */
                 );
                 ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
                 let args = ret_call.sig.get_mut_args();
@@ -395,7 +403,7 @@ impl<'cxt> TestGenDB {
                     .iter()
                     .map(|(fct_name, fct_obj)| {
                         (
-                            fct_name.clone(),
+                            (module_root_path.clone(), fct_name.clone()),
                             1.0,
                             fct_obj
                                 .get_sigs()
@@ -406,13 +414,25 @@ impl<'cxt> TestGenDB {
                     })
                     .collect()
             });
+
+        // REEEEEEEE TODO get a valid receiver -- also take into account the ret_vals, and only
+        // choose fcts to call that are on receivers that exist in scope. basically: this should be computed 
+        // in the fct-choosing stage -- the above should:
+        // 1. add the acc paths of the ret_vals into the mod_rep.get_fcts (in the output parse for tests)
+        // 2. in the selection, filter by no-path (mod import), and the paths corresponding to things in the ret_vals
+        // 3. when we select, then choose a random val with the selected path
+        let fct_call_receiver = None;
+
+
         let dist =
             WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight, _)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
-        let (fct_name, _, fct_sigs_weights) = &lib_fcts_weights[rand_fct_index].clone();
+        let ((fct_receiver_acc_path, fct_name), _, fct_sigs_weights) =
+            &lib_fcts_weights[rand_fct_index].clone();
         let fct_to_call = &mod_rep.get_fns()[fct_name];
         let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
-            Box::new(module_root_path.clone()),
+            Box::new(fct_receiver_acc_path.clone()),
+            //Box::new(module_root_path.clone()),
             FieldNameType::StringField(fct_name.clone()),
         );
 
@@ -454,6 +474,7 @@ impl<'cxt> TestGenDB {
             None,                   /* position of arg in parent call of cb this is in */
             None,                   /* parent call node ID */
             Some(fct_acc_path_rep), /* access path rep of the fct being called */
+            fct_call_receiver,
         );
         // init the call with random values of the types specified in `random_sig`
         ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;

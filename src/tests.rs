@@ -51,6 +51,8 @@ pub struct FunctionCall {
     parent_call_id: Option<String>,
     /// Access path abstract representation of the function to be called
     acc_path: Option<AccessPathModuleCentred>,
+    /// Optional variable representing the receiver (if None, it's the module import)
+    receiver: Option<ArgVal>,
 }
 
 impl FunctionCall {
@@ -61,6 +63,7 @@ impl FunctionCall {
         parent_arg_position_nesting: Option<String>,
         parent_call_id: Option<ExtensionPointID>,
         acc_path: Option<AccessPathModuleCentred>,
+        receiver: Option<ArgVal>,
     ) -> Self {
         Self {
             name,
@@ -71,6 +74,7 @@ impl FunctionCall {
                 None => None,
             },
             acc_path,
+            receiver,
         }
     }
 
