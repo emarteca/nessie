@@ -329,7 +329,14 @@ let orig_log = console.log;
 let output_log = [];
 console.log = function(e) {
 	output_log.push(e);
-}"#
+}
+function getTypeDiffObjFromPromise(val) {
+    if (val.toString() === "[object Promise]") {
+        return "DIFFTYPE_Promise";
+    }
+    return typeof val;
+}
+"#
 }
 
 /// Returns a string of JS code that prints the global array that
@@ -420,12 +427,33 @@ pub fn get_function_call_code(
             + &args_rep
             + ");"),
         &print_args("after_cb".to_string()),
+        // print the list of function properties on the acc path if it's an Object type
+        // note: we're deliberately ignoring primitives, can explicitly code those cases
+        // in if we want (eg for promise chains), but if you want to test all function props
+        // on an acc path regardless of type just remove the if statement
+        &(if print_instrumented && ret_val_acc_path.is_some() {
+            "\tif (getTypeDiffObjFromPromise(".to_owned()
+                + &ret_val_basename
+                + ") == \"object\"){"
+                + "\n\t\tconsole.log({\""
+                + &ret_val_acc_path
+                    .as_ref()
+                    .unwrap()
+                    .to_string()
+                    .replace("\"", "\\\"")
+                + "\": Object.getOwnPropertyNames("
+                + &ret_val_basename
+                + ").filter((p) => typeof ret_val_jsonfile_1[p] === \"function\")});"
+                + "\n\t}"
+        } else {
+            String::new()
+        }),
         &(if print_instrumented {
             "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
-                + "\": typeof "
+                + "\": getTypeDiffObjFromPromise("
                 + &ret_val_basename
-                + " == \"function\"? \"[function]\" : "
+                + ") == \"function\"? \"[function]\" : "
                 + &ret_val_basename
                 + ".toString()});"
         } else {
@@ -434,9 +462,9 @@ pub fn get_function_call_code(
         &(if print_instrumented {
             "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
-                + "_type\": typeof "
+                + "_type\": getTypeDiffObjFromPromise("
                 + &ret_val_basename
-                + "});"
+                + ")});"
         } else {
             String::new()
         }),
@@ -444,7 +472,11 @@ pub fn get_function_call_code(
             "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
                 + "_acc_path\": \""
-                + &ret_val_acc_path.unwrap().to_string().replace("\"", "\\\"")
+                + &ret_val_acc_path
+                    .as_ref()
+                    .unwrap()
+                    .to_string()
+                    .replace("\"", "\\\"")
                 + "\"});"
         } else {
             String::new()
