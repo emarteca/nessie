@@ -20,7 +20,8 @@ struct NpmModuleJSON {
     /// Map of functions making up the module,
     /// indexed by the name of the function.
     /// Here the functions are the output of the `api_info` phase
-    fns: HashMap<String, ModFctAPIJSON>,
+    /// optional string in the hashmap index is the access path of the fct receiver
+    fns: HashMap<(Option<String>, String), ModFctAPIJSON>,
 }
 
 /// Serializable representation of the function as discovered by the `api_info`.
@@ -48,7 +49,7 @@ pub struct NpmModule {
     pub(crate) import_code: Option<String>,
     /// Map of functions making up the module,
     /// indexed by the name of the function
-    fns: HashMap<String, ModuleFunction>,
+    fns: HashMap<(AccessPathModuleCentred, String), ModuleFunction>,
 }
 
 /// Pretty printing for the NpmModule (JSON style).
@@ -63,17 +64,22 @@ impl std::fmt::Debug for NpmModule {
 
 impl NpmModule {
     /// Setter for the list of functions in the module.
-    pub fn set_fns(&mut self, new_fcts: HashMap<String, ModuleFunction>) {
+    pub fn set_fns(
+        &mut self,
+        new_fcts: HashMap<(AccessPathModuleCentred, String), ModuleFunction>,
+    ) {
         self.fns = new_fcts;
     }
 
     /// Getter for the module functions.
-    pub fn get_fns(&self) -> &HashMap<String, ModuleFunction> {
+    pub fn get_fns(&self) -> &HashMap<(AccessPathModuleCentred, String), ModuleFunction> {
         &self.fns
     }
 
     /// Mutable getter for the module functions.
-    pub fn get_mut_fns(&mut self) -> &mut HashMap<String, ModuleFunction> {
+    pub fn get_mut_fns(
+        &mut self,
+    ) -> &mut HashMap<(AccessPathModuleCentred, String), ModuleFunction> {
         &mut self.fns
     }
 
@@ -86,9 +92,16 @@ impl NpmModule {
             let rel_fct = test.get_fct_call_from_id(ext_point_id);
             if rel_fct.is_some() && fct_result != &FunctionCallResult::ExecutionError {
                 let fct_name = rel_fct.unwrap().get_name();
+                let fct_acc_path_rep: AccessPathModuleCentred =
+                    match rel_fct.unwrap().get_acc_path() {
+                        Some(ap) => ap.clone(),
+                        None => AccessPathModuleCentred::RootPath(self.lib.clone()),
+                    };
                 let mut new_sig = rel_fct.unwrap().sig.clone();
                 new_sig.set_call_res(*fct_result);
-                if let Some(mut_fct_desc) = self.fns.get_mut(fct_name) {
+                if let Some(mut_fct_desc) =
+                    self.fns.get_mut(&(fct_acc_path_rep, fct_name.to_string()))
+                {
                     mut_fct_desc.add_sig(new_sig.clone());
                 }
             }
@@ -125,12 +138,23 @@ impl NpmModule {
         let lib_name = mod_json_rep.lib.clone();
 
         // convert the api_info into module functions (missing signatures until discovery)
-        let fns: HashMap<String, ModuleFunction> = mod_json_rep
+        let fns: HashMap<(AccessPathModuleCentred, String), ModuleFunction> = mod_json_rep
             .fns
             .iter()
-            .map(|(name, mod_fct_api)| (name.clone(), ModuleFunction::try_from(mod_fct_api)))
-            .filter(|(_name, opt_mod_fct)| matches!(opt_mod_fct, Ok(_)))
-            .map(|(name, opt_mod_fct)| (name, opt_mod_fct.unwrap()))
+            .map(|((opt_rec_acc_path_string, name), mod_fct_api)| {
+                (
+                    (
+                        match opt_rec_acc_path {
+                            Some(acc) => AccessPathModuleCentred::from_str(acc.clone()),
+                            None => AccessPathModuleCentred::RootPath(lib_name.clone()),
+                        },
+                        name.clone(),
+                    ),
+                    ModuleFunction::try_from(mod_fct_api),
+                )
+            })
+            .filter(|(_name_and_path, opt_mod_fct)| matches!(opt_mod_fct, Ok(_)))
+            .map(|(name_and_path, opt_mod_fct)| (name_and_path, opt_mod_fct.unwrap()))
             .collect();
         Ok(Self {
             lib: lib_name,
@@ -149,9 +173,9 @@ impl NpmModule {
     pub fn short_display(&self) -> String {
         let mut to_print = serde_json::json!({"lib": self.lib});
         let mut sigs = serde_json::json!({});
-        for (fc_name, fc_obj) in self.fns.clone() {
+        for ((acc_path_and_sig, _), fc_obj) in self.fns.clone() {
             let mut fn_sigs = vec![];
-            let fn_name = fc_name.clone();
+            let acc_path_and_sig = acc_path_and_sig.clone();
             for sig in fc_obj.get_sigs() {
                 let args: Vec<String> = sig
                     .get_arg_list()
@@ -160,7 +184,7 @@ impl NpmModule {
                     .collect();
                 fn_sigs.push(serde_json::json!({"args": args.join(", "), "callback_res": sig.get_call_res()}));
             }
-            sigs[fn_name] = serde_json::json!(fn_sigs);
+            sigs[acc_path_and_sig.to_string()] = serde_json::json!(fn_sigs);
         }
         to_print["sigs"] = sigs;
 
@@ -205,6 +229,14 @@ pub enum AccessPathModuleCentred {
     ParamPath(Box<AccessPathModuleCentred>, ParamIndexType),
     /// A new instance of a constructor represented by another access path (i.e., `new SomeClassFromModule()`)
     InstancePath(Box<AccessPathModuleCentred>),
+}
+
+impl std::str::FromStr for AccessPathModuleCentred {
+    type Err = DFError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        
+    }
 }
 
 impl std::fmt::Display for AccessPathModuleCentred {

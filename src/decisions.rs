@@ -239,7 +239,17 @@ impl<'cxt> TestGenDB {
                 // choose a random function in the API
                 let lib_name = mod_rep.get_mod_js_var_name();
                 ArgVal::LibFunction(
-                    lib_name + "." + mod_rep.get_fns().keys().choose(&mut thread_rng()).unwrap(),
+                    lib_name.clone()
+                        + "."
+                        + mod_rep
+                            .get_fns()
+                            .keys()
+                            .filter(|(fct_acc_path, _)| {
+                                fct_acc_path == &AccessPathModuleCentred::RootPath(lib_name.clone())
+                            })
+                            .map(|(_, fct_name)| fct_name)
+                            .choose(&mut thread_rng())
+                            .unwrap(),
                 )
             }
             ArgType::AnyType => {
@@ -401,9 +411,9 @@ impl<'cxt> TestGenDB {
                 mod_rep
                     .get_fns()
                     .iter()
-                    .map(|(fct_name, fct_obj)| {
+                    .map(|((fct_acc_path, fct_name), fct_obj)| {
                         (
-                            (module_root_path.clone(), fct_name.clone()),
+                            (fct_acc_path.clone(), fct_name.clone()),
                             1.0,
                             fct_obj
                                 .get_sigs()
@@ -416,20 +426,20 @@ impl<'cxt> TestGenDB {
             });
 
         // REEEEEEEE TODO get a valid receiver -- also take into account the ret_vals, and only
-        // choose fcts to call that are on receivers that exist in scope. basically: this should be computed 
+        // choose fcts to call that are on receivers that exist in scope. basically: this should be computed
         // in the fct-choosing stage -- the above should:
         // 1. add the acc paths of the ret_vals into the mod_rep.get_fcts (in the output parse for tests)
         // 2. in the selection, filter by no-path (mod import), and the paths corresponding to things in the ret_vals
         // 3. when we select, then choose a random val with the selected path
+        // 4. in the code-gen, use the receiver
         let fct_call_receiver = None;
-
 
         let dist =
             WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight, _)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
         let ((fct_receiver_acc_path, fct_name), _, fct_sigs_weights) =
-            &lib_fcts_weights[rand_fct_index].clone();
-        let fct_to_call = &mod_rep.get_fns()[fct_name];
+            (&lib_fcts_weights[rand_fct_index]).clone();
+        let fct_to_call = &mod_rep.get_fns()[&(fct_receiver_acc_path.clone(), fct_name.clone())];
         let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
             Box::new(fct_receiver_acc_path.clone()),
             //Box::new(module_root_path.clone()),
@@ -450,7 +460,7 @@ impl<'cxt> TestGenDB {
         // choose a random signature -- either new, or an existing one (if theres some available)
         let random_sig = gen_new_sig_with_cb(
             fct_to_call.get_num_api_args(),
-            fct_sigs_weights,
+            &fct_sigs_weights,
             cb_position,
             self,
         );
