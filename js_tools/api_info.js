@@ -47,15 +47,17 @@ let fn_names = Object.getOwnPropertyNames(lib).filter((p) => typeof lib[p] === '
 
 // for each function in the lib, get the number of arguments
 let fn_info = {};
+let default_acc_path = "(module " + libname + ")"; // module import
 fn_names.forEach( name => {
 	let cur_fn_info = {};
 	cur_fn_info["num_args"] = lib[name] ? lib[name].length : 2; // if the function doesn't exist on the lib then give it 2 args 
 	cur_fn_info["name"] = name;
+	cur_fn_info["sigs"] = []; // start with no discovered signatures
 	if(lib[name].toString().indexOf("...args") > -1) {
 		cur_fn_info["num_args"] = DEFAULT_MAX_ARGS;
 		cur_fn_info["used_default_args"] = true;
 	}
-	fn_info[name] = cur_fn_info;
+	fn_info[name + ", " + default_acc_path] = cur_fn_info;
 });
 
 
