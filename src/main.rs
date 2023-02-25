@@ -181,9 +181,15 @@ fn main() {
             };
             (mod_rep, testgen_db)
         } else {
-            let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
+            // let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
             (
-                serde_json::from_str(&file_conts_string).unwrap(),
+                //serde_json::from_str(&file_conts_string).unwrap(),
+                NpmModule::from_api_spec(
+                    PathBuf::from(&discovery_filename),
+                    opt.lib_name.clone(),
+                    opt.module_import_code,
+                )
+                .expect("Error reading the discovery info file"),
                 testgen_db,
             )
         };

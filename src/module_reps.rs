@@ -3,9 +3,11 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
+use crate::consts::DEFAULT_MAX_ARG_LENGTH;
 use crate::errors::*;
 use crate::functions::*;
 use crate::tests::{ExtensionPointID, Test};
@@ -21,7 +23,7 @@ struct NpmModuleJSON {
     /// indexed by the name of the function.
     /// Here the functions are the output of the `api_info` phase
     /// optional string in the hashmap index is the access path of the fct receiver
-    fns: HashMap<(Option<String>, String), ModFctAPIJSON>,
+    fns: HashMap<String, ModFctAPIJSON>,
 }
 
 /// Serializable representation of the function as discovered by the `api_info`.
@@ -35,6 +37,8 @@ struct ModFctAPIJSON {
     /// Indicator of whether or not the API function has a specified
     /// number of args.
     used_default_args: Option<bool>,
+    // Signatures
+    sigs: Vec<FunctionSignature>,
 }
 
 /// Module class:
@@ -52,12 +56,30 @@ pub struct NpmModule {
     fns: HashMap<(AccessPathModuleCentred, String), ModuleFunction>,
 }
 
+impl From<&NpmModule> for NpmModuleJSON {
+    fn from(mod_rep: &NpmModule) -> Self {
+        Self {
+            lib: mod_rep.lib.clone(),
+            fns: mod_rep
+                .get_fns()
+                .iter()
+                .map(|((acc_path, name), mod_fct)| {
+                    (
+                        [&name, ", ", &acc_path.to_string()].join(""),
+                        mod_fct.into(),
+                    )
+                })
+                .collect::<HashMap<String, ModFctAPIJSON>>(),
+        }
+    }
+}
+
 /// Pretty printing for the NpmModule (JSON style).
 impl std::fmt::Debug for NpmModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match serde_json::to_string_pretty(&self) {
+        match serde_json::to_string_pretty(&NpmModuleJSON::from(self)) {
             Ok(pretty_json) => write!(f, "{}", pretty_json),
-            _ => Err(std::fmt::Error),
+            Err(_) => Err(std::fmt::Error),
         }
     }
 }
@@ -99,9 +121,10 @@ impl NpmModule {
                     };
                 let mut new_sig = rel_fct.unwrap().sig.clone();
                 new_sig.set_call_res(*fct_result);
-                if let Some(mut_fct_desc) =
-                    self.fns.get_mut(&(fct_acc_path_rep, fct_name.to_string()))
-                {
+                if let Some(mut_fct_desc) = self.fns.get_mut(&(
+                    (fct_acc_path_rep).get_base_path().unwrap().clone(),
+                    fct_name.to_string(),
+                )) {
                     mut_fct_desc.add_sig(new_sig.clone());
                 }
             }
@@ -141,14 +164,18 @@ impl NpmModule {
         let fns: HashMap<(AccessPathModuleCentred, String), ModuleFunction> = mod_json_rep
             .fns
             .iter()
-            .map(|((opt_rec_acc_path_string, name), mod_fct_api)| {
+            .map(|(name_and_opt_path, mod_fct_api)| {
+                let mut name_path_iter = name_and_opt_path.split(", ");
+                let name = name_path_iter.next().unwrap();
+                let opt_rec_acc_path_string = name_path_iter.next();
                 (
                     (
-                        match opt_rec_acc_path {
-                            Some(acc) => AccessPathModuleCentred::from_str(acc.clone()),
-                            None => AccessPathModuleCentred::RootPath(lib_name.clone()),
+                        match opt_rec_acc_path_string {
+                            Some(acc) => AccessPathModuleCentred::from_str(acc)
+                                .unwrap_or(AccessPathModuleCentred::RootPath(lib_name.clone())),
+                            _ => AccessPathModuleCentred::RootPath(lib_name.clone()),
                         },
-                        name.clone(),
+                        name.to_string(),
                     ),
                     ModuleFunction::try_from(mod_fct_api),
                 )
@@ -231,11 +258,75 @@ pub enum AccessPathModuleCentred {
     InstancePath(Box<AccessPathModuleCentred>),
 }
 
+impl AccessPathModuleCentred {
+    pub fn get_base_path(&self) -> Option<&Self> {
+        match self {
+            Self::RootPath(_) => None,
+            Self::ReturnPath(ret)
+            | Self::FieldAccPath(ret, _)
+            | Self::ParamPath(ret, _)
+            | Self::InstancePath(ret) => Some(&*ret),
+        }
+    }
+}
+
 impl std::str::FromStr for AccessPathModuleCentred {
-    type Err = DFError;
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        
+        let s = s.to_string();
+        if s.ends_with(")") {
+            let s = s.split(")").next().ok_or(())?;
+            if s.starts_with("(module ") {
+                let mut iter = s.split("(module ");
+                iter.next(); // empty string is first
+                return Ok(AccessPathModuleCentred::RootPath(
+                    iter.next().ok_or(())?.to_string(),
+                ));
+            } else if s.starts_with("(return ") {
+                let mut iter = s.split("(return ");
+                iter.next(); // empty string is first
+                return Ok(AccessPathModuleCentred::ReturnPath(Box::new(
+                    AccessPathModuleCentred::from_str(iter.next().ok_or(())?)?,
+                )));
+            } else if s.starts_with("(member ") {
+                let mut member_iter = s.split(" ");
+                member_iter.next(); // first string is just "(member"
+                member_iter.next(); // next is ""
+                let member_name = member_iter.next().ok_or(())?;
+                let member_name = match member_name.parse::<usize>() {
+                    Ok(val) => FieldNameType::IndexField(val),
+                    _ => FieldNameType::StringField(member_name.to_string()),
+                };
+                let member_path = member_iter.next().ok_or(())?;
+                return Ok(AccessPathModuleCentred::FieldAccPath(
+                    Box::new(AccessPathModuleCentred::from_str(member_path)?),
+                    member_name,
+                ));
+            } else if s.starts_with("(param ") {
+                let mut param_iter = s.split(" ");
+                param_iter.next(); // first string is just "(param"
+                param_iter.next(); // next is ""
+                let param_val = match param_iter.next().ok_or(())?.parse::<ParamIndexType>() {
+                    Ok(val) => val,
+                    _ => {
+                        return Err(());
+                    }
+                };
+                let param_path = param_iter.next().ok_or(())?;
+                return Ok(AccessPathModuleCentred::ParamPath(
+                    Box::new(AccessPathModuleCentred::from_str(param_path)?),
+                    param_val,
+                ));
+            } else if s.starts_with("(new ") {
+                let mut iter = s.split("(new ");
+                iter.next(); // empty string is first
+                return Ok(AccessPathModuleCentred::InstancePath(Box::new(
+                    AccessPathModuleCentred::from_str(iter.next().ok_or(())?)?,
+                )));
+            }
+        }
+        Err(())
     }
 }
 
@@ -292,5 +383,21 @@ impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
                 _ => Some(mod_fct_api.num_args),
             },
         })
+    }
+}
+
+/// Convert `ModuleFunction` into a `ModFctAPIJSON`.
+impl From<&ModuleFunction> for ModFctAPIJSON {
+    fn from(mod_fct: &ModuleFunction) -> Self {
+        let (num_args, used_default_args) = match mod_fct.num_api_args {
+            Some(num_args) => (num_args, Some(false)),
+            None => (DEFAULT_MAX_ARG_LENGTH, Some(true)),
+        };
+        Self {
+            name: mod_fct.name.clone(),
+            num_args,
+            used_default_args,
+            sigs: mod_fct.sigs.clone(),
+        }
     }
 }
