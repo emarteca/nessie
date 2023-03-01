@@ -52,7 +52,7 @@ pub struct FunctionCall {
     /// Access path abstract representation of the function to be called
     acc_path: Option<AccessPathModuleCentred>,
     /// Optional variable representing the receiver (if None, it's the module import)
-    receiver: Option<ArgVal>,
+    pub(crate) receiver: Option<ArgVal>,
 }
 
 impl FunctionCall {

@@ -265,13 +265,21 @@ impl Test {
                 .collect::<Vec<String>>()
                 .join(", ")
         };
+        assert!(matches!(
+            cur_node_call.receiver,
+            None | Some(ArgVal::Variable(_))
+        )); // receiver needs to be a variable
+        let fct_call_base_var = match &cur_node_call.receiver {
+            Some(rec) => rec.get_string_rep(None, None, print_instrumented),
+            None => base_var_name.to_string(),
+        };
         get_function_call_code(
             &cur_node_call.sig,
             cur_node_call.get_name(),
             args_rep,
             (ret_val_basename, ret_val_acc_path),
             extra_cb_code,
-            base_var_name,
+            &fct_call_base_var,
             cur_call_uniq_id,
             indents,
             print_instrumented,

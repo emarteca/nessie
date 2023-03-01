@@ -344,14 +344,14 @@ impl<'cxt> TestGenDB {
         cb_arg_vals_pool: Vec<ArgVal>,
         ext_facts: (Option<&FunctionCall>, ExtensionType, String),
     ) -> Result<FunctionCall, DFError> {
-        // TODO REEEEEEE here with APs we need to be looking at the lib pool instead as a dictionary w/ acc paths indexing
-        let lib_name = mod_rep.get_mod_js_var_name();
+        let lib_name = mod_rep.get_mod_js_var_name().clone();
         let module_root_path = AccessPathModuleCentred::RootPath(lib_name.clone());
 
         let (ext_fct, ext_type, ext_uniq_id) = ext_facts;
 
         // should we try and use mined data?
         // TODO: right now we only have mined data relevant for nested extensions,
+        // and for functions with the module import as receivers,
         // but this will change.
         if ext_type == ExtensionType::Nested
             && (thread_rng().gen_range(0..=1) as f64) / 100. > USE_MINED_NESTING_EXAMPLE
@@ -404,7 +404,43 @@ impl<'cxt> TestGenDB {
 
         // not using mined data...
         // choose a random function to generate a call for
-        let lib_fcts_weights = self
+
+        // first, get the acc paths in scope
+        // the module import is always in scope
+        // other than that, it's the ret_vals
+        let valid_receivers: Vec<(&ArgVal, &AccessPathModuleCentred)> = ret_vals_pool
+            .iter()
+            .filter_map(|ap_tracked| match ap_tracked {
+                ArgValAPTracked {
+                    val,
+                    acc_path: Some(ap),
+                } => Some((val, ap)),
+                _ => None,
+            })
+            .collect();
+
+        let mut ap_receivers: HashMap<AccessPathModuleCentred, Vec<ArgVal>> = HashMap::new();
+        // build a list of return values for each acc path
+        for (val, ap) in valid_receivers.iter() {
+            ap_receivers
+                .entry((**ap).clone())
+                .or_insert_with(|| Vec::new())
+                .push((**val).clone());
+        }
+        // add the root module to the valid receivers
+        let root_import_val = mod_rep.get_mod_js_var_name().clone();
+        ap_receivers.insert(
+            AccessPathModuleCentred::RootPath(lib_name.clone()),
+            vec![ArgVal::Variable(root_import_val)],
+        );
+
+        println!("bruh: {:?}", ret_vals_pool);
+
+        let lib_fcts_weights: Vec<(
+            (&AccessPathModuleCentred, &String, Vec<ArgVal>),
+            f64,
+            HashMap<Vec<ArgType>, f64>,
+        )> = self
             .libs_fcts_weights
             .entry(lib_name.clone())
             .or_insert_with(|| {
@@ -423,7 +459,25 @@ impl<'cxt> TestGenDB {
                         )
                     })
                     .collect()
-            });
+            })
+            .iter()
+            .map(|((fct_acc_path, fct_name), weight, fct_obj)| {
+                // get the list of valid receivers with the acc path
+                // add this to the lib_fcts_weights. if it's empty change weight to zero unless it's the root import
+                match ap_receivers.get(fct_acc_path) {
+                    Some(rec_list) => (
+                        (fct_acc_path, fct_name, rec_list.clone()),
+                        *weight,
+                        fct_obj.clone(),
+                    ),
+                    _ => (
+                        (fct_acc_path, fct_name, Vec::new()),
+                        f64::from(0), /* set weight to zero */
+                        fct_obj.clone(),
+                    ),
+                }
+            })
+            .collect();
 
         // REEEEEEEE TODO get a valid receiver -- also take into account the ret_vals, and only
         // choose fcts to call that are on receivers that exist in scope. basically: this should be computed
@@ -432,13 +486,15 @@ impl<'cxt> TestGenDB {
         // 2. in the selection, filter by no-path (mod import), and the paths corresponding to things in the ret_vals
         // 3. when we select, then choose a random val with the selected path
         // 4. in the code-gen, use the receiver
-        let fct_call_receiver = None;
+        // let fct_call_receiver = None;
 
         let dist =
             WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight, _)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
-        let ((fct_receiver_acc_path, fct_name), _, fct_sigs_weights) =
+        let ((fct_receiver_acc_path, fct_name, receivers), _, fct_sigs_weights) =
             (&lib_fcts_weights[rand_fct_index]).clone();
+        let fct_call_receiver = receivers.choose(&mut rand::thread_rng());
+        let fct_name = fct_name.clone();
         let fct_to_call = &mod_rep.get_fns()[&(fct_receiver_acc_path.clone(), fct_name.clone())];
         let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
             Box::new(fct_receiver_acc_path.clone()),
@@ -484,7 +540,7 @@ impl<'cxt> TestGenDB {
             None,                   /* position of arg in parent call of cb this is in */
             None,                   /* parent call node ID */
             Some(fct_acc_path_rep), /* access path rep of the fct being called */
-            fct_call_receiver,
+            fct_call_receiver.cloned(),
         );
         // init the call with random values of the types specified in `random_sig`
         ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
