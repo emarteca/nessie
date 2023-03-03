@@ -105,6 +105,31 @@ impl NpmModule {
         &mut self.fns
     }
 
+    pub fn add_fcts_rooted_in_ret_vals(
+        &mut self,
+        accpath_fct_props: &HashMap<AccessPathModuleCentred, Vec<String>>,
+    ) {
+        // iterate through all the new functions
+        // add them as empty `ModuleFunction`s to the module function list
+        let fns = self.get_mut_fns();
+        for (accpath, fct_prop_names) in accpath_fct_props.iter() {
+            for name in fct_prop_names.iter() {
+                fns.insert(
+                    (accpath.clone(), name.to_string()),
+                    ModuleFunction {
+                        name: name.to_string(),
+                        sigs: Vec::new(),
+                        // some heuristics: `then` and `catch` methods (on Promises) take 1 arg
+                        num_api_args: match name.as_str() {
+                            "then" | "catch" => Some(1),
+                            _ => None,
+                        },
+                    },
+                );
+            }
+        }
+    }
+
     pub fn add_function_sigs_from_test(
         &mut self,
         test: &Test,
