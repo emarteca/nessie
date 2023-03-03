@@ -318,8 +318,10 @@ impl std::str::FromStr for AccessPathModuleCentred {
             } else if s.starts_with("(return ") {
                 let mut iter = s.split("(return ");
                 iter.next(); // empty string is first
+                             // get the rest of the path
+                let return_path = iter.intersperse("(return ").collect::<String>();
                 return Ok(AccessPathModuleCentred::ReturnPath(Box::new(
-                    AccessPathModuleCentred::from_str(iter.next().ok_or(())?)?,
+                    AccessPathModuleCentred::from_str(&return_path)?,
                 )));
             } else if s.starts_with("(member ") {
                 let mut member_iter = s.split(" ");
@@ -352,8 +354,10 @@ impl std::str::FromStr for AccessPathModuleCentred {
             } else if s.starts_with("(new ") {
                 let mut iter = s.split("(new ");
                 iter.next(); // empty string is first
+                             // collect the rest of the path
+                let new_path = iter.intersperse("(new ").collect::<String>();
                 return Ok(AccessPathModuleCentred::InstancePath(Box::new(
-                    AccessPathModuleCentred::from_str(iter.next().ok_or(())?)?,
+                    AccessPathModuleCentred::from_str(&new_path)?,
                 )));
             }
         }

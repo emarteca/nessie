@@ -619,7 +619,6 @@ fn get_function_props_for_acc_paths(
             }
         }
     }
-    println!("WEE {:?}", ret_map);
     ret_map
 }
 

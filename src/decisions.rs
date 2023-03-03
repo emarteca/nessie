@@ -461,7 +461,8 @@ impl<'cxt> TestGenDB {
             .iter()
             .map(|((fct_acc_path, fct_name), weight, fct_obj)| {
                 // get the list of valid receivers with the acc path
-                // add this to the lib_fcts_weights. if it's empty change weight to zero unless it's the root import
+                // add this to the lib_fcts_weights. if it's empty change weight to zero
+                // note: the root import is always in ap_receivers
                 match ap_receivers.get(fct_acc_path) {
                     Some(rec_list) => (
                         (fct_acc_path, fct_name, rec_list.clone()),
