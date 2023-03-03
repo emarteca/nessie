@@ -274,9 +274,16 @@ impl std::str::FromStr for AccessPathModuleCentred {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.to_string();
+        // delete all the characters resulting from printing the JSON rep
+        let s = s
+            .to_string()
+            .replace("(\"", "")
+            .replace("\")", "")
+            .replace("StringField", "")
+            .replace("IndexField", "");
         if s.ends_with(")") {
-            let s = s.split(")").next().ok_or(())?;
+            // let s = s.split(")").next().ok_or(())?;
+            let s = s[0..s.len() - 1].to_string();
             if s.starts_with("(module ") {
                 let mut iter = s.split("(module ");
                 iter.next(); // empty string is first
@@ -292,30 +299,29 @@ impl std::str::FromStr for AccessPathModuleCentred {
             } else if s.starts_with("(member ") {
                 let mut member_iter = s.split(" ");
                 member_iter.next(); // first string is just "(member"
-                member_iter.next(); // next is ""
                 let member_name = member_iter.next().ok_or(())?;
                 let member_name = match member_name.parse::<usize>() {
                     Ok(val) => FieldNameType::IndexField(val),
                     _ => FieldNameType::StringField(member_name.to_string()),
                 };
-                let member_path = member_iter.next().ok_or(())?;
+                // collect the rest of the iterator
+                let member_path = member_iter.intersperse(" ").collect::<String>();
                 return Ok(AccessPathModuleCentred::FieldAccPath(
-                    Box::new(AccessPathModuleCentred::from_str(member_path)?),
+                    Box::new(AccessPathModuleCentred::from_str(&member_path)?),
                     member_name,
                 ));
             } else if s.starts_with("(param ") {
                 let mut param_iter = s.split(" ");
                 param_iter.next(); // first string is just "(param"
-                param_iter.next(); // next is ""
                 let param_val = match param_iter.next().ok_or(())?.parse::<ParamIndexType>() {
                     Ok(val) => val,
                     _ => {
                         return Err(());
                     }
                 };
-                let param_path = param_iter.next().ok_or(())?;
+                let param_path = param_iter.intersperse(" ").collect::<String>();
                 return Ok(AccessPathModuleCentred::ParamPath(
-                    Box::new(AccessPathModuleCentred::from_str(param_path)?),
+                    Box::new(AccessPathModuleCentred::from_str(&param_path)?),
                     param_val,
                 ));
             } else if s.starts_with("(new ") {

@@ -451,7 +451,24 @@ pub fn get_function_call_code(
                     .replace("\"", "\\\"")
                 + "\": Object.getOwnPropertyNames("
                 + &ret_val_basename
-                + ").filter((p) => typeof ret_val_jsonfile_1[p] === \"function\")});"
+                + ").filter((p) => typeof ret_val_jsonfile_1[p] === \"function\")"
+                // NOTE: the next lines get more properties; including `toString` etc. 
+                // uncomment if you want the prototype properties too
+                // + ".concat(Object.getOwnPropertyNames(Object.getPrototypeOf("
+                // + &ret_val_basename
+                // + ")))"
+                + "});"
+                // special case for promises: we only want `then` and `catch`
+                + "\n\t} else if (getTypeDiffObjFromPromise("
+                + &ret_val_basename
+                + ") == \"DIFFTYPE_Promise\"){"
+                + "\n\t\tconsole.log({\""
+                + &ret_val_acc_path
+                    .as_ref()
+                    .unwrap()
+                    .to_string()
+                    .replace("\"", "\\\"")
+                + "\": [\"then\", \"catch\"]});"
                 + "\n\t}"
         } else {
             String::new()

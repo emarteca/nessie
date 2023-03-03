@@ -12,6 +12,7 @@ use serde_json::{json, Value};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::process::Command;
+use std::str::FromStr;
 use strum_macros::EnumIter;
 
 /// Test identifying information: ID and file path.
@@ -375,9 +376,18 @@ impl<'cxt> Test {
     /// Execute the test and return the results for all the extension points.
     /// Test execution includes writing the test out to a file, and dispatching a
     /// call to `nodejs` to run the test.
+    /// In addition to the results per extension suite, we also get lists of function properties
+    /// for return values with non-primitive types; these can then be added to the list of
+    /// functions available for test generation.
     pub fn execute(
         &mut self,
-    ) -> Result<HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>, DFError> {
+    ) -> Result<
+        (
+            HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
+            HashMap<AccessPathModuleCentred, Vec<String>>,
+        ),
+        DFError,
+    > {
         let cur_test_file = self.write_test_to_file(
             true,  /* needs to be instrumented for tracking */
             false, /* running these directly */
@@ -404,6 +414,7 @@ impl<'cxt> Test {
             };
         // if the test didn't error, then we found a valid signature
         // also, need to update all the extension points if their relevant callbacks were executed
+        // and, get the list of new functions available on return values with `ObjectType` type
         let test_results = diagnose_test_correctness(self, &output_json);
         Ok(test_results)
     }
@@ -505,7 +516,10 @@ impl<'cxt> Test {
 fn diagnose_test_correctness(
     test: &Test,
     output_json: &Value,
-) -> HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> {
+) -> (
+    HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
+    HashMap<AccessPathModuleCentred, Vec<String>>,
+) {
     let fct_tree = test.get_fct_tree();
     let mut fct_tree_results: HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> =
         HashMap::new();
@@ -518,7 +532,7 @@ fn diagnose_test_correctness(
                     (FunctionCallResult::ExecutionError, None),
                 );
             }
-            return fct_tree_results;
+            return (fct_tree_results, HashMap::new());
         }
     };
     for fc in fct_tree.iter() {
@@ -533,7 +547,7 @@ fn diagnose_test_correctness(
                 fct_tree.get_node_id(fc).unwrap(),
                 (FunctionCallResult::ExecutionError, None),
             );
-            return fct_tree_results;
+            return (fct_tree_results, HashMap::new());
         }
         // now look through and see if the callback was executed
         // and if so, whether or not it was executed sequentially
@@ -576,7 +590,37 @@ fn diagnose_test_correctness(
             ),
         );
     }
-    fct_tree_results
+    let new_acc_path_fcts = get_function_props_for_acc_paths(output_vec);
+    (fct_tree_results, new_acc_path_fcts)
+}
+
+fn get_function_props_for_acc_paths(
+    output_vec: &Vec<Value>,
+) -> HashMap<AccessPathModuleCentred, Vec<String>> {
+    let mut ret_map = HashMap::new();
+    for val in output_vec.iter() {
+        if let Value::Object(m) = val {
+            for (k, val) in m.iter() {
+                let acc_path_rep = AccessPathModuleCentred::from_str(k);
+                if acc_path_rep.is_ok() {
+                    if let Value::Array(val_vec) = val {
+                        ret_map.insert(
+                            acc_path_rep.unwrap(),
+                            val_vec
+                                .iter()
+                                .filter_map(|obj| match obj {
+                                    Value::String(s) => Some(s.clone()),
+                                    _ => None,
+                                })
+                                .collect(),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    println!("WEE {:?}", ret_map);
+    ret_map
 }
 
 /// Structure of a test extension point.

@@ -434,8 +434,6 @@ impl<'cxt> TestGenDB {
             vec![ArgVal::Variable(root_import_val)],
         );
 
-        println!("bruh: {:?}", ret_vals_pool);
-
         let lib_fcts_weights: Vec<(
             (&AccessPathModuleCentred, &String, Vec<ArgVal>),
             f64,
@@ -479,15 +477,6 @@ impl<'cxt> TestGenDB {
             })
             .collect();
 
-        // REEEEEEEE TODO get a valid receiver -- also take into account the ret_vals, and only
-        // choose fcts to call that are on receivers that exist in scope. basically: this should be computed
-        // in the fct-choosing stage -- the above should:
-        // 1. add the acc paths of the ret_vals into the mod_rep.get_fcts (in the output parse for tests)
-        // 2. in the selection, filter by no-path (mod import), and the paths corresponding to things in the ret_vals
-        // 3. when we select, then choose a random val with the selected path
-        // 4. in the code-gen, use the receiver
-        // let fct_call_receiver = None;
-
         let dist =
             WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight, _)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
@@ -498,7 +487,6 @@ impl<'cxt> TestGenDB {
         let fct_to_call = &mod_rep.get_fns()[&(fct_receiver_acc_path.clone(), fct_name.clone())];
         let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
             Box::new(fct_receiver_acc_path.clone()),
-            //Box::new(module_root_path.clone()),
             FieldNameType::StringField(fct_name.clone()),
         );
 
