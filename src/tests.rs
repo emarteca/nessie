@@ -203,10 +203,12 @@ impl<'cxt> Test {
         }
     }
 
+    /// Get the test id.
     pub fn get_id(&self) -> usize {
         self.loc_id.cur_test_id
     }
 
+    /// Get the function call corresponding the extension point ID (if one exists, `None` otherwise)
     pub fn get_fct_call_from_id(&self, ext_id: &ExtensionPointID) -> Option<&FunctionCall> {
         match self.fct_tree.get(*ext_id) {
             Some(node) => Some(node.get()),
@@ -598,10 +600,15 @@ fn diagnose_test_correctness(
     (fct_tree_results, new_acc_path_fcts)
 }
 
+/// Get the function properties for a given access path, parsing from the 
+/// test output (this amounts to looking for an item in the output that is 
+/// a map item where the key is the access path and the value is the list of 
+/// properties, and then parsing that).
 fn get_function_props_for_acc_paths(
     output_vec: &Vec<Value>,
 ) -> HashMap<AccessPathModuleCentred, Vec<String>> {
     let mut ret_map = HashMap::new();
+    // `output_vec` is a list of JSON objects
     for val in output_vec.iter() {
         if let Value::Object(m) = val {
             for (k, val) in m.iter() {

@@ -56,6 +56,7 @@ pub struct NpmModule {
     fns: HashMap<(AccessPathModuleCentred, String), ModuleFunction>,
 }
 
+/// Automatically cast from NpmModule back to NpmModuleJSON (for printing to/reading from files)
 impl From<&NpmModule> for NpmModuleJSON {
     fn from(mod_rep: &NpmModule) -> Self {
         Self {
@@ -284,6 +285,9 @@ pub enum AccessPathModuleCentred {
 }
 
 impl AccessPathModuleCentred {
+    /// Get the base path of the access path (removing the outer recursive level).
+    /// Eg. `fs.readFile` has base path `fs`. 
+    /// Module import roots have no base path.
     pub fn get_base_path(&self) -> Option<&Self> {
         match self {
             Self::RootPath(_) => None,
@@ -295,6 +299,7 @@ impl AccessPathModuleCentred {
     }
 }
 
+/// Autocast from strings to access paths
 impl std::str::FromStr for AccessPathModuleCentred {
     type Err = ();
 

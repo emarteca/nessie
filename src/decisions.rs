@@ -434,6 +434,10 @@ impl<'cxt> TestGenDB {
             vec![ArgVal::Variable(root_import_val)],
         );
 
+        // Build the weighted (by number of times previously tested -- if never tested, 
+        // then the weight is 1) map of functions to test.
+        // We filter out the functions rooted in access paths that don't correspond to a
+        // variable (either previous return value or module import) that is in scope.
         let lib_fcts_weights: Vec<(
             (&AccessPathModuleCentred, &String, Vec<ArgVal>),
             f64,
@@ -478,6 +482,8 @@ impl<'cxt> TestGenDB {
             })
             .collect();
 
+        // build the array with weights distribution, to choose a random function
+        // with non-zero weight
         let dist =
             WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight, _)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
