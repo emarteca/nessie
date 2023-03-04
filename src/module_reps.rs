@@ -65,10 +65,7 @@ impl From<&NpmModule> for NpmModuleJSON {
                 .get_fns()
                 .iter()
                 .map(|((acc_path, name), mod_fct)| {
-                    (
-                        [&name, ", ", &acc_path.to_string()].join(""),
-                        mod_fct.into(),
-                    )
+                    ([name, ", ", &acc_path.to_string()].join(""), mod_fct.into())
                 })
                 .collect::<HashMap<String, ModFctAPIJSON>>(),
         }
@@ -138,14 +135,14 @@ impl NpmModule {
     ) {
         for (ext_point_id, (fct_result, _)) in ext_point_results.iter() {
             let rel_fct = test.get_fct_call_from_id(ext_point_id);
-            if rel_fct.is_some() && fct_result != &FunctionCallResult::ExecutionError {
-                let fct_name = rel_fct.unwrap().get_name();
+            if let Some(rel_fct) = rel_fct && fct_result != &FunctionCallResult::ExecutionError {
+                let fct_name = rel_fct.get_name();
                 let fct_acc_path_rep: AccessPathModuleCentred =
-                    match rel_fct.unwrap().get_acc_path() {
+                    match rel_fct.get_acc_path() {
                         Some(ap) => ap.clone(),
                         None => AccessPathModuleCentred::RootPath(self.lib.clone()),
                     };
-                let mut new_sig = rel_fct.unwrap().sig.clone();
+                let mut new_sig = rel_fct.sig.clone();
                 new_sig.set_call_res(*fct_result);
                 if let Some(mut_fct_desc) = self.fns.get_mut(&(
                     (fct_acc_path_rep).clone().get_base_path().unwrap().clone(),
@@ -197,8 +194,11 @@ impl NpmModule {
                 (
                     (
                         match opt_rec_acc_path_string {
-                            Some(acc) => AccessPathModuleCentred::from_str(acc)
-                                .unwrap_or(AccessPathModuleCentred::RootPath(lib_name.clone())),
+                            Some(acc) => {
+                                AccessPathModuleCentred::from_str(acc).unwrap_or_else(|_| {
+                                    AccessPathModuleCentred::RootPath(lib_name.clone())
+                                })
+                            }
                             _ => AccessPathModuleCentred::RootPath(lib_name.clone()),
                         },
                         name.to_string(),
@@ -219,7 +219,7 @@ impl NpmModule {
     /// Get the variable name corresponding to this module when it's imported in generated tests
     /// (it's just the name of this module, switching hyphens to underscores).
     pub fn get_mod_js_var_name(&self) -> String {
-        str::replace(&self.lib, "-", "_").to_string()
+        str::replace(&self.lib, "-", "_")
     }
 
     /// Short string representation of the module, mainly for debugging/display.
@@ -286,7 +286,7 @@ pub enum AccessPathModuleCentred {
 
 impl AccessPathModuleCentred {
     /// Get the base path of the access path (removing the outer recursive level).
-    /// Eg. `fs.readFile` has base path `fs`. 
+    /// Eg. `fs.readFile` has base path `fs`.
     /// Module import roots have no base path.
     pub fn get_base_path(&self) -> Option<&Self> {
         match self {
@@ -294,7 +294,7 @@ impl AccessPathModuleCentred {
             Self::ReturnPath(ret)
             | Self::FieldAccPath(ret, _)
             | Self::ParamPath(ret, _)
-            | Self::InstancePath(ret) => Some(&*ret),
+            | Self::InstancePath(ret) => Some(ret),
         }
     }
 }
@@ -311,7 +311,7 @@ impl std::str::FromStr for AccessPathModuleCentred {
             .replace("\")", "")
             .replace("StringField", "")
             .replace("IndexField", "");
-        if s.ends_with(")") {
+        if s.ends_with(')') {
             // let s = s.split(")").next().ok_or(())?;
             let s = s[0..s.len() - 1].to_string();
             if s.starts_with("(module ") {
@@ -329,7 +329,7 @@ impl std::str::FromStr for AccessPathModuleCentred {
                     AccessPathModuleCentred::from_str(&return_path)?,
                 )));
             } else if s.starts_with("(member ") {
-                let mut member_iter = s.split(" ");
+                let mut member_iter = s.split(' ');
                 member_iter.next(); // first string is just "(member"
                 let member_name = member_iter.next().ok_or(())?;
                 let member_name = match member_name.parse::<usize>() {
@@ -343,7 +343,7 @@ impl std::str::FromStr for AccessPathModuleCentred {
                     member_name,
                 ));
             } else if s.starts_with("(param ") {
-                let mut param_iter = s.split(" ");
+                let mut param_iter = s.split(' ');
                 param_iter.next(); // first string is just "(param"
                 let param_val = match param_iter.next().ok_or(())?.parse::<ParamIndexType>() {
                     Ok(val) => val,

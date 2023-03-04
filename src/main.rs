@@ -90,20 +90,15 @@ fn main() {
 
     let test_dir_path = consts::setup::TEST_DIR_PATH;
 
-    let toy_dir_base = &(testing_dir.clone() + "/" + test_dir_path + "/toy_fs_dir");
+    let toy_dir_base = &(testing_dir + "/" + test_dir_path + "/toy_fs_dir");
     let toy_fs_paths =
-        setup_toy_fs(&toy_dir_base).expect("Error creating toy filesystem for tests; bailing out.");
+        setup_toy_fs(toy_dir_base).expect("Error creating toy filesystem for tests; bailing out.");
 
-    let mined_data: Option<Vec<MinedNestingPairJSON>> = if let Some(ref mined_data_file) =
-        opt.mined_data
-    {
-        Some(
+    let mined_data: Option<Vec<MinedNestingPairJSON>> =
+        opt.mined_data.as_ref().map(|mined_data_file| {
             MinedNestingPairJSON::list_from_file(mined_data_file)
-                .expect(format!("failed to read mined data from {:?}", opt.mined_data).as_str()),
-        )
-    } else {
-        None
-    };
+                .unwrap_or_else(|_| panic!("failed to read mined data from {:?}", opt.mined_data))
+        });
 
     let test_file_prefix = consts::setup::TEST_FILE_PREFIX;
 
@@ -112,28 +107,25 @@ fn main() {
         test_dir_path.to_string(),
         test_file_prefix.to_string(),
         mined_data,
-        match &opt.lib_src_dir {
-            Some(ref dir) => Some(
-                std::fs::canonicalize(dir.clone())
-                    .expect(format!("invalid directory {:?} for api source code", dir).as_str())
-                    .into_os_string()
-                    .into_string()
-                    .unwrap(),
-            ),
-            None => None,
-        },
+        opt.lib_src_dir.as_ref().map(|dir| {
+            std::fs::canonicalize(dir.clone())
+                .unwrap_or_else(|_| panic!("invalid directory {:?} for api source code", dir))
+                .into_os_string()
+                .into_string()
+                .unwrap()
+        }),
     );
     testgen_db.set_fs_strings(toy_fs_paths, toy_dir_base);
 
     // if we don't have the source code of the api, install it so it can be `require`d
-    if !opt.lib_src_dir.is_some() {
-        if !Path::new(&("node_modules/".to_owned() + &opt.lib_name)).exists() {
-            Command::new("npm")
-                .arg("install")
-                .arg(&opt.lib_name)
-                .output()
-                .expect(format!("failed to install {:?} to test", &opt.lib_name).as_str());
-        }
+    if opt.lib_src_dir.is_none()
+        && !Path::new(&("node_modules/".to_owned() + &opt.lib_name)).exists()
+    {
+        Command::new("npm")
+            .arg("install")
+            .arg(&opt.lib_name)
+            .output()
+            .unwrap_or_else(|_| panic!("failed to install {:?} to test", &opt.lib_name));
     }
 
     // if discovery file doesn't already exist
@@ -141,7 +133,7 @@ fn main() {
         if (!Path::new(&discovery_filename).exists()) || opt.redo_discovery {
             // is the api spec file already there? if so, don't run
             let api_spec_filename = "js_tools/".to_owned() + &opt.lib_name + "_output.json";
-            let mut api_spec_args = vec!["lib_name=".to_owned() + &opt.lib_name.clone()];
+            let mut api_spec_args = vec!["lib_name=".to_owned() + &opt.lib_name];
             if let Some(ref dir) = opt.lib_src_dir {
                 let lib_src_dir_name = dir.clone().into_os_string().into_string().unwrap();
                 api_spec_args.push("lib_src_dir=".to_owned() + &lib_src_dir_name);
@@ -155,13 +147,12 @@ fn main() {
                 Command::new("./get_api_specs.sh")
                     .args(api_spec_args)
                     .output()
-                    .expect(
-                        format!(
+                    .unwrap_or_else(|_| {
+                        panic!(
                             "failed to execute API info gathering process for {:?}",
                             &opt.lib_name
                         )
-                        .as_str(),
-                    );
+                    });
                 println!("Generating API spec");
             } else {
                 println!(

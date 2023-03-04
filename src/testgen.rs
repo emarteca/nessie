@@ -59,7 +59,7 @@ pub fn run_testgen_phase<'cxt>(
         testgen_db.add_extension_points_for_test(&cur_test, &test_results.0);
         println!("Test: {:?} of {:?}", cur_test_id, num_tests);
 
-        cur_test_id = cur_test_id + 1;
+        cur_test_id += 1;
     }
     // print the runner for the mocha test suite
     write_meta_test(testgen_db.test_dir_path.clone(), num_tests)?;

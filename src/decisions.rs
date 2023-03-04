@@ -30,7 +30,7 @@ pub fn gen_new_sig_with_cb(
     testgen_db: &TestGenDB,
 ) -> FunctionSignature {
     // look at the list of signatures CHOOSE_NEW_SIG_PCT of the time (if the list is non-empty)
-    if weighted_sigs.len() > 0
+    if !weighted_sigs.is_empty()
         && (thread_rng().gen_range(0..=100) as f64) / 100. > CHOOSE_NEW_SIG_PCT
     {
         let vec_sigs_weights = weighted_sigs.iter().collect::<Vec<(&Vec<ArgType>, &f64)>>();
@@ -39,7 +39,8 @@ pub fn gen_new_sig_with_cb(
         let (abstract_sig, _) = &vec_sigs_weights[rand_sig_index].clone();
         FunctionSignature::from(*abstract_sig)
     } else {
-        let num_args = num_args.unwrap_or(thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH));
+        let num_args =
+            num_args.unwrap_or_else(|| thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH));
         let mut args: Vec<FunctionArgument> = Vec::with_capacity(num_args);
 
         // generate random values for all arguments, unless `cb_position` is a valid
@@ -67,6 +68,20 @@ pub fn gen_new_sig_with_cb(
     }
 }
 
+type ExtensionPoints = Vec<(
+    ExtensionType,
+    (Test, Option<ExtensionPointID>, Option<String>),
+)>;
+
+type LibFctWeightedMap = HashMap<
+    String,
+    Vec<(
+        (AccessPathModuleCentred, String),
+        f64,
+        HashMap<Vec<ArgType>, f64>,
+    )>,
+>;
+
 /// Representation of the state of the test generator: configuration for
 /// random value generation, informed by previous tests generated/tried.
 pub struct TestGenDB {
@@ -75,23 +90,13 @@ pub struct TestGenDB {
     /// Base of the toy directory for file system playground
     toy_dir_base: String,
     /// List of possible extension points and types of extension for previous tests.
-    possible_ext_points: Vec<(
-        ExtensionType,
-        (Test, Option<ExtensionPointID>, Option<String>),
-    )>,
+    possible_ext_points: ExtensionPoints,
     /// Current test index.
     cur_test_index: usize,
     /// Keep track of all the functions tested, per library,
     /// so we can bias the generator to choose functions that haven't
     /// been tested yet.
-    libs_fcts_weights: HashMap<
-        String,
-        Vec<(
-            (AccessPathModuleCentred, String),
-            f64,
-            HashMap<Vec<ArgType>, f64>,
-        )>,
-    >,
+    libs_fcts_weights: LibFctWeightedMap,
     /// Mined data.
     lib_mined_data: LibMinedData,
     /// Directory the generated tests are written to.
@@ -127,9 +132,9 @@ impl<'cxt> TestGenDB {
     }
 
     /// Setter for the list of valid toy filesystem paths.
-    pub fn set_fs_strings(&mut self, new_fs_paths: Vec<PathBuf>, toy_dir_base: &String) {
+    pub fn set_fs_strings(&mut self, new_fs_paths: Vec<PathBuf>, toy_dir_base: &str) {
         self.fs_strings = new_fs_paths;
-        self.toy_dir_base = toy_dir_base.clone();
+        self.toy_dir_base = toy_dir_base.to_owned();
     }
 
     /// Choose random type for argument of type `arg_type`.
@@ -263,7 +268,7 @@ impl<'cxt> TestGenDB {
                         .map(|tracked_val| tracked_val.val.clone())
                         .collect::<Vec<ArgVal>>()
                 } else {
-                    rand_index = rand_index - ret_vals_pool.len();
+                    rand_index -= ret_vals_pool.len();
                     cb_arg_vals_pool.to_vec()
                 }
                 .get(rand_index)
@@ -297,7 +302,7 @@ impl<'cxt> TestGenDB {
                         .into_string()
                         .unwrap(),
                         Err(_) => self.toy_dir_base.clone() + "/" 
-                                + &self.gen_random_string_val(false).get_string_rep(None, None, false).replace("\"", ""),}
+                                + &self.gen_random_string_val(false).get_string_rep(None, None, false).replace('\"', ""),}
                     + "\""
             }
             _ => {
@@ -344,7 +349,7 @@ impl<'cxt> TestGenDB {
         cb_arg_vals_pool: Vec<ArgVal>,
         ext_facts: (Option<&FunctionCall>, ExtensionType, String),
     ) -> Result<FunctionCall, DFError> {
-        let lib_name = mod_rep.get_mod_js_var_name().clone();
+        let lib_name = mod_rep.get_mod_js_var_name();
         let module_root_path = AccessPathModuleCentred::RootPath(lib_name.clone());
 
         let (ext_fct, ext_type, ext_uniq_id) = ext_facts;
@@ -369,7 +374,7 @@ impl<'cxt> TestGenDB {
                 let fct_name = nested_ext.fct_name.clone();
                 let fct_sig = nested_ext.sig.clone();
                 let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
-                    Box::new(module_root_path.clone()),
+                    Box::new(module_root_path),
                     FieldNameType::StringField(fct_name.clone()),
                 );
                 let mut ret_call = FunctionCall::new(
@@ -424,17 +429,17 @@ impl<'cxt> TestGenDB {
         for (val, ap) in valid_receivers.iter() {
             ap_receivers
                 .entry((**ap).clone())
-                .or_insert_with(|| Vec::new())
+                .or_insert_with(Vec::new)
                 .push((**val).clone());
         }
         // add the root module to the valid receivers
-        let root_import_val = mod_rep.get_mod_js_var_name().clone();
+        let root_import_val = mod_rep.get_mod_js_var_name();
         ap_receivers.insert(
             AccessPathModuleCentred::RootPath(lib_name.clone()),
             vec![ArgVal::Variable(root_import_val)],
         );
 
-        // Build the weighted (by number of times previously tested -- if never tested, 
+        // Build the weighted (by number of times previously tested -- if never tested,
         // then the weight is 1) map of functions to test.
         // We filter out the functions rooted in access paths that don't correspond to a
         // variable (either previous return value or module import) that is in scope.
@@ -488,7 +493,7 @@ impl<'cxt> TestGenDB {
             WeightedIndex::new(lib_fcts_weights.iter().map(|(_, weight, _)| weight)).unwrap();
         let rand_fct_index = dist.sample(&mut thread_rng());
         let ((fct_receiver_acc_path, fct_name, receivers), _, fct_sigs_weights) =
-            (&lib_fcts_weights[rand_fct_index]).clone();
+            lib_fcts_weights[rand_fct_index].clone();
         let fct_call_receiver = receivers.choose(&mut rand::thread_rng());
         let fct_name = fct_name.clone();
         let fct_to_call = &mod_rep.get_fns()[&(fct_receiver_acc_path.clone(), fct_name.clone())];
@@ -523,14 +528,14 @@ impl<'cxt> TestGenDB {
             .unwrap()
             .get_mut(rand_fct_index)
         {
-            *cur_fct_weight = *cur_fct_weight * RECHOOSE_LIB_FCT_WEIGHT_FACTOR;
+            *cur_fct_weight *= RECHOOSE_LIB_FCT_WEIGHT_FACTOR;
             *cur_fct_sig_weights
                 .entry(random_sig.get_abstract_sig())
                 .or_insert(1.0) *= RECHOOSE_FCT_SIG_WEIGHT_FACTOR;
         }
 
         let mut ret_call = FunctionCall::new(
-            fct_name.clone(),
+            fct_name,
             random_sig,
             None,                   /* position of arg in parent call of cb this is in */
             None,                   /* parent call node ID */
@@ -562,7 +567,7 @@ impl<'cxt> TestGenDB {
         if let Some(test_with_id) = rand_test {
             test_with_id.1.clone()
         } else {
-            self.cur_test_index = self.cur_test_index + 1;
+            self.cur_test_index += 1;
             (
                 Test::new(
                     mod_rep,
@@ -579,7 +584,7 @@ impl<'cxt> TestGenDB {
 
     /// Get a blank test for module `mod_rep` (i.e., with no calls).
     pub fn get_blank_test(&mut self, mod_rep: &'cxt NpmModule) -> Test {
-        self.cur_test_index = self.cur_test_index + 1;
+        self.cur_test_index += 1;
         Test::new(
             mod_rep,
             self.cur_test_index,

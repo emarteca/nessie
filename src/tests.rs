@@ -70,10 +70,7 @@ impl FunctionCall {
             name,
             sig,
             parent_arg_position_nesting,
-            parent_call_id: match parent_call_id {
-                Some(id) => Some(id.to_string()),
-                None => None,
-            },
+            parent_call_id: parent_call_id.map(|id| id.to_string()),
             acc_path,
             receiver,
         }
@@ -96,10 +93,7 @@ impl FunctionCall {
 
     /// Setter for the ID of the nesting parent call.
     pub fn set_parent_call_id(&mut self, parent_call_id: Option<ExtensionPointID>) {
-        self.parent_call_id = match parent_call_id {
-            Some(id) => Some(id.to_string()),
-            None => None,
-        }
+        self.parent_call_id = parent_call_id.map(|id| id.to_string())
     }
 
     /// Getter for the name of the function.
@@ -141,8 +135,8 @@ impl FunctionCall {
             arg.set_arg_val(testgen_db.gen_random_value_of_type(
                 arg_type,
                 Some(i),
-                &ret_vals_pool,
-                &cb_arg_vals_pool,
+                ret_vals_pool,
+                cb_arg_vals_pool,
                 mod_rep,
             ))?;
         }
@@ -231,7 +225,7 @@ impl<'cxt> Test {
         fresh_test_if_cant_extend: bool,
     ) -> Result<(ExtensionPointID, Test), DFError> {
         // choose a random test to extend with this new call
-        let (mut base_test, ext_id, cb_arg_pos) = testgen_db.get_test_to_extend(&mod_rep, ext_type);
+        let (mut base_test, ext_id, cb_arg_pos) = testgen_db.get_test_to_extend(mod_rep, ext_type);
         if (base_test.is_empty() || ext_id.is_none()) && ext_type == ExtensionType::Nested {
             // can't nested extend an empty test
             if !fresh_test_if_cant_extend {
@@ -243,20 +237,20 @@ impl<'cxt> Test {
         // extension point we're extending from (these are part of the valid inputs pool
         // for the function we're about to test)
         let (ret_vals_pool, cb_arg_vals_pool): (Vec<ArgValAPTracked>, Vec<ArgVal>) =
-            if ext_id.is_some() {
+            if let Some(ext_id) = ext_id {
                 (
-                    base_test.get_ret_values_accessible_from_ext_point(ext_id.unwrap()),
-                    base_test.get_cb_arg_values_accessible_from_ext_point(ext_id.unwrap()),
+                    base_test.get_ret_values_accessible_from_ext_point(ext_id),
+                    base_test.get_cb_arg_values_accessible_from_ext_point(ext_id),
                 )
             } else {
                 (Vec::new(), Vec::new())
             };
 
         // info on the function we're extending from
-        let (ext_fct, ext_uniq_id): (Option<&FunctionCall>, String) = if ext_id.is_some() {
+        let (ext_fct, ext_uniq_id): (Option<&FunctionCall>, String) = if let Some(ext_id) = ext_id {
             (
-                Some(base_test.fct_tree.get(ext_id.unwrap()).unwrap().get()),
-                base_test.get_uniq_id_for_call(base_test.fct_tree.get(ext_id.unwrap()).unwrap()),
+                Some(base_test.fct_tree.get(ext_id).unwrap().get()),
+                base_test.get_uniq_id_for_call(base_test.fct_tree.get(ext_id).unwrap()),
             )
         } else {
             (None, String::new())
@@ -278,8 +272,7 @@ impl<'cxt> Test {
             .update_cb_args_with_id(ext_node_id.into())?;
 
         // do the extension, if it's a non-empty test
-        if ext_id.is_some() {
-            let ext_id = ext_id.unwrap();
+        if let Some(ext_id) = ext_id {
             match ext_type {
                 ExtensionType::Nested => {
                     // adding a child
@@ -385,15 +378,7 @@ impl<'cxt> Test {
     /// In addition to the results per extension suite, we also get lists of function properties
     /// for return values with non-primitive types; these can then be added to the list of
     /// functions available for test generation.
-    pub fn execute(
-        &mut self,
-    ) -> Result<
-        (
-            HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
-            HashMap<AccessPathModuleCentred, Vec<String>>,
-        ),
-        DFError,
-    > {
+    pub fn execute(&mut self) -> Result<TestDiagnostics, DFError> {
         let cur_test_file = self.write_test_to_file(
             true,  /* needs to be instrumented for tracking */
             false, /* running these directly */
@@ -434,11 +419,11 @@ impl<'cxt> Test {
     pub fn get_uniq_id_for_call(&self, fc: &indextree::Node<FunctionCall>) -> String {
         self.fct_tree.get_node_id(fc).unwrap().to_string()
             + &match &fc.get().parent_call_id {
-                Some(pos) => String::from("_pcid".to_owned() + &pos.to_string()),
+                Some(pos) => "_pcid".to_owned() + &pos.to_string(),
                 None => String::new(),
             }
             + &match &fc.get().parent_arg_position_nesting {
-                Some(pos) => String::from("_pos".to_owned() + &pos.to_string()),
+                Some(pos) => "_pos".to_owned() + &pos.to_string(),
                 None => String::new(),
             }
     }
@@ -477,7 +462,7 @@ impl<'cxt> Test {
                 !ext_node_uniq_id.starts_with(uniq_id)
                 &&
                 // only the returns from outermost nested functions are available
-                uniq_id.matches("_").count() == 0
+                uniq_id.matches('_').count() == 0
             })
             .map(|(id, opt_fct_acc_path_rep)| match opt_fct_acc_path_rep {
                 Some(fct_acc_path_rep) => ArgValAPTracked {
@@ -503,29 +488,27 @@ impl<'cxt> Test {
         // can only use cb args from the direct nesting parents (i.e., the ancestors)
         ext_id
             .ancestors(&self.fct_tree)
-            .map(|node_id| {
+            .flat_map(|node_id| {
                 let node = self.fct_tree.get(node_id).unwrap();
                 // get all the cb args
                 let uniq_id = self.get_uniq_id_for_call(node);
                 node.get().get_all_cb_args_vals(&uniq_id)
             })
-            .flatten()
             .collect::<Vec<ArgVal>>()
     }
 }
+
+pub type TestDiagnostics = (
+    HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
+    HashMap<AccessPathModuleCentred, Vec<String>>,
+);
 
 /// Given the output of running a test, this function parses the output and
 /// returns a list of results that corresponds to the test's tree.
 /// We can use this to build a list of extension points.
 /// Note: we should only extend a test if it has no execution errors; if there
 /// are execution errors the test has no valid extension points.
-fn diagnose_test_correctness(
-    test: &Test,
-    output_json: &Value,
-) -> (
-    HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
-    HashMap<AccessPathModuleCentred, Vec<String>>,
-) {
+fn diagnose_test_correctness(test: &Test, output_json: &Value) -> TestDiagnostics {
     let fct_tree = test.get_fct_tree();
     let mut fct_tree_results: HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)> =
         HashMap::new();
@@ -600,12 +583,12 @@ fn diagnose_test_correctness(
     (fct_tree_results, new_acc_path_fcts)
 }
 
-/// Get the function properties for a given access path, parsing from the 
-/// test output (this amounts to looking for an item in the output that is 
-/// a map item where the key is the access path and the value is the list of 
+/// Get the function properties for a given access path, parsing from the
+/// test output (this amounts to looking for an item in the output that is
+/// a map item where the key is the access path and the value is the list of
 /// properties, and then parsing that).
 fn get_function_props_for_acc_paths(
-    output_vec: &Vec<Value>,
+    output_vec: &[Value],
 ) -> HashMap<AccessPathModuleCentred, Vec<String>> {
     let mut ret_map = HashMap::new();
     // `output_vec` is a list of JSON objects
@@ -613,10 +596,10 @@ fn get_function_props_for_acc_paths(
         if let Value::Object(m) = val {
             for (k, val) in m.iter() {
                 let acc_path_rep = AccessPathModuleCentred::from_str(k);
-                if acc_path_rep.is_ok() {
+                if let Ok(acc_path_rep) = acc_path_rep {
                     if let Value::Array(val_vec) = val {
                         ret_map.insert(
-                            acc_path_rep.unwrap(),
+                            acc_path_rep,
                             val_vec
                                 .iter()
                                 .filter_map(|obj| match obj {

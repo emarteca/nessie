@@ -180,12 +180,11 @@ impl FunctionArgument {
         context_uniq_id: Option<String>,
         print_instrumented: bool,
     ) -> Option<String> {
-        Some(
-            self.arg_val
-                .clone()?
-                .get_string_rep(extra_body_code, context_uniq_id, print_instrumented)
-                .clone(),
-        )
+        Some(self.arg_val.clone()?.get_string_rep(
+            extra_body_code,
+            context_uniq_id,
+            print_instrumented,
+        ))
     }
 
     /// Short string representation of the argument.
@@ -193,7 +192,7 @@ impl FunctionArgument {
     pub fn get_string_rep_arg_val_short(&self) -> Option<String> {
         match self.arg_type {
             ArgType::CallbackType => Some("\"[function]\"".to_string()),
-            _ => self.get_string_rep_arg_val(None, None, false).clone(),
+            _ => self.get_string_rep_arg_val(None, None, false),
         }
     }
 
@@ -203,7 +202,7 @@ impl FunctionArgument {
         if !(arg_val.get_type().can_be_repd_as(self.arg_type)) {
             return Err(TestGenError::ArgTypeValMismatch);
         }
-        self.arg_val = Some(arg_val.clone());
+        self.arg_val = Some(arg_val);
         Ok(())
     }
 

@@ -76,7 +76,7 @@ impl Callback {
                 [
                     "\tconsole.log({\"callback_exec_",
                     &match context_uniq_id {
-                        Some(str_id) => str_id.clone(),
+                        Some(str_id) => str_id,
                         None => String::new(),
                     },
                     "\": ",
@@ -93,15 +93,15 @@ impl Callback {
             // extra code for the callback body (if there's a nested function it
             // is included here)
             &match extra_body_code {
-                Some(str) => str.clone(),
+                Some(str) => str,
                 None => String::new(),
             },
             "}",
         ]
         .join("\n");
         cb_code
-            .split("\n")
-            .filter(|line| line.len() > 0)
+            .split('\n')
+            .filter(|line| !line.is_empty())
             .collect::<Vec<&str>>()
             .join("\n\t")
     }
@@ -205,12 +205,12 @@ impl Test {
 
         let indents = "\t".repeat(num_tabs);
         let ret_val_basename = "ret_val_".to_owned() + base_var_name + "_" + &cur_call_uniq_id;
-        let ret_val_acc_path = match cur_node_call.get_acc_path() {
-            Some(fct_acc_path_rep) => Some(AccessPathModuleCentred::ReturnPath(Box::new(
-                fct_acc_path_rep.clone(),
-            ))),
-            None => None,
-        };
+        let ret_val_acc_path = cur_node_call
+            .get_acc_path()
+            .as_ref()
+            .map(|fct_acc_path_rep| {
+                AccessPathModuleCentred::ReturnPath(Box::new(fct_acc_path_rep.clone()))
+            });
         let extra_cb_code = if include_basic_callback {
             basic_callback_with_id(cur_call_uniq_id.clone())
         } else {
@@ -430,7 +430,7 @@ pub fn get_function_call_code(
             + " = "
             + base_var_name
             + "."
-            + &fct_name
+            + fct_name
             + "("
             + &args_rep
             + ");"),
@@ -448,7 +448,7 @@ pub fn get_function_call_code(
                     .as_ref()
                     .unwrap()
                     .to_string()
-                    .replace("\"", "\\\"")
+                    .replace('\"', "\\\"")
                 + "\": Object.getOwnPropertyNames("
                 + &ret_val_basename
                 + ").filter((p) => typeof ret_val_jsonfile_1[p] === \"function\")"
@@ -467,7 +467,7 @@ pub fn get_function_call_code(
                     .as_ref()
                     .unwrap()
                     .to_string()
-                    .replace("\"", "\\\"")
+                    .replace('\"', "\\\"")
                 + "\": [\"then\", \"catch\"]});"
                 + "\n\t}"
         } else {
@@ -501,7 +501,7 @@ pub fn get_function_call_code(
                     .as_ref()
                     .unwrap()
                     .to_string()
-                    .replace("\"", "\\\"")
+                    .replace('\"', "\\\"")
                 + "\"});"
         } else {
             String::new()
@@ -525,9 +525,9 @@ pub fn get_function_call_code(
 
     ("\n".to_owned() + &indents)
         + &fct_code
-            .split("\n")
+            .split('\n')
             .into_iter()
-            .filter(|line| line.len() > 0)
+            .filter(|line| !line.is_empty())
             .collect::<Vec<&str>>()
             .join(&("\n".to_owned() + &indents))
 }

@@ -14,5 +14,4 @@ pub mod testgen;
 pub mod tests;
 
 #[macro_use]
-#[allow(deprecated)]
 extern crate rand_derive;

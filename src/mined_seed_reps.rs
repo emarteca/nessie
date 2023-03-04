@@ -102,13 +102,13 @@ impl MinedNestingPairJSON {
     /// Getter for the outer package name.
     pub fn get_outer_pkg(&self) -> String {
         // in the mined data, the package name is surrounded by "", so strip these
-        self.outer_pkg.replace("\"", "")
+        self.outer_pkg.replace('\"', "")
     }
 
     /// Getter for the inner package name.
     pub fn get_inner_pkg(&self) -> String {
         // in the mined data, the package name is surrounded by "", so strip these
-        self.inner_pkg.replace("\"", "")
+        self.inner_pkg.replace('\"', "")
     }
 
     // get position of the first callback in the argument list of the outer function
@@ -240,9 +240,9 @@ impl TryFrom<&Vec<MinedParam>> for FunctionSignature {
 pub fn get_rel_mined_data_nested_extensions(
     outer_fct: Option<&FunctionCall>,
     pkg_name: &String,
-    mined_data: &Vec<MinedNestingPairJSON>,
+    mined_data: &[MinedNestingPairJSON],
 ) -> Vec<MinedDataNestedExtension> {
-    if !outer_fct.is_some() {
+    if outer_fct.is_none() {
         return Vec::new();
     }
     let outer_fct = outer_fct.unwrap();
@@ -280,7 +280,7 @@ pub fn get_rel_mined_data_nested_extensions(
                     .filter_map(|(pos, inner_param)| {
                         if let Some(var_name) = &inner_param.ident && var_name.starts_with("outer_arg_") {
                             // get the string after the last _ and convert to a usize
-                            let (_, outer_pos) = var_name.rsplit_once("_").unwrap();
+                            let (_, outer_pos) = var_name.rsplit_once('_').unwrap();
                             Some((outer_pos.parse::<usize>().unwrap(), pos))
                         } else {
                             None
