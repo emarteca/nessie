@@ -203,6 +203,10 @@ impl<'cxt> Test {
         }
     }
 
+    pub fn get_id(&self) -> usize {
+        self.loc_id.cur_test_id
+    }
+
     pub fn get_fct_call_from_id(&self, ext_id: &ExtensionPointID) -> Option<&FunctionCall> {
         match self.fct_tree.get(*ext_id) {
             Some(node) => Some(node.get()),

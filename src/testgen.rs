@@ -54,8 +54,8 @@ pub fn run_testgen_phase<'cxt>(
         // )?;
 
         testgen_db.set_cur_test_index(cur_test_id);
-        mod_rep.add_function_sigs_from_test(&cur_test, &test_results.0);
         mod_rep.add_fcts_rooted_in_ret_vals(&test_results.1);
+        mod_rep.add_function_sigs_from_test(&cur_test, &test_results.0);
         testgen_db.add_extension_points_for_test(&cur_test, &test_results.0);
         println!("Test: {:?} of {:?}", cur_test_id, num_tests);
 

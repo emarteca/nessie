@@ -147,7 +147,7 @@ impl NpmModule {
                 let mut new_sig = rel_fct.unwrap().sig.clone();
                 new_sig.set_call_res(*fct_result);
                 if let Some(mut_fct_desc) = self.fns.get_mut(&(
-                    (fct_acc_path_rep).get_base_path().unwrap().clone(),
+                    (fct_acc_path_rep).clone().get_base_path().unwrap().clone(),
                     fct_name.to_string(),
                 )) {
                     mut_fct_desc.add_sig(new_sig.clone());
