@@ -42,8 +42,14 @@ if(args["import_code_file"] != "") {
 
 // import the lib, then get info required
 const lib = eval(lib_require);
-let fn_names = Object.getOwnPropertyNames(lib).filter((p) => typeof lib[p] === 'function');
-
+let fn_names = [];
+for(p of Object.getOwnPropertyNames(lib)) {
+	try {
+		if (typeof lib[p] === 'function') {
+			fn_names.push(p);
+		}
+	} catch(e) {}
+}
 
 // for each function in the lib, get the number of arguments
 let fn_info = {};
