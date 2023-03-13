@@ -51,11 +51,11 @@ impl From<&Vec<ArgType>> for FunctionSignature {
 impl FunctionSignature {
     /// Constructor.
     pub fn new(
-        arg_list: &Vec<FunctionArgument>,
+        arg_list: &[FunctionArgument],
         call_test_result: Option<FunctionCallResult>,
     ) -> Self {
         Self {
-            arg_list: arg_list.clone(),
+            arg_list: arg_list.to_owned(),
             call_test_result,
             is_spread_args: false,
         }
@@ -419,8 +419,8 @@ impl Callback {
 
     /// Getter for the list of all the arguments to this callback.
     /// This is the list of parameter names in this callback's signature.
-    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
-        let cb_arg_name_base = self.get_cb_arg_name_base(&Some(context_uniq_id.clone()));
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &str) -> Vec<ArgVal> {
+        let cb_arg_name_base = self.get_cb_arg_name_base(&Some(context_uniq_id.to_owned()));
         self.sig
             .get_arg_list()
             .iter()
