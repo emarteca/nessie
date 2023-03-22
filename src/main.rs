@@ -16,8 +16,8 @@ pub enum TestGenMode {
     Head,
     /// Original `nessie` (from the ICSE 2022 paper), with some QOL fixes
     OGNessie,
-    /// OGNessie with the discovery and testgen phases merged and 
-    /// the addition of tracking primitive arg types 
+    /// OGNessie with the discovery and testgen phases merged and
+    /// the addition of tracking primitive arg types
     MergeDiscGen,
     /// MergeDiscGen with the ability to chain methods
     ChainedMethods,
@@ -26,7 +26,7 @@ pub enum TestGenMode {
 /// Autocast from strings to TestGenMode
 impl std::str::FromStr for TestGenMode {
     type Err = ();
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Head" => Ok(Self::Head),
@@ -35,6 +35,19 @@ impl std::str::FromStr for TestGenMode {
             "ChainedMethods" => Ok(Self::ChainedMethods),
             _ => Err(()),
         }
+    }
+}
+
+impl TestGenMode {
+    /// Short form label for the type of the testgen mode
+    pub fn label(&self) -> String {
+        match self {
+            Self::Head => "default",
+            Self::OGNessie => "nessie",
+            Self::MergeDiscGen => "discgen",
+            Self::ChainedMethods => "chaining",
+        }
+        .to_string()
     }
 }
 
@@ -114,7 +127,14 @@ fn setup_toy_fs(path_start: &str) -> Result<Vec<PathBuf>, std::io::Error> {
 fn main() {
     let opt = Opt::from_args();
 
-    let discovery_filename = "js_tools/".to_owned() + &opt.lib_name + "_discovery.json";
+    let test_gen_mode = match opt.test_gen_mode {
+        Some(ref mode_str) => TestGenMode::from_str(&mode_str)
+            .unwrap_or_else(|_| panic!("invalid test gen mode provided")),
+        None => TestGenMode::Head, // default is the current newest version
+    };
+
+    let discovery_filename =
+        "js_tools/".to_owned() + &opt.lib_name + "_discovery" + &test_gen_mode.label() + ".json";
 
     let testing_dir = match &opt.testing_dir {
         Some(ref dir) => dir.clone().into_os_string().into_string().unwrap(),
@@ -160,11 +180,6 @@ fn main() {
             .output()
             .unwrap_or_else(|_| panic!("failed to install {:?} to test", &opt.lib_name));
     }
-
-    let test_gen_mode = match opt.test_gen_mode {
-        Some(ref mode_str) => TestGenMode::from_str(&mode_str).unwrap_or_else(|_| panic!("invalid test gen mode provided")),
-        None => TestGenMode::Head, // default is the current newest version
-    };
 
     // if discovery file doesn't already exist
     let (mut mod_rep, mut testgen_db) =
