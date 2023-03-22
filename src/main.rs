@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::str::FromStr;
 use structopt::StructOpt;
 
 use nessie::consts;
@@ -8,6 +9,34 @@ use nessie::decisions;
 use nessie::mined_seed_reps::MinedNestingPairJSON;
 use nessie::module_reps::*; // all the representation structs
 use nessie::testgen::run_testgen_phase;
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum TestGenMode {
+    /// Current head of the current -- most up-to-date version (the default option)
+    Head,
+    /// Original `nessie` (from the ICSE 2022 paper), with some QOL fixes
+    OGNessie,
+    /// OGNessie with the discovery and testgen phases merged and 
+    /// the addition of tracking primitive arg types 
+    MergeDiscGen,
+    /// MergeDiscGen with the ability to chain methods
+    ChainedMethods,
+}
+
+/// Autocast from strings to TestGenMode
+impl std::str::FromStr for TestGenMode {
+    type Err = ();
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Head" => Ok(Self::Head),
+            "OGNessie" => Ok(Self::OGNessie),
+            "MergeDiscGen" => Ok(Self::MergeDiscGen),
+            "ChainedMethods" => Ok(Self::ChainedMethods),
+            _ => Err(()),
+        }
+    }
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "nessie_args", about = "Arguments for the test generator")]
@@ -49,6 +78,10 @@ struct Opt {
     /// File containing mined data.
     #[structopt(long, parse(from_os_str))]
     mined_data: Option<PathBuf>,
+
+    /// Mode to run the test generator in.
+    /// Default: the current head of this repo.
+    test_gen_mode: Option<String>,
 }
 
 /// Function to set up a toy filesystem that the generated tests can interact with.
@@ -127,6 +160,11 @@ fn main() {
             .output()
             .unwrap_or_else(|_| panic!("failed to install {:?} to test", &opt.lib_name));
     }
+
+    let test_gen_mode = match opt.test_gen_mode {
+        Some(ref mode_str) => TestGenMode::from_str(&mode_str).unwrap_or_else(|_| panic!("invalid test gen mode provided")),
+        None => TestGenMode::Head, // default is the current newest version
+    };
 
     // if discovery file doesn't already exist
     let (mut mod_rep, mut testgen_db) =
