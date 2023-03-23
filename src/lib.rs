@@ -77,7 +77,7 @@ impl TestGenMode {
     }
 
     /// Does this test gen mode discover new API signatures during the test generation?
-    /// For now, this is just the opposite of `has_discovery`; but let's keep it a 
+    /// For now, this is just the opposite of `has_discovery`; but let's keep it a
     /// separate method in case this changes.
     pub fn discovers_during_testgen(&self) -> bool {
         match self {

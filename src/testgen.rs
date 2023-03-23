@@ -4,9 +4,9 @@ use crate::code_gen;
 use crate::consts;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
-use crate::TestGenMode;
 use crate::module_reps::*;
 use crate::tests::*;
+use crate::TestGenMode;
 
 use rand::Rng;
 use std::convert::TryInto;
