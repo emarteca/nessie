@@ -10,57 +10,7 @@ use nessie::legacy;
 use nessie::mined_seed_reps::MinedNestingPairJSON;
 use nessie::module_reps::*; // all the representation structs
 use nessie::testgen::run_testgen_phase;
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum TestGenMode {
-    /// Current head of the current -- most up-to-date version (the default option)
-    Head,
-    /// Original `nessie` (from the ICSE 2022 paper), with some QOL fixes
-    OGNessie,
-    /// OGNessie with the discovery and testgen phases merged and
-    /// the addition of tracking primitive arg types
-    MergeDiscGen,
-    /// MergeDiscGen with the ability to chain methods
-    ChainedMethods,
-}
-
-/// Autocast from strings to TestGenMode
-impl std::str::FromStr for TestGenMode {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Head" => Ok(Self::Head),
-            "OGNessie" => Ok(Self::OGNessie),
-            "MergeDiscGen" => Ok(Self::MergeDiscGen),
-            "ChainedMethods" => Ok(Self::ChainedMethods),
-            _ => Err(()),
-        }
-    }
-}
-
-impl TestGenMode {
-    /// Short form label for the type of the testgen mode
-    pub fn label(&self) -> String {
-        match self {
-            Self::Head => "default",
-            Self::OGNessie => "nessie",
-            Self::MergeDiscGen => "discgen",
-            Self::ChainedMethods => "chaining",
-        }
-        .to_string()
-    }
-
-    /// Does this test generation mode include a separate API discovery phase?
-    /// Note: currently, only the OGNessie mode has a separate discovery phase
-    /// (since it is strictly worse than the merging of discovery and test generation)
-    pub fn has_discovery(&self) -> bool {
-        match self {
-            Self::OGNessie => true,
-            _ => false,
-        }
-    }
-}
+use nessie::TestGenMode;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "nessie_args", about = "Arguments for the test generator")]
@@ -263,7 +213,7 @@ fn main() {
 
     let num_tests = opt.num_tests;
     if !opt.skip_testgen {
-        run_testgen_phase(&mut mod_rep, &mut testgen_db, num_tests)
+        run_testgen_phase(&mut mod_rep, &mut testgen_db, num_tests, test_gen_mode)
             .expect("Error running test generation phase: {:?}");
     } else {
         println!("`skip-testgen` specified: Skipping test generation phase.")

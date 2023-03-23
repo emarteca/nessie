@@ -4,6 +4,7 @@ use crate::code_gen;
 use crate::consts;
 use crate::decisions::TestGenDB;
 use crate::errors::*;
+use crate::TestGenMode;
 use crate::module_reps::*;
 use crate::tests::*;
 
@@ -16,6 +17,7 @@ pub fn run_testgen_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
     testgen_db: &'cxt mut TestGenDB,
     num_tests: i32,
+    test_gen_mode: TestGenMode,
 ) -> Result<(), DFError> {
     let mut cur_test_id = 1;
     while cur_test_id <= num_tests.try_into().unwrap() {
@@ -54,8 +56,12 @@ pub fn run_testgen_phase<'cxt>(
         )?;
 
         testgen_db.set_cur_test_index(cur_test_id);
-        mod_rep.add_fcts_rooted_in_ret_vals(&test_results.1);
-        mod_rep.add_function_sigs_from_test(&cur_test, &test_results.0);
+        if test_gen_mode.chains_methods_on_retvals() {
+            mod_rep.add_fcts_rooted_in_ret_vals(&test_results.1);
+        }
+        if test_gen_mode.discovers_during_testgen() {
+            mod_rep.add_function_sigs_from_test(&cur_test, &test_results.0);
+        }
         testgen_db.add_extension_points_for_test(&cur_test, &test_results.0);
         println!("Test: {:?} of {:?}", cur_test_id, num_tests);
 

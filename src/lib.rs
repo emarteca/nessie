@@ -16,3 +16,73 @@ pub mod tests;
 
 #[macro_use]
 extern crate rand_derive;
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum TestGenMode {
+    /// Current head of the current -- most up-to-date version (the default option)
+    Head,
+    /// Original `nessie` (from the ICSE 2022 paper), with some QOL fixes
+    OGNessie,
+    /// OGNessie with the discovery and testgen phases merged and
+    /// the addition of tracking primitive arg types
+    MergeDiscGen,
+    /// MergeDiscGen with the ability to chain methods
+    ChainedMethods,
+}
+
+/// Autocast from strings to TestGenMode
+impl std::str::FromStr for TestGenMode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Head" => Ok(Self::Head),
+            "OGNessie" => Ok(Self::OGNessie),
+            "MergeDiscGen" => Ok(Self::MergeDiscGen),
+            "ChainedMethods" => Ok(Self::ChainedMethods),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TestGenMode {
+    /// Short form label for the type of the testgen mode
+    pub fn label(&self) -> String {
+        match self {
+            Self::Head => "default",
+            Self::OGNessie => "nessie",
+            Self::MergeDiscGen => "discgen",
+            Self::ChainedMethods => "chaining",
+        }
+        .to_string()
+    }
+
+    /// Does this test generation mode include a separate API discovery phase?
+    /// Note: currently, only the OGNessie mode has a separate discovery phase
+    /// (since it is strictly worse than the merging of discovery and test generation)
+    pub fn has_discovery(&self) -> bool {
+        match self {
+            Self::OGNessie => true,
+            _ => false,
+        }
+    }
+
+    /// Does this test gen mode generate chained method calls on the return values
+    /// of previous function calls?
+    pub fn chains_methods_on_retvals(&self) -> bool {
+        match self {
+            Self::ChainedMethods => true,
+            _ => false,
+        }
+    }
+
+    /// Does this test gen mode discover new API signatures during the test generation?
+    /// For now, this is just the opposite of `has_discovery`; but let's keep it a 
+    /// separate method in case this changes.
+    pub fn discovers_during_testgen(&self) -> bool {
+        match self {
+            Self::OGNessie => false,
+            _ => true,
+        }
+    }
+}
