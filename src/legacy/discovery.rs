@@ -33,7 +33,7 @@ pub fn run_discovery_phase(
         HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
     )> = Vec::new();
 
-    for (func_name, func_desc) in fcts.iter_mut() {
+    for ((_, func_name), func_desc) in fcts.iter_mut() {
         let mut cur_cb_position = 1;
         for _ in 0..consts::DISCOVERY_PHASE_TESTING_BUDGET {
             let args = gen_args_for_fct_with_cb(
@@ -47,6 +47,8 @@ pub fn run_discovery_phase(
                 FunctionSignature::new(&args, None),
                 None,
                 None,
+                None, // no access path specified (none needed for this legacy code)
+                None, // default receiver (the module import)
             );
 
             let (cur_fct_id, mut cur_test) = Test::test_one_call(
@@ -60,7 +62,7 @@ pub fn run_discovery_phase(
             );
 
             let test_results = match cur_test.execute() {
-                Ok(res) => res,
+                Ok(res) => res.0, // we only care about the hashmap of extension point results in this legacy code (i.e. not APs)
                 Err(_) => continue,
             };
 
@@ -102,9 +104,13 @@ fn gen_args_for_fct_with_cb(
     let num_args = mod_fct.get_num_api_args();
     // TODO in the improved version of the discovery phase, this information will be used
     // to inform the new signatures generated
-    let sigs = mod_fct.get_sigs();
+    let sigs = mod_fct
+        .get_sigs()
+        .iter()
+        .map(|sig| (sig.get_abstract_sig(), 1.0))
+        .collect::<HashMap<Vec<ArgType>, f64>>();
 
-    let mut cur_sig = decisions::gen_new_sig_with_cb(num_args, sigs, cb_position, testgen_db);
+    let mut cur_sig = decisions::gen_new_sig_with_cb(num_args, &sigs, cb_position, testgen_db);
     for (i, arg) in cur_sig.get_mut_args().iter_mut().enumerate() {
         let arg_type = arg.get_type();
         arg.set_arg_val(match arg_type {

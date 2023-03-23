@@ -6,6 +6,7 @@ use structopt::StructOpt;
 
 use nessie::consts;
 use nessie::decisions;
+use nessie::legacy;
 use nessie::mined_seed_reps::MinedNestingPairJSON;
 use nessie::module_reps::*; // all the representation structs
 use nessie::testgen::run_testgen_phase;
@@ -48,6 +49,16 @@ impl TestGenMode {
             Self::ChainedMethods => "chaining",
         }
         .to_string()
+    }
+
+    /// Does this test generation mode include a separate API discovery phase?
+    /// Note: currently, only the OGNessie mode has a separate discovery phase
+    /// (since it is strictly worse than the merging of discovery and test generation)
+    pub fn has_discovery(&self) -> bool {
+        match self {
+            Self::OGNessie => true,
+            _ => false,
+        }
     }
 }
 
@@ -133,6 +144,7 @@ fn main() {
         None => TestGenMode::Head, // default is the current newest version
     };
 
+    // different kinds of discovery files depending on the testgen mode we're using
     let discovery_filename =
         "js_tools/".to_owned() + &opt.lib_name + "_discovery" + &test_gen_mode.label() + ".json";
 
@@ -215,7 +227,7 @@ fn main() {
             }
 
             // if we got to this point, we successfully got the API and can construct the module object
-            let mod_rep = match NpmModule::from_api_spec(
+            let mut mod_rep = match NpmModule::from_api_spec(
                 PathBuf::from(&api_spec_filename),
                 opt.lib_name.clone(),
                 opt.module_import_code,
@@ -223,11 +235,19 @@ fn main() {
                 Ok(mod_rep) => mod_rep,
                 _ => panic!("Error reading the module spec from the api_info file"),
             };
+            if test_gen_mode.has_discovery() {
+                (mod_rep, testgen_db) = legacy::discovery::run_discovery_phase(mod_rep, testgen_db)
+                    .expect("Error running discovery phase: {:?}");
+                let mut disc_file = std::fs::File::create(&discovery_filename)
+                    .expect("Error creating discovery JSON file");
+                // print discovery to a file
+                disc_file
+                    .write_all(format!("{:?}", mod_rep).as_bytes())
+                    .expect("Error writing to discovery JSON file");
+            }
             (mod_rep, testgen_db)
         } else {
-            // let file_conts_string = std::fs::read_to_string(&discovery_filename).unwrap();
             (
-                //serde_json::from_str(&file_conts_string).unwrap(),
                 NpmModule::from_api_spec(
                     PathBuf::from(&discovery_filename),
                     opt.lib_name.clone(),
