@@ -258,10 +258,18 @@ pub enum ArgType {
 }
 
 impl ArgType {
-    // Return `true` if the receiver (`self`) can be represented
-    // by the other type `ot`.
+    /// Return `true` if the receiver (`self`) can be represented
+    /// by the other type `ot`.
     pub fn can_be_repd_as(&self, ot: Self) -> bool {
         *self == ot || ot == Self::AnyType
+    }
+
+    /// Is this a primitive type?
+    pub fn is_not_callback(&self) -> bool {
+        match *self {
+            ArgType::CallbackType | ArgType::LibFunctionType => false,
+            _ => true,
+        }
     }
 }
 

@@ -30,6 +30,7 @@ pub fn run_testgen_phase<'cxt>(
             ext_type,
             cur_test_id,
             consts::FRESH_TEST_IF_CANT_EXTEND,
+            &test_gen_mode,
         )?;
 
         // if there's an error in a test execution (e.g., timeout), just keep going with the

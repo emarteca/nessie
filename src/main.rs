@@ -55,6 +55,7 @@ struct Opt {
 
     /// Mode to run the test generator in.
     /// Default: the current head of this repo.
+    #[structopt(long)]
     test_gen_mode: Option<String>,
 }
 
@@ -96,7 +97,7 @@ fn main() {
 
     // different kinds of discovery files depending on the testgen mode we're using
     let discovery_filename =
-        "js_tools/".to_owned() + &opt.lib_name + "_discovery" + &test_gen_mode.label() + ".json";
+        "js_tools/".to_owned() + &opt.lib_name + "_discovery_" + &test_gen_mode.label() + ".json";
 
     let testing_dir = match &opt.testing_dir {
         Some(ref dir) => dir.clone().into_os_string().into_string().unwrap(),
@@ -186,8 +187,9 @@ fn main() {
                 _ => panic!("Error reading the module spec from the api_info file"),
             };
             if test_gen_mode.has_discovery() {
-                (mod_rep, testgen_db) = legacy::discovery::run_discovery_phase(mod_rep, testgen_db)
-                    .expect("Error running discovery phase: {:?}");
+                (mod_rep, testgen_db) =
+                    legacy::discovery::run_discovery_phase(mod_rep, testgen_db, &test_gen_mode)
+                        .expect("Error running discovery phase: {:?}");
                 let mut disc_file = std::fs::File::create(&discovery_filename)
                     .expect("Error creating discovery JSON file");
                 // print discovery to a file

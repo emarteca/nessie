@@ -9,6 +9,8 @@ use crate::mined_seed_reps;
 use crate::mined_seed_reps::{LibMinedData, MinedNestingPairJSON};
 use crate::module_reps::*;
 use crate::tests::*;
+use crate::TestGenMode;
+
 use rand::{
     distributions::{Alphanumeric, WeightedIndex},
     prelude::*,
@@ -28,6 +30,7 @@ pub fn gen_new_sig_with_cb(
     weighted_sigs: &HashMap<Vec<ArgType>, f64>,
     cb_position: Option<i32>,
     testgen_db: &TestGenDB,
+    test_gen_mode: &TestGenMode,
 ) -> FunctionSignature {
     // look at the list of signatures CHOOSE_NEW_SIG_PCT of the time (if the list is non-empty)
     if !weighted_sigs.is_empty()
@@ -37,7 +40,11 @@ pub fn gen_new_sig_with_cb(
         let dist = WeightedIndex::new(vec_sigs_weights.iter().map(|(_, weight)| **weight)).unwrap();
         let rand_sig_index = dist.sample(&mut thread_rng());
         let (abstract_sig, _) = &vec_sigs_weights[rand_sig_index].clone();
-        FunctionSignature::from(*abstract_sig)
+        if !test_gen_mode.tracks_prim_types() {
+            FunctionSignature::from(&testgen_db.randomize_prim_arg_types(abstract_sig))
+        } else {
+            FunctionSignature::from(*abstract_sig)
+        }
     } else {
         let num_args =
             num_args.unwrap_or_else(|| thread_rng().gen_range(0..=DEFAULT_MAX_ARG_LENGTH));
@@ -163,6 +170,25 @@ impl<'cxt> TestGenDB {
         }
     }
 
+    /// Take an abstract signature (i.e., just a vector of arg types) and
+    /// randomize the types of the primitives.
+    /// You might be wondering why this is ever useful? It's not inherently, but
+    /// just used for supporting old, deprecated versions of the test generator
+    /// before we tracked the types of primitive arguments.
+    pub fn randomize_prim_arg_types(&self, abstract_sig: &Vec<ArgType>) -> Vec<ArgType> {
+        let mut randomized_sig = Vec::with_capacity(abstract_sig.len());
+        for arg_type in abstract_sig.iter() {
+            randomized_sig.push(if arg_type.is_not_callback() {
+                self.choose_random_arg_type(
+                    false, false, /* don't allow callbacks or `Any` types: just primitives */
+                )
+            } else {
+                arg_type.clone()
+            });
+        }
+        randomized_sig
+    }
+
     /// Generate random value of specified argument type `arg_type`.
     /// Can specify the position of the argument this will correspond to, with `arg_pos` (optional).
     /// `ret_vals_pool` is a list of all the return values from previous function calls that are
@@ -177,6 +203,7 @@ impl<'cxt> TestGenDB {
         ret_vals_pool: &Vec<ArgValAPTracked>,
         cb_arg_vals_pool: &Vec<ArgVal>,
         mod_rep: &NpmModule,
+        test_gen_mode: &TestGenMode,
     ) -> ArgVal {
         // gen AnyType? only if `ret_vals_pool` or `cb_arg_vals_pool` is non-empty
         let arg_type = match (arg_type, (ret_vals_pool.len() + cb_arg_vals_pool.len()) > 0) {
@@ -237,7 +264,8 @@ impl<'cxt> TestGenDB {
                     // callback is always returned from this branch of the match
                 };
                 let sigs = HashMap::new();
-                let random_sig = gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self);
+                let random_sig =
+                    gen_new_sig_with_cb(Some(num_args), &sigs, cb_position, self, test_gen_mode);
                 self.gen_random_callback(Some(random_sig), arg_pos)
             }
             ArgType::LibFunctionType => {
@@ -348,6 +376,7 @@ impl<'cxt> TestGenDB {
         ret_vals_pool: Vec<ArgValAPTracked>,
         cb_arg_vals_pool: Vec<ArgVal>,
         ext_facts: (Option<&FunctionCall>, ExtensionType, String),
+        test_gen_mode: &TestGenMode,
     ) -> Result<FunctionCall, DFError> {
         let lib_name = mod_rep.get_mod_js_var_name();
         let module_root_path = AccessPathModuleCentred::RootPath(lib_name.clone());
@@ -385,7 +414,13 @@ impl<'cxt> TestGenDB {
                     Some(fct_acc_path_rep), /* access path rep of the call */
                     None, /* receiver of the call -- it's the module import by default */
                 );
-                ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
+                ret_call.init_args_with_random(
+                    self,
+                    &ret_vals_pool,
+                    &cb_arg_vals_pool,
+                    mod_rep,
+                    test_gen_mode,
+                )?;
                 let args = ret_call.sig.get_mut_args();
                 // let outer_sig = ext_fct.unwrap().sig;
                 // setup the dataflow
@@ -519,6 +554,7 @@ impl<'cxt> TestGenDB {
             &fct_sigs_weights,
             cb_position,
             self,
+            test_gen_mode,
         );
 
         // now update the weight of the function we just picked, and its signature
@@ -543,7 +579,13 @@ impl<'cxt> TestGenDB {
             fct_call_receiver.cloned(),
         );
         // init the call with random values of the types specified in `random_sig`
-        ret_call.init_args_with_random(self, &ret_vals_pool, &cb_arg_vals_pool, mod_rep)?;
+        ret_call.init_args_with_random(
+            self,
+            &ret_vals_pool,
+            &cb_arg_vals_pool,
+            mod_rep,
+            test_gen_mode,
+        )?;
         Ok(ret_call)
     }
 

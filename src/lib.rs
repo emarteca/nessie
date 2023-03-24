@@ -23,8 +23,9 @@ pub enum TestGenMode {
     Head,
     /// Original `nessie` (from the ICSE 2022 paper), with some QOL fixes
     OGNessie,
-    /// OGNessie with the discovery and testgen phases merged and
-    /// the addition of tracking primitive arg types
+    /// OGNessie with the addition of tracking primitive arg types
+    TrackPrimitives,
+    /// TrackPrimitives with the discovery and testgen phases merged
     MergeDiscGen,
     /// MergeDiscGen with the ability to chain methods
     ChainedMethods,
@@ -38,6 +39,7 @@ impl std::str::FromStr for TestGenMode {
         match s {
             "Head" => Ok(Self::Head),
             "OGNessie" => Ok(Self::OGNessie),
+            "TrackPrimitives" => Ok(Self::TrackPrimitives),
             "MergeDiscGen" => Ok(Self::MergeDiscGen),
             "ChainedMethods" => Ok(Self::ChainedMethods),
             _ => Err(()),
@@ -51,6 +53,7 @@ impl TestGenMode {
         match self {
             Self::Head => "default",
             Self::OGNessie => "nessie",
+            Self::TrackPrimitives => "trackprims",
             Self::MergeDiscGen => "discgen",
             Self::ChainedMethods => "chaining",
         }
@@ -58,11 +61,9 @@ impl TestGenMode {
     }
 
     /// Does this test generation mode include a separate API discovery phase?
-    /// Note: currently, only the OGNessie mode has a separate discovery phase
-    /// (since it is strictly worse than the merging of discovery and test generation)
     pub fn has_discovery(&self) -> bool {
         match self {
-            Self::OGNessie => true,
+            Self::OGNessie | Self::TrackPrimitives => true,
             _ => false,
         }
     }
@@ -80,6 +81,14 @@ impl TestGenMode {
     /// For now, this is just the opposite of `has_discovery`; but let's keep it a
     /// separate method in case this changes.
     pub fn discovers_during_testgen(&self) -> bool {
+        match self {
+            Self::OGNessie | Self::TrackPrimitives => false,
+            _ => true,
+        }
+    }
+
+    ///  Does this test gen mode track the types of primitive arguments?
+    pub fn tracks_prim_types(&self) -> bool {
         match self {
             Self::OGNessie => false,
             _ => true,

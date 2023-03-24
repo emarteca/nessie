@@ -5,6 +5,7 @@ use crate::decisions::TestGenDB;
 use crate::errors::*;
 use crate::functions::*;
 use crate::module_reps::*;
+use crate::TestGenMode;
 
 use indextree::Arena;
 use serde::{Deserialize, Serialize};
@@ -129,6 +130,7 @@ impl FunctionCall {
         ret_vals_pool: &Vec<ArgValAPTracked>,
         cb_arg_vals_pool: &Vec<ArgVal>,
         mod_rep: &NpmModule,
+        test_gen_mode: &TestGenMode,
     ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
@@ -138,6 +140,7 @@ impl FunctionCall {
                 ret_vals_pool,
                 cb_arg_vals_pool,
                 mod_rep,
+                test_gen_mode,
             ))?;
         }
         Ok(())
@@ -223,6 +226,7 @@ impl<'cxt> Test {
         ext_type: ExtensionType,
         new_test_id: usize,
         fresh_test_if_cant_extend: bool,
+        test_gen_mode: &TestGenMode,
     ) -> Result<(ExtensionPointID, Test), DFError> {
         // choose a random test to extend with this new call
         let (mut base_test, ext_id, cb_arg_pos) = testgen_db.get_test_to_extend(mod_rep, ext_type);
@@ -262,6 +266,7 @@ impl<'cxt> Test {
             ret_vals_pool,
             cb_arg_vals_pool,
             (ext_fct, ext_type, ext_uniq_id),
+            test_gen_mode,
         )?;
 
         let ext_node_id = base_test.fct_tree.new_node(ext_call);

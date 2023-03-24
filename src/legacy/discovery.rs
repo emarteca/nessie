@@ -9,6 +9,7 @@ use crate::errors::*;
 use crate::functions::*;
 use crate::module_reps::*;
 use crate::tests::*;
+use crate::TestGenMode;
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -21,6 +22,7 @@ use std::convert::TryFrom;
 pub fn run_discovery_phase(
     mod_rep: NpmModule,
     testgen_db: TestGenDB,
+    test_gen_mode: &TestGenMode,
 ) -> Result<(NpmModule, TestGenDB), DFError> {
     let mut mod_rep = mod_rep;
     let mut testgen_db = testgen_db;
@@ -41,6 +43,7 @@ pub fn run_discovery_phase(
                 Some(cur_cb_position - 1),
                 &testgen_db,
                 &mod_rep,
+                test_gen_mode,
             )?;
             let fct_call = FunctionCall::new(
                 func_name.clone(),
@@ -100,6 +103,7 @@ fn gen_args_for_fct_with_cb(
     cb_position: Option<i32>,
     testgen_db: &TestGenDB,
     mod_rep: &NpmModule,
+    test_gen_mode: &TestGenMode,
 ) -> Result<Vec<FunctionArgument>, TestGenError> {
     let num_args = mod_fct.get_num_api_args();
     // TODO in the improved version of the discovery phase, this information will be used
@@ -110,7 +114,8 @@ fn gen_args_for_fct_with_cb(
         .map(|sig| (sig.get_abstract_sig(), 1.0))
         .collect::<HashMap<Vec<ArgType>, f64>>();
 
-    let mut cur_sig = decisions::gen_new_sig_with_cb(num_args, &sigs, cb_position, testgen_db);
+    let mut cur_sig =
+        decisions::gen_new_sig_with_cb(num_args, &sigs, cb_position, testgen_db, test_gen_mode);
     for (i, arg) in cur_sig.get_mut_args().iter_mut().enumerate() {
         let arg_type = arg.get_type();
         arg.set_arg_val(match arg_type {
@@ -121,6 +126,7 @@ fn gen_args_for_fct_with_cb(
                 &Vec::new(),
                 &Vec::new(),
                 &mod_rep,
+                test_gen_mode,
             ),
         })?;
     }
