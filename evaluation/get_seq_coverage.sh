@@ -14,7 +14,7 @@ test_dir=`realpathMACHACK $2`
 
 cur_dir=`pwd`
 
-coverage_command="nyc --report-dir $test_dir/coverage mocha $test_dir/metatest.js --grep "
+coverage_command="nyc --report-dir $test_dir/../coverage mocha $test_dir/metatest.js --grep "
 cur_test_grep=""
 
 # RESET FS ENV -- info

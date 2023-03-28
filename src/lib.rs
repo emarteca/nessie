@@ -51,11 +51,11 @@ impl TestGenMode {
     /// Short form label for the type of the testgen mode
     pub fn label(&self) -> String {
         match self {
-            Self::Head => "default",
-            Self::OGNessie => "nessie",
-            Self::TrackPrimitives => "trackprims",
-            Self::MergeDiscGen => "discgen",
-            Self::ChainedMethods => "chaining",
+            Self::Head => "Head",
+            Self::OGNessie => "OGNessie",
+            Self::TrackPrimitives => "TrackPrimitives",
+            Self::MergeDiscGen => "MergeDiscGen",
+            Self::ChainedMethods => "ChainedMethods",
         }
         .to_string()
     }
