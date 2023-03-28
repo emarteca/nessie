@@ -335,7 +335,10 @@ impl<'cxt> TestGenDB {
             }
             _ => {
                 // choose a random string
-                "\"".to_owned()
+                // but make it start with the toy fs base just in case, to 
+                // make sure if we're making new files with this random string it's fully contained in the toy_fs_dir
+                self.toy_dir_base.clone()
+                    + "/\""
                     + &rand::thread_rng()
                         .sample_iter(&Alphanumeric)
                         .take(thread_rng().gen_range(1..=RANDOM_STRING_LENGTH))
