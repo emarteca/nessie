@@ -454,9 +454,9 @@ pub fn get_function_call_code(
                 + ").filter((p) => typeof ret_val_jsonfile_1[p] === \"function\")"
                 // NOTE: the next lines get more properties; including `toString` etc. 
                 // uncomment if you want the prototype properties too
-                // + ".concat(Object.getOwnPropertyNames(Object.getPrototypeOf("
-                // + &ret_val_basename
-                // + ")))"
+                + ".concat(Object.getOwnPropertyNames(Object.getPrototypeOf("
+                + &ret_val_basename
+                + ")))"
                 + "});"
                 // special case for promises: we only want `then` and `catch`
                 + "\n\t} else if (getTypeDiffObjFromPromise("

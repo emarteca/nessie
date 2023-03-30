@@ -1,6 +1,6 @@
 //! The data structures representing a JavaScript module.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -116,7 +116,7 @@ impl NpmModule {
                     (accpath.clone(), name.to_string()),
                     ModuleFunction {
                         name: name.to_string(),
-                        sigs: Vec::new(),
+                        sigs: HashSet::new(),
                         // some heuristics: `then` and `catch` methods (on Promises) take 1 arg
                         num_api_args: match name.as_str() {
                             "then" | "catch" => Some(1),
@@ -252,7 +252,7 @@ pub struct ModuleFunction {
     /// Name of the function.
     name: String,
     /// List of valid signatures.
-    sigs: Vec<FunctionSignature>,
+    sigs: HashSet<FunctionSignature>,
     /// Number of arguments according to the API docs (`None` if
     /// this info couldn't be found, e.g., if the signature has
     /// the spread args).
@@ -395,13 +395,13 @@ impl ModuleFunction {
     }
 
     /// Getter for signatures of this function.
-    pub fn get_sigs(&self) -> &Vec<FunctionSignature> {
+    pub fn get_sigs(&self) -> &HashSet<FunctionSignature> {
         &self.sigs
     }
 
     /// Add a signature to the list of signatures of this function.
     pub fn add_sig(&mut self, sig: FunctionSignature) {
-        self.sigs.push(sig);
+        self.sigs.insert(sig);
     }
 
     // Getter for function name.
@@ -417,7 +417,7 @@ impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
     fn try_from(mod_fct_api: &ModFctAPIJSON) -> Result<Self, Self::Error> {
         Ok(Self {
             name: mod_fct_api.name.clone(),
-            sigs: Vec::new(),
+            sigs: HashSet::new(),
             num_api_args: match mod_fct_api.used_default_args {
                 Some(true) => None,
                 _ => Some(mod_fct_api.num_args),
@@ -437,7 +437,11 @@ impl From<&ModuleFunction> for ModFctAPIJSON {
             name: mod_fct.name.clone(),
             num_args,
             used_default_args,
-            sigs: mod_fct.sigs.clone(),
+            sigs: mod_fct
+                .sigs
+                .iter()
+                .cloned()
+                .collect::<Vec<FunctionSignature>>(),
         }
     }
 }
