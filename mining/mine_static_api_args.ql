@@ -106,19 +106,36 @@ class APICallWithSig extends API::Node {
 	string getArgTypeRep(ArgExpr arg) {
 		result = arg.(ConstantArg).getTypeLabel()
 		or
-		// TODO refine to tell if it's a function?
-		(not (arg instanceof ConstantArg)) and result = "_NOTCONST_"
+		arg instanceof OverFctExpr and result = "_FUNCTION_"
+		or
+		(not (arg instanceof ConstantArg or arg instanceof OverFctExpr)) and result = "_NOT_CONST_OR_FCT_"
 	}
 
 	string getArgRep(ArgExpr arg) {
 		result = arg.(ConstantArg).getStringRep()
 		or
-		(not (arg instanceof ConstantArg)) and result = "_NOTCONST_"
+		arg instanceof OverFctExpr and result = "_FUNCTION_"
+		or
+		(not (arg instanceof ConstantArg or arg instanceof OverFctExpr)) and result = "_NOT_CONST_OR_FCT_"
 	}
 
 	string getSigWithValues() {
 		result = "(" + concat(ArgExpr arg, int pos | arg = call.getArgument(pos).asExpr() | getArgRep(arg), "," order by pos) + ")"
 	}
+}
+
+class OverFctExpr extends Expr, Function {
+	OverFctExpr() {
+		this instanceof FunctionExpr 
+		or
+		this instanceof ArrowFunctionExpr
+	}
+
+	override Stmt getEnclosingStmt() {
+		result = this.(ArrowFunctionExpr).getEnclosingStmt()
+		or
+		result = this.(FunctionExpr).getEnclosingStmt()
+	}	
 }
 
 // from API::Node nd, ConstantArg arg
