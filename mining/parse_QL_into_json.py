@@ -20,7 +20,7 @@ import sys
 import json
 
 def parse_line_into_json(line):
-	comps = line.rstrip().split("\",\"")
+	comps = line.replace("\"\n", "").split("\",\"")
 	ret = {}
 	# first element is the AP: starts with "use or "def
 	if comps[0][0:5] == "\"use " or comps[0][0:5] == "\"def ":
