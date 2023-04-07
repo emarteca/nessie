@@ -213,6 +213,8 @@ impl<'cxt> TestGenDB {
             (_, _) => arg_type,
         };
         match arg_type {
+            ArgType::NullType => ArgVal::Null,
+            ArgType::BoolType => self.gen_random_bool_val(),
             ArgType::NumberType => self.gen_random_number_val(),
             ArgType::StringType => self.gen_random_string_val(true),
             ArgType::ArrayType => {
@@ -310,6 +312,12 @@ impl<'cxt> TestGenDB {
     fn gen_random_number_val(&self) -> ArgVal {
         ArgVal::Number((thread_rng().gen_range(-MAX_GENERATED_NUM..=MAX_GENERATED_NUM)).to_string())
     }
+
+    /// Generate a random boolean.
+    fn gen_random_bool_val(&self) -> ArgVal {
+        ArgVal::Bool((thread_rng().gen_range(1..=2) % 2 == 0).to_string())
+    }
+
     /// Generate a random string.
     /// Since we're possibly working with file system APIs, these strings can be configured to correspond
     /// to valid paths in the operating system with `include_fs_strings`.

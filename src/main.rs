@@ -7,7 +7,7 @@ use structopt::StructOpt;
 use nessie::consts;
 use nessie::decisions;
 use nessie::legacy;
-use nessie::mined_seed_reps::MinedNestingPairJSON;
+use nessie::mined_seed_reps::MinedAPICall;
 use nessie::module_reps::*; // all the representation structs
 use nessie::testgen::run_testgen_phase;
 use nessie::TestGenMode;
@@ -110,11 +110,12 @@ fn main() {
     let toy_fs_paths =
         setup_toy_fs(toy_dir_base).expect("Error creating toy filesystem for tests; bailing out.");
 
-    let mined_data: Option<Vec<MinedNestingPairJSON>> =
-        opt.mined_data.as_ref().map(|mined_data_file| {
-            MinedNestingPairJSON::list_from_file(mined_data_file)
-                .unwrap_or_else(|_| panic!("failed to read mined data from {:?}", opt.mined_data))
-        });
+    let mined_data: Option<Vec<MinedAPICall>> = opt.mined_data.as_ref().map(|mined_data_file| {
+        MinedAPICall::list_from_file(mined_data_file)
+            .unwrap_or_else(|_| panic!("failed to read mined data from {:?}", opt.mined_data))
+    });
+
+    println!("REEEEEEE: {:?}", mined_data);
 
     let test_file_prefix = consts::setup::TEST_FILE_PREFIX;
 
@@ -122,7 +123,7 @@ fn main() {
     let mut testgen_db = decisions::TestGenDB::new(
         test_dir_path.to_string(),
         test_file_prefix.to_string(),
-        mined_data,
+        None, // TODO this should be the mined data -- need to propagate the new type
         opt.lib_src_dir.as_ref().map(|dir| {
             std::fs::canonicalize(dir.clone())
                 .unwrap_or_else(|_| panic!("invalid directory {:?} for api source code", dir))

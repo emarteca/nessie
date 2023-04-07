@@ -6,13 +6,15 @@
 //! This is going to get totally overhauled.
 
 use crate::errors::*;
-use crate::functions::{ArgType, FunctionArgument, FunctionSignature};
+use crate::functions::{ArgType, ArgVal, FunctionArgument, FunctionSignature};
+use crate::module_reps::AccessPathModuleCentred;
 use crate::tests::FunctionCall;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 /*
     Example of what these pairs look like right now:
@@ -298,4 +300,120 @@ pub fn get_rel_mined_data_nested_extensions(
             }
         })
         .collect::<Vec<MinedDataNestedExtension>>()
+}
+
+/*
+    Example mined data for single API call w/ at least one statically available argument.
+
+    {
+        "pkg": "path",
+        "acc_path": "(member join (member exports (module path)))",
+        "sig_with_types": "(_NOT_CONST_OR_FCT_,string)",
+        "sig_with_values": "(_NOT_CONST_OR_FCT_,'jsonfile-tests-readfile-sync')"
+    }
+*/
+
+/// Representation of a mined API call.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MinedAPICallJSON {
+    /// Name of the module the function belongs to.
+    pkg: String,
+    /// Access path representation of the call.
+    acc_path: String,
+    /// Signature of the call, with types (as statically available)
+    sig_with_types: String,
+    /// Signature of the call, with values as statically available
+    sig_with_values: String,
+}
+
+impl MinedAPICallJSON {
+    /// Read a file (output from the data mining), that has a list of JSON representations
+    /// of mined API calls.
+    /// Return the corresponding list, or an error if the file is malformed.
+    pub fn list_from_file(path: &PathBuf) -> Result<Vec<Self>, DFError> {
+        let file_conts = std::fs::read_to_string(path);
+        let file_conts_string = match file_conts {
+            Ok(fcs) => fcs,
+            _ => return Err(DFError::MinedDataFileError),
+        };
+
+        let mined_data_rep: Vec<Self> = match serde_json::from_str(&file_conts_string) {
+            Ok(rep) => rep,
+            Err(_) => {
+                return Err(DFError::MinedDataFileError);
+            }
+        };
+
+        Ok(mined_data_rep)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MinedAPICall {
+    /// Name of the module the function belongs to.
+    pkg: String,
+    /// Access path representation of the call.
+    acc_path: AccessPathModuleCentred,
+    /// Signature of the call, with types (as statically available)
+    sig_with_types: Vec<Option<ArgType>>,
+    /// Signature of the call, with values as statically available
+    sig_with_values: Vec<Option<ArgVal>>,
+}
+
+impl MinedAPICall {
+    /// Read a file (output from the data mining), that has a list of JSON representations
+    /// of mined API calls.
+    /// Return the corresponding list, or an error if the file is malformed.
+    pub fn list_from_file(path: &PathBuf) -> Result<Vec<Self>, DFError> {
+        let json_vec = MinedAPICallJSON::list_from_file(path)?;
+
+        let mut res: Vec<Self> = Vec::with_capacity(json_vec.len());
+        for api_call in json_vec.into_iter() {
+            let mut sig_with_types: Vec<Option<ArgType>> = Vec::new();
+            let mut sig_with_values: Vec<Option<ArgVal>> = Vec::new();
+            for (ty, val) in api_call
+                .sig_with_types
+                .split(",")
+                .zip(api_call.sig_with_values.split(","))
+            {
+                let opt_ty = match ty {
+                    "Object" => Some(ArgType::ObjectType),
+                    "string" => Some(ArgType::StringType),
+                    "bool" => Some(ArgType::BoolType),
+                    "number" => Some(ArgType::NumberType),
+                    "null" => Some(ArgType::NullType),
+                    // TODO should we deal with regex or bigint?
+                    "Array" => Some(ArgType::ArrayType),
+                    "_FUNCTION_" => Some(ArgType::CallbackType),
+                    _ => None,
+                };
+                let opt_val = match (val, opt_ty) {
+                    (s, Some(ArgType::ObjectType)) => Some(ArgVal::Object(s.to_string())),
+                    (s, Some(ArgType::StringType)) => Some(ArgVal::String(s.to_string())),
+                    (s, Some(ArgType::BoolType)) => Some(ArgVal::Bool(s.to_string())),
+                    (s, Some(ArgType::NumberType)) => Some(ArgVal::Number(s.to_string())),
+                    (_, Some(ArgType::NullType)) => Some(ArgVal::Null),
+                    (s, Some(ArgType::ArrayType)) => Some(ArgVal::Array(s.to_string())),
+                    _ => None, // don't have a rep for fct values
+                };
+
+                sig_with_types.push(opt_ty);
+                sig_with_values.push(opt_val);
+            }
+            println!("REEEEEEE: {:?}, {:?}", sig_with_types, sig_with_values);
+
+            res.push(Self {
+                pkg: api_call.pkg,
+                acc_path: match AccessPathModuleCentred::from_str(&api_call.acc_path) {
+                    Ok(ap) => ap,
+                    Err(_) => {
+                        return Err(DFError::MinedDataFileError);
+                    }
+                },
+                sig_with_types,
+                sig_with_values,
+            });
+        }
+        Ok(res)
+    }
 }

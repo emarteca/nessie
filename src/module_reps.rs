@@ -137,15 +137,18 @@ impl NpmModule {
             let rel_fct = test.get_fct_call_from_id(ext_point_id);
             if let Some(rel_fct) = rel_fct && fct_result != &FunctionCallResult::ExecutionError {
                 let fct_name = rel_fct.get_name();
+                let base_mod_import = AccessPathModuleCentred::RootPath(self.lib.clone());
                 let fct_acc_path_rep: AccessPathModuleCentred =
                     match rel_fct.get_acc_path() {
-                        Some(ap) => ap.clone(),
-                        None => AccessPathModuleCentred::RootPath(self.lib.clone()),
-                    };
+                        Some(ap) => ap,
+                        None => &base_mod_import,
+                    }.clone();
                 let mut new_sig = rel_fct.sig.clone();
                 new_sig.set_call_res(*fct_result);
                 if let Some(mut_fct_desc) = self.fns.get_mut(&(
-                    (fct_acc_path_rep).clone().get_base_path().unwrap().clone(),
+                    (fct_acc_path_rep).clone().get_base_path().unwrap_or_else(|| {
+                        &base_mod_import
+                    }).clone(),
                     fct_name.to_string(),
                 )) {
                     mut_fct_desc.add_sig(new_sig.clone());
@@ -342,7 +345,7 @@ impl std::str::FromStr for AccessPathModuleCentred {
                     Box::new(AccessPathModuleCentred::from_str(&member_path)?),
                     member_name,
                 ));
-            } else if s.starts_with("(param ") {
+            } else if s.starts_with("(parameter ") {
                 let mut param_iter = s.split(' ');
                 param_iter.next(); // first string is just "(param"
                 let param_val = match param_iter.next().ok_or(())?.parse::<ParamIndexType>() {

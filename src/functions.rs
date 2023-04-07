@@ -241,6 +241,10 @@ impl FunctionArgument {
 /// with the added distinction between generated callbacks and API library functions.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ArgType {
+    /// Null.
+    NullType,
+    /// Boolean.
+    BoolType,
     /// Number.
     NumberType,
     /// String.
@@ -276,6 +280,8 @@ impl ArgType {
 impl std::fmt::Display for ArgType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
+            ArgType::NullType => write!(f, "null"),
+            ArgType::BoolType => write!(f, "bool"),
             ArgType::NumberType => write!(f, "num"),
             ArgType::StringType => write!(f, "string"),
             ArgType::ArrayType => write!(f, "array"),
@@ -290,6 +296,10 @@ impl std::fmt::Display for ArgType {
 /// Kinds of argument values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum ArgVal {
+    /// Null.
+    Null,
+    /// Bool.
+    Bool(String),
     /// Number.
     Number(String),
     /// String.
@@ -322,7 +332,9 @@ impl ArgVal {
         print_instrumented: bool,
     ) -> String {
         match self {
-            Self::Number(s)
+            Self::Null => "null".to_string(),
+            Self::Bool(s)
+            | Self::Number(s)
             | Self::String(s)
             | Self::Array(s)
             | Self::Object(s)
@@ -342,6 +354,8 @@ impl ArgVal {
     /// when passing previous return/callback arg values to later function calls.
     pub fn get_type(&self) -> ArgType {
         match self {
+            Self::Null => ArgType::NullType,
+            Self::Bool(_) => ArgType::BoolType,
             Self::Number(_) => ArgType::NumberType,
             Self::String(_) => ArgType::StringType,
             Self::Array(_) => ArgType::ArrayType,

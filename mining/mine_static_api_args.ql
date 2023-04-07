@@ -90,17 +90,17 @@ class ConstantArg extends ArgExpr {
 	}
 }
 
-class APICallWithSig extends API::Node {
+class APICallWithSig extends DataFlow::CallNode {
 
-	DataFlow::CallNode call;
+	API::Node accPath;
 
 	// condition: there's at least one constant arg
 	APICallWithSig() {
-		exists(ConstantArg arg | arg.getFctCall() = call and call = this.getACall())
+		exists(ConstantArg arg | arg.getFctCall() = this and this = accPath.getACall())
 	}
 
 	string getSignature() {
-		result = "(" + concat(ArgExpr arg, int pos | arg = call.getArgument(pos).asExpr() | getArgTypeRep(arg), "," order by pos) + ")"
+		result = concat(ArgExpr arg, int pos | arg = this.getArgument(pos).asExpr() | getArgTypeRep(arg), "," order by pos)
 	}
 
 	string getArgTypeRep(ArgExpr arg) {
@@ -120,7 +120,11 @@ class APICallWithSig extends API::Node {
 	}
 
 	string getSigWithValues() {
-		result = "(" + concat(ArgExpr arg, int pos | arg = call.getArgument(pos).asExpr() | getArgRep(arg), "," order by pos) + ")"
+		result = concat(ArgExpr arg, int pos | arg = this.getArgument(pos).asExpr() | getArgRep(arg), "," order by pos)
+	}
+
+	API::Node getAccPath() {
+		result = accPath
 	}
 }
 
@@ -143,4 +147,4 @@ class OverFctExpr extends Expr, Function {
 // select nd, arg.getFctCall().getCalleeName(), arg.getFctCall().getNumArgument(), arg, arg.getTypeLabel(), arg.getStringRep()
 
 from APICallWithSig cs
-select cs, cs.getSignature(), cs.getSigWithValues()
+select cs.getAccPath(), cs.getSignature(), cs.getSigWithValues()

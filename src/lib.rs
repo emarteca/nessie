@@ -62,10 +62,11 @@ impl TestGenMode {
 
     /// Does this test generation mode include a separate API discovery phase?
     pub fn has_discovery(&self) -> bool {
-        match self {
-            Self::OGNessie | Self::TrackPrimitives => true,
-            _ => false,
-        }
+        // match self {
+        //     Self::OGNessie | Self::TrackPrimitives => true,
+        //     _ => false,
+        // }
+        true
     }
 
     /// Does this test gen mode generate chained method calls on the return values
