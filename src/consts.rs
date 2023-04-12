@@ -37,6 +37,8 @@ pub const RECHOOSE_LIB_FCT_WEIGHT_FACTOR: f64 = 0.8;
 pub const RECHOOSE_FCT_SIG_WEIGHT_FACTOR: f64 = 0.8;
 // Chance of using a mined nesting example, if one is available.
 pub const USE_MINED_NESTING_EXAMPLE: f64 = 0.5;
+// Chance of using a mined API call signature example, if one is available.
+pub const USE_MINED_API_CALL_SIG: f64 = 0.5;
 
 /// Metadata for the file system setup required before tests are generated.
 pub mod setup {

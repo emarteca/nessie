@@ -323,6 +323,15 @@ impl std::str::FromStr for AccessPathModuleCentred {
                 return Ok(AccessPathModuleCentred::RootPath(
                     iter.next().ok_or(())?.to_string(),
                 ));
+            }
+            // other base case: report AP as module_name.exports.<member>
+            else if s.starts_with("(member exports (module ") {
+                let s = s[0..s.len() - 1].to_string(); // cut off the extra closing paren in this double-case
+                let mut iter = s.split("(member exports (module ");
+                iter.next(); // empty string is first
+                return Ok(AccessPathModuleCentred::RootPath(
+                    iter.next().ok_or(())?.to_string(),
+                ));
             } else if s.starts_with("(return ") {
                 let mut iter = s.split("(return ");
                 iter.next(); // empty string is first

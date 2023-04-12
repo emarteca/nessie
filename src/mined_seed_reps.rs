@@ -70,7 +70,7 @@ pub struct MinedNestingPairJSON {
 pub type LibMinedData = HashMap<String, Vec<MinedNestingPairJSON>>;
 
 /// Database of mined call data, indexed by the library associated with the function being called.
-pub type LibMinedCallData = HashMap<String, Vec<MinedAPICallJSON>>;
+pub type LibMinedCallData = HashMap<String, Vec<MinedAPICall>>;
 
 impl MinedNestingPairJSON {
     /// Read a file (output from the data mining), that has a list of JSON representations
@@ -349,23 +349,6 @@ impl MinedAPICallJSON {
 
         Ok(mined_data_rep)
     }
-
-    /// Turn a list of mined api calls into a map of lists indexed by the library
-    /// the function originates from.
-    pub fn lib_map_from_list(all_calls: Vec<Self>) -> LibMinedCallData {
-        let mut ret_map = HashMap::new();
-        for call in all_calls {
-            ret_map
-                .entry(call.get_pkg())
-                .or_insert(Vec::new())
-                .push(call);
-        }
-        ret_map
-    }
-
-    pub fn get_pkg(&self) -> String {
-        self.pkg.clone()
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -435,5 +418,26 @@ impl MinedAPICall {
             });
         }
         Ok(res)
+    }
+
+    /// Turn a list of mined api calls into a map of lists indexed by the library
+    /// the function originates from.
+    pub fn lib_map_from_list(all_calls: Vec<Self>) -> LibMinedCallData {
+        let mut ret_map = HashMap::new();
+        for call in all_calls {
+            ret_map
+                .entry(call.get_pkg())
+                .or_insert(Vec::new())
+                .push(call);
+        }
+        ret_map
+    }
+
+    pub fn get_pkg(&self) -> String {
+        self.pkg.clone()
+    }
+
+    pub fn get_acc_path(&self) -> AccessPathModuleCentred {
+        self.acc_path.clone()
     }
 }

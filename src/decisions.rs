@@ -6,9 +6,7 @@ use crate::consts::*;
 use crate::errors::*;
 use crate::functions::*;
 use crate::mined_seed_reps;
-use crate::mined_seed_reps::{
-    LibMinedCallData, LibMinedData, MinedAPICallJSON, MinedNestingPairJSON,
-};
+use crate::mined_seed_reps::{LibMinedCallData, LibMinedData, MinedAPICall, MinedNestingPairJSON};
 use crate::module_reps::*;
 use crate::tests::*;
 use crate::TestGenMode;
@@ -124,7 +122,7 @@ impl<'cxt> TestGenDB {
         test_dir_path: String,
         test_file_prefix: String,
         mined_data: Option<Vec<MinedNestingPairJSON>>,
-        mined_api_call_data: Option<Vec<MinedAPICallJSON>>,
+        mined_api_call_data: Option<Vec<MinedAPICall>>,
         api_src_dir: Option<String>,
     ) -> Self {
         Self {
@@ -138,7 +136,7 @@ impl<'cxt> TestGenDB {
                 None => HashMap::new(),
             },
             lib_mined_call_data: match mined_api_call_data {
-                Some(lmd) => MinedAPICallJSON::lib_map_from_list(lmd),
+                Some(lmd) => MinedAPICall::lib_map_from_list(lmd),
                 None => HashMap::new(),
             },
             test_dir_path,
@@ -406,11 +404,10 @@ impl<'cxt> TestGenDB {
         let (ext_fct, ext_type, ext_uniq_id) = ext_facts;
 
         // should we try and use mined data?
-        // TODO: right now we only have mined data relevant for nested extensions,
-        // and for functions with the module import as receivers,
-        // but this will change.
+
+        // first, check mined data for nested extension
         if ext_type == ExtensionType::Nested
-            && (thread_rng().gen_range(0..=1) as f64) / 100. > USE_MINED_NESTING_EXAMPLE
+            && (thread_rng().gen_range(0..=100) as f64) / 100. > USE_MINED_NESTING_EXAMPLE
         {
             let possible_nested_exts = mined_seed_reps::get_rel_mined_data_nested_extensions(
                 ext_fct,
@@ -463,8 +460,7 @@ impl<'cxt> TestGenDB {
                 }
             }
         }
-
-        // not using mined data...
+        // not using mined nesting data...
         // choose a random function to generate a call for
 
         // first, get the acc paths in scope
@@ -495,6 +491,25 @@ impl<'cxt> TestGenDB {
             AccessPathModuleCentred::RootPath(lib_name.clone()),
             vec![ArgVal::Variable(root_import_val)],
         );
+
+        // let's first see if we should use mined API call data (we need the acc paths for this)
+        if (thread_rng().gen_range(0..=100) as f64) / 100. > USE_MINED_API_CALL_SIG {
+            let possible_calls = (match self.lib_mined_call_data.get(&lib_name) {
+                Some(lib_list) => lib_list.to_vec(),
+                None => Vec::new(),
+            })
+            .into_iter()
+            .filter(|mined_call| {
+                if let Some(base_path) = mined_call.get_acc_path().get_base_path() {
+                    return ap_receivers.contains_key(&base_path);
+                }
+                false
+            })
+            .collect::<Vec<MinedAPICall>>();
+            for call in possible_calls.into_iter() {
+                println!("BRO PLS: {:?}", call);
+            }
+        }
 
         // Build the weighted (by number of times previously tested -- if never tested,
         // then the weight is 1) map of functions to test.

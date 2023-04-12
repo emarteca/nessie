@@ -7,7 +7,7 @@ use structopt::StructOpt;
 use nessie::consts;
 use nessie::decisions;
 use nessie::legacy;
-use nessie::mined_seed_reps::{MinedAPICallJSON, MinedNestingPairJSON};
+use nessie::mined_seed_reps::{MinedAPICall, MinedNestingPairJSON};
 use nessie::module_reps::*; // all the representation structs
 use nessie::testgen::run_testgen_phase;
 use nessie::TestGenMode;
@@ -120,9 +120,9 @@ fn main() {
                 .unwrap_or_else(|_| panic!("failed to read mined data from {:?}", opt.mined_data))
         });
 
-    let mined_call_data: Option<Vec<MinedAPICallJSON>> =
+    let mined_call_data: Option<Vec<MinedAPICall>> =
         opt.mined_call_data.as_ref().map(|mined_data_file| {
-            MinedAPICallJSON::list_from_file(mined_data_file).unwrap_or_else(|_| {
+            MinedAPICall::list_from_file(mined_data_file).unwrap_or_else(|_| {
                 panic!(
                     "failed to read mined call data from {:?}",
                     opt.mined_call_data
