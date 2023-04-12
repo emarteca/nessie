@@ -6,7 +6,9 @@ use crate::consts::*;
 use crate::errors::*;
 use crate::functions::*;
 use crate::mined_seed_reps;
-use crate::mined_seed_reps::{LibMinedData, MinedNestingPairJSON};
+use crate::mined_seed_reps::{
+    LibMinedCallData, LibMinedData, MinedAPICallJSON, MinedNestingPairJSON,
+};
 use crate::module_reps::*;
 use crate::tests::*;
 use crate::TestGenMode;
@@ -104,8 +106,10 @@ pub struct TestGenDB {
     /// so we can bias the generator to choose functions that haven't
     /// been tested yet.
     libs_fcts_weights: LibFctWeightedMap,
-    /// Mined data.
+    /// Mined nesting data.
     lib_mined_data: LibMinedData,
+    /// Mined api call data.
+    lib_mined_call_data: LibMinedCallData,
     /// Directory the generated tests are written to.
     pub test_dir_path: String,
     /// Prefix for the test files (just the file, not the path).
@@ -120,6 +124,7 @@ impl<'cxt> TestGenDB {
         test_dir_path: String,
         test_file_prefix: String,
         mined_data: Option<Vec<MinedNestingPairJSON>>,
+        mined_api_call_data: Option<Vec<MinedAPICallJSON>>,
         api_src_dir: Option<String>,
     ) -> Self {
         Self {
@@ -130,6 +135,10 @@ impl<'cxt> TestGenDB {
             libs_fcts_weights: HashMap::new(),
             lib_mined_data: match mined_data {
                 Some(lmd) => MinedNestingPairJSON::lib_map_from_list(lmd),
+                None => HashMap::new(),
+            },
+            lib_mined_call_data: match mined_api_call_data {
+                Some(lmd) => MinedAPICallJSON::lib_map_from_list(lmd),
                 None => HashMap::new(),
             },
             test_dir_path,
