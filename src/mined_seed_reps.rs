@@ -7,7 +7,7 @@
 
 use crate::errors::*;
 use crate::functions::{ArgType, ArgVal, FunctionArgument, FunctionSignature};
-use crate::module_reps::AccessPathModuleCentred;
+use crate::module_reps::{AccessPathModuleCentred, FieldNameType};
 use crate::tests::FunctionCall;
 
 use serde::{Deserialize, Serialize};
@@ -364,6 +364,14 @@ pub struct MinedAPICall {
 }
 
 impl MinedAPICall {
+    pub fn get_sig_with_types(&self) -> &Vec<Option<ArgType>> {
+        &self.sig_with_types
+    }
+
+    pub fn get_sig_with_vals(&self) -> &Vec<Option<ArgVal>> {
+        &self.sig_with_values
+    }
+
     /// Read a file (output from the data mining), that has a list of JSON representations
     /// of mined API calls.
     /// Return the corresponding list, or an error if the file is malformed.
@@ -403,7 +411,6 @@ impl MinedAPICall {
                 sig_with_types.push(opt_ty);
                 sig_with_values.push(opt_val);
             }
-            println!("REEEEEEE: {:?}, {:?}", sig_with_types, sig_with_values);
 
             res.push(Self {
                 pkg: api_call.pkg,
@@ -439,5 +446,14 @@ impl MinedAPICall {
 
     pub fn get_acc_path(&self) -> AccessPathModuleCentred {
         self.acc_path.clone()
+    }
+
+    pub fn get_fct_name(&self) -> Option<String> {
+        match &self.acc_path {
+            AccessPathModuleCentred::FieldAccPath(_, FieldNameType::StringField(fct_name)) => {
+                Some(fct_name.clone())
+            }
+            _ => None,
+        }
     }
 }

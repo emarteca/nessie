@@ -48,6 +48,12 @@ impl From<&Vec<ArgType>> for FunctionSignature {
     }
 }
 
+impl From<Vec<ArgType>> for FunctionSignature {
+    fn from(arg_types: Vec<ArgType>) -> Self {
+        (&arg_types).into()
+    }
+}
+
 impl FunctionSignature {
     /// Constructor.
     pub fn new(

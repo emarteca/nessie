@@ -439,6 +439,7 @@ impl<'cxt> TestGenDB {
                     &cb_arg_vals_pool,
                     mod_rep,
                     test_gen_mode,
+                    true, /* reset existing arg values if there are any */
                 )?;
                 let args = ret_call.sig.get_mut_args();
                 // let outer_sig = ext_fct.unwrap().sig;
@@ -506,9 +507,51 @@ impl<'cxt> TestGenDB {
                 false
             })
             .collect::<Vec<MinedAPICall>>();
-            for call in possible_calls.into_iter() {
-                println!("BRO PLS: {:?}", call);
-            }
+            let rand_call = possible_calls.choose(&mut rand::thread_rng()).unwrap();
+            let rand_call_acc_path = rand_call.get_acc_path();
+            let rand_base_var = ap_receivers
+                .get(&rand_call_acc_path.get_base_path().unwrap())
+                .unwrap()
+                .choose(&mut rand::thread_rng())
+                .unwrap();
+
+            let fct_name = rand_call.get_fct_name().unwrap();
+
+            let fct_sig: FunctionSignature = FunctionSignature::new(
+                &rand_call
+                    .get_sig_with_vals()
+                    .iter()
+                    .map(|opt_val| match opt_val {
+                        Some(val) => FunctionArgument::new(val.get_type(), Some(val.clone())),
+                        None => {
+                            let rand_type = self.choose_random_arg_type(
+                                ALLOW_MULTIPLE_CALLBACK_ARGS,
+                                ALLOW_ANY_TYPE_ARGS,
+                            );
+                            FunctionArgument::new(rand_type, None)
+                        }
+                    })
+                    .collect::<Vec<FunctionArgument>>(),
+                None, /* call test result */
+            );
+
+            let mut ret_call = FunctionCall::new(
+                fct_name,
+                fct_sig,
+                None,                     /* position of arg in parent call of cb this is in */
+                None,                     /* parent call node ID */
+                Some(rand_call_acc_path), /* access path rep of the call */
+                Some(rand_base_var.clone()), /* receiver of the call */
+            );
+            ret_call.init_args_with_random(
+                self,
+                &ret_vals_pool,
+                &cb_arg_vals_pool,
+                mod_rep,
+                test_gen_mode,
+                (thread_rng().gen_range(0..=100) as f64) / 100. > USE_MINED_SIG_VALUES,
+            )?;
+            return Ok(ret_call);
         }
 
         // Build the weighted (by number of times previously tested -- if never tested,
@@ -622,6 +665,7 @@ impl<'cxt> TestGenDB {
             &cb_arg_vals_pool,
             mod_rep,
             test_gen_mode,
+            true, /* reset existing arg values if there's any */
         )?;
         Ok(ret_call)
     }

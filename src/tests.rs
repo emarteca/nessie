@@ -131,17 +131,20 @@ impl FunctionCall {
         cb_arg_vals_pool: &Vec<ArgVal>,
         mod_rep: &NpmModule,
         test_gen_mode: &TestGenMode,
+        reset_existing_arg_vals: bool,
     ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
-            arg.set_arg_val(testgen_db.gen_random_value_of_type(
-                arg_type,
-                Some(i),
-                ret_vals_pool,
-                cb_arg_vals_pool,
-                mod_rep,
-                test_gen_mode,
-            ))?;
+            if !arg.get_arg_val().is_some() || reset_existing_arg_vals {
+                arg.set_arg_val(testgen_db.gen_random_value_of_type(
+                    arg_type,
+                    Some(i),
+                    ret_vals_pool,
+                    cb_arg_vals_pool,
+                    mod_rep,
+                    test_gen_mode,
+                ))?;
+            }
         }
         Ok(())
     }
