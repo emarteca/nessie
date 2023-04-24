@@ -9,6 +9,8 @@ realpathMACHACK() {
     [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
 }
 
+TIMEOUT_SECONDS=30
+
 num_tests=$1
 test_dir=`realpathMACHACK $2`
 
@@ -44,7 +46,7 @@ rm -r ../coverage 2>/dev/null
 
 for i in $(seq 1 $num_tests); do
         cur_test_grep=`echo $cur_test_grep"test"$i"!"`
-        $coverage_command \"$cur_test_grep\" > /dev/null 2>$1
+        timeout $TIMEOUT_SECONDS $coverage_command \"$cur_test_grep\" > /dev/null 2>$1
         nyc report --reporter=json
         cd $cur_dir
         # echo "Tests: $i"

@@ -416,8 +416,10 @@ impl MinedAPICall {
                 pkg: api_call.pkg,
                 acc_path: match AccessPathModuleCentred::from_str(&api_call.acc_path) {
                     Ok(ap) => ap,
-                    Err(_) => {
-                        return Err(DFError::MinedDataFileError);
+                    Err(_) =>
+                    // if there's an unparsable access path, that's ok just don't add it to the list (i.e., skip it)
+                    {
+                        continue
                     }
                 },
                 sig_with_types,
