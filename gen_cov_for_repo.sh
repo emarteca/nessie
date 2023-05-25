@@ -17,6 +17,7 @@ num_reps=$4
 
 cur_dir=`pwd`
 test_gen_mode=OGNessie
+TIMEOUT_SECONDS=30
 
 # [author name]_[project name] from the github repo link
 # also get rid of - so we can reuse it as the variable name of the module import
@@ -78,7 +79,7 @@ for rep in $(seq 1 $num_reps); do
 
 	echo "--- Computing coverage"
 	# compute the coverage, ignoring the test files
-	nyc --include=$test_dir/* --exclude=$test_output_dir/**/*.js mocha $cur_test_dir/metatest.js > /dev/null
+	timeout $TIMEOUT_SECONDS nyc --include=$test_dir/* --exclude=$test_output_dir/**/*.js mocha $cur_test_dir/metatest.js > /dev/null
 	nyc report --reporter=json
 
 	# capture the output
