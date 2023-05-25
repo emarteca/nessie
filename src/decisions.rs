@@ -502,7 +502,8 @@ impl<'cxt> TestGenDB {
             .into_iter()
             .filter(|mined_call| {
                 if let Some(base_path) = mined_call.get_acc_path().get_base_path() {
-                    return ap_receivers.contains_key(&base_path);
+                    return ap_receivers.contains_key(&base_path) 
+                        && mined_call.get_fct_name().is_some() /* we're only generating tests for calls to explicitly named fcts */ ;
                 }
                 false
             })
@@ -517,7 +518,7 @@ impl<'cxt> TestGenDB {
                     .unwrap();
 
                 let fct_name = rand_call.get_fct_name().unwrap();
-
+                
                 let fct_sig: FunctionSignature = FunctionSignature::new(
                     &rand_call
                         .get_sig_with_vals()

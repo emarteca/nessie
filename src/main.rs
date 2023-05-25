@@ -105,12 +105,10 @@ fn main() {
 
     let testing_dir = match &opt.testing_dir {
         Some(ref dir) => dir.clone().into_os_string().into_string().unwrap(),
-        None => String::from("."),
+        None => consts::setup::TEST_DIR_PATH.to_string(),
     };
 
-    let test_dir_path = consts::setup::TEST_DIR_PATH;
-
-    let toy_dir_base = &(testing_dir + "/" + test_dir_path + "/toy_fs_dir");
+    let toy_dir_base = &(testing_dir.clone() + "/toy_fs_dir");
     let toy_fs_paths =
         setup_toy_fs(toy_dir_base).expect("Error creating toy filesystem for tests; bailing out.");
 
@@ -136,7 +134,7 @@ fn main() {
 
     // setup the initial test gen database.
     let mut testgen_db = decisions::TestGenDB::new(
-        test_dir_path.to_string(),
+        testing_dir.to_string(),
         test_file_prefix.to_string(),
         mined_data,
         mined_call_data,

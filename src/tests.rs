@@ -135,7 +135,7 @@ impl FunctionCall {
     ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
-            if !arg.get_arg_val().is_some() || reset_existing_arg_vals {
+            if arg_type == ArgType::StringType || !arg.get_arg_val().is_some() || reset_existing_arg_vals {
                 arg.set_arg_val(testgen_db.gen_random_value_of_type(
                     arg_type,
                     Some(i),
@@ -375,9 +375,17 @@ impl<'cxt> Test {
         let cur_test_file = self.get_file();
         let cur_test = self.get_code(print_instrumented, print_as_test_fct);
         if matches!(std::fs::write(&cur_test_file, cur_test), Err(_)) {
-            return Err(DFError::WritingTestError);
+            return Err(DFError::WritingTestError(self.get_id()));
         }
         Ok(cur_test_file)
+    }
+
+    pub fn delete_file(&mut self) -> Result<(), DFError> {
+        let cur_test_file = self.get_file();
+        if matches!(std::fs::remove_file(&cur_test_file), Err(_)) {
+            return Err(DFError::DeletingTestError(self.get_id()));
+        }
+        Ok(())
     }
 
     /// Execute the test and return the results for all the extension points.

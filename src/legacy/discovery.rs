@@ -68,6 +68,7 @@ pub fn run_discovery_phase(
                 Ok(res) => res.0, // we only care about the hashmap of extension point results in this legacy code (i.e. not APs)
                 Err(_) => continue,
             };
+            cur_test.delete_file()?;
 
             let (fct_result, _cb_arg_pos) = test_results.get(&cur_fct_id).unwrap();
             // if there was no execution error, then the generated signature is valid
