@@ -50,7 +50,6 @@ for (let i = 0; i < codeFiles.length; i++) {
             }
         }
     }
-    console.log(resultsBranches[codeFiles[i]])
 }
 
 console.log(numStatCovered/statementSum + (include_branch_cov ? ", " + numBranchCovered/branchSum : ""));

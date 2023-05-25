@@ -375,7 +375,7 @@ impl<'cxt> Test {
         let cur_test_file = self.get_file();
         let cur_test = self.get_code(print_instrumented, print_as_test_fct);
         if matches!(std::fs::write(&cur_test_file, cur_test), Err(_)) {
-            return Err(DFError::WritingTestError(self.get_id()));
+            return Err(DFError::WritingTestError(self.get_file().to_string()));
         }
         Ok(cur_test_file)
     }
@@ -383,7 +383,7 @@ impl<'cxt> Test {
     pub fn delete_file(&mut self) -> Result<(), DFError> {
         let cur_test_file = self.get_file();
         if matches!(std::fs::remove_file(&cur_test_file), Err(_)) {
-            return Err(DFError::DeletingTestError(self.get_id()));
+            return Err(DFError::DeletingTestError(self.get_file().to_string()));
         }
         Ok(())
     }

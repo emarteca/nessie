@@ -78,7 +78,7 @@ pub fn write_meta_test(test_dir: String, num_tests: i32) -> Result<(), DFError> 
     let meta_test_code = code_gen::get_meta_test_code(num_tests);
     let meta_test_file = PathBuf::from(test_dir + "/metatest.js");
     if matches!(std::fs::write(&meta_test_file, meta_test_code), Err(_)) {
-        return Err(DFError::WritingTestError);
+        return Err(DFError::WritingTestError(meta_test_file.to_string_lossy().to_string()));
     }
     Ok(())
 }

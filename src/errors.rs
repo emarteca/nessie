@@ -12,10 +12,10 @@ pub enum DFError {
     MinedDataFileError,
     /// error in the mined data, with an error message
     InvalidMinedData(String),
-    /// error printing test file (with id provided)
-    WritingTestError(usize),
-    /// error deleting test file (with id provided)
-    DeletingTestError(usize),
+    /// error printing test file (with file path)
+    WritingTestError(String),
+    /// error deleting test file (with file path)
+    DeletingTestError(String),
     /// error running test (could be a timeout)
     TestRunningError,
     /// error parsing test output
