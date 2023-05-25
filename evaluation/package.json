@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build": "tsc csv_from_coverage.ts --downlevelIteration"
+  },
   "devDependencies": {
     "@types/node": "^14.0.9"
   },
