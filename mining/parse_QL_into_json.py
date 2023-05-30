@@ -38,7 +38,7 @@ def main():
 	QL_results_file = sys.argv[1]
 	res = []
 	with open(QL_results_file) as f:
-		next(f) # skip the header line
+		next(f, None) # skip the header line
 		for line in f:
 			line_json = parse_line_into_json(line)
 			res += [line_json]
