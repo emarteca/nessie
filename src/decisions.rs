@@ -502,8 +502,8 @@ impl<'cxt> TestGenDB {
             .into_iter()
             .filter(|mined_call| {
                 if let Some(base_path) = mined_call.get_acc_path().get_base_path() {
-                    return ap_receivers.contains_key(&base_path);
-                    // && mined_call.get_fct_name().is_some() /* we were only generating tests for calls to explicitly named fcts */ ;
+                    return ap_receivers.contains_key(&base_path)
+                    && test_gen_mode.will_gen_call_for(&mined_call.get_fct_name()) /* check if we're only generating tests for calls to explicitly named fcts */ ;
                 }
                 false
             })

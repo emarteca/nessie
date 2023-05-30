@@ -96,4 +96,13 @@ impl TestGenMode {
             _ => true,
         }
     }
+
+    /// Check if this testgen mode generates calls for the function of specified name?
+    pub fn will_gen_call_for(&self, fct_name: &str) -> bool {
+        match self {
+            // OGNessie doesn't generate calls to no-name functions (like modules that need to be immediately invoked)
+            Self::OGNessie => !fct_name.is_empty(),
+            _ => true
+        }
+    }
 }
