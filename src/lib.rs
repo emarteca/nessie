@@ -61,6 +61,7 @@ impl TestGenMode {
     }
 
     /// Does this test generation mode include a separate API discovery phase?
+    /// They all start with discovery!
     pub fn has_discovery(&self) -> bool {
         // match self {
         //     Self::OGNessie | Self::TrackPrimitives => true,

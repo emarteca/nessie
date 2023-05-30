@@ -450,12 +450,12 @@ impl MinedAPICall {
         self.acc_path.clone()
     }
 
-    pub fn get_fct_name(&self) -> Option<String> {
+    pub fn get_fct_name(&self) -> String {
         match &self.acc_path {
             AccessPathModuleCentred::FieldAccPath(_, FieldNameType::StringField(fct_name)) => {
-                Some(fct_name.clone())
+                fct_name.clone()
             }
-            _ => None,
+            _ => "".to_string(),
         }
     }
 }

@@ -135,7 +135,10 @@ impl FunctionCall {
     ) -> Result<(), TestGenError> {
         for (i, arg) in self.sig.get_mut_args().iter_mut().enumerate() {
             let arg_type = arg.get_type();
-            if arg_type == ArgType::StringType || !arg.get_arg_val().is_some() || reset_existing_arg_vals {
+            if arg_type == ArgType::StringType
+                || !arg.get_arg_val().is_some()
+                || reset_existing_arg_vals
+            {
                 arg.set_arg_val(testgen_db.gen_random_value_of_type(
                     arg_type,
                     Some(i),

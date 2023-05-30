@@ -429,7 +429,7 @@ pub fn get_function_call_code(
             + &ret_val_basename
             + " = "
             + base_var_name
-            + "."
+            + if fct_name.is_empty() { "" } else { "." }
             + fct_name
             + "("
             + &args_rep
@@ -451,7 +451,9 @@ pub fn get_function_call_code(
                     .replace('\"', "\\\"")
                 + "\": Object.getOwnPropertyNames("
                 + &ret_val_basename
-                + ").filter((p) => typeof ret_val_jsonfile_1[p] === \"function\")"
+                + ").filter((p) => typeof "
+                + &ret_val_basename
+                + "[p] === \"function\")"
                 // NOTE: the next lines get more properties; including `toString` etc. 
                 // uncomment if you want the prototype properties too
                 + ".concat(Object.getOwnPropertyNames(Object.getPrototypeOf("
@@ -469,7 +471,19 @@ pub fn get_function_call_code(
                     .to_string()
                     .replace('\"', "\\\"")
                 + "\": [\"then\", \"catch\"]});"
-                + "\n\t}"
+            + "\n\t}"
+            // if the return value itself is a function, then add it as a potential callee (empty fct name)
+            + "\t if(getTypeDiffObjFromPromise("
+            + &ret_val_basename
+            + ") == \"object\"){"
+            + "\n\t\tconsole.log({\""
+            + &ret_val_acc_path
+                .as_ref()
+                .unwrap()
+                .to_string()
+                .replace('\"', "\\\"")
+            + "\": [\"\"]});"
+            + "\n\t}"
         } else {
             String::new()
         }),

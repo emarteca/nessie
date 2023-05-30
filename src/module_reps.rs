@@ -181,7 +181,7 @@ impl NpmModule {
 
         let mod_json_rep: NpmModuleJSON = match serde_json::from_str(&file_conts_string) {
             Ok(rep) => rep,
-            Err(_) => return Err(DFError::SpecFileError),
+            Err(e) => return Err(DFError::SpecFileError),
         };
 
         let lib_name = mod_json_rep.lib.clone();
