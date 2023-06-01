@@ -5,7 +5,7 @@
 # the output is: all the test suites, and the list of coverage values for each test suite
 # note: this works for both github and gitlab repo link
 
-# usage: ./gen_cov_for_repo.sh repo_link commit_hash num_tests num_reps
+# usage: ./gen_cov_for_repo.sh repo_link commit_hash num_tests num_reps test_gen_mode [optional: mined_data_file]
 
 # notes: num_tests is the number of tests to generate
 #		 num_reps is the number of repetitions to do of the entire testgen run
@@ -14,14 +14,15 @@ repo_link=$1
 commit_hash=$2
 num_tests=$3
 num_reps=$4
+test_gen_mode=$5
+mined_data_file=$6
 
 cur_dir=`pwd`
-test_gen_mode=OGNessie
 TIMEOUT_SECONDS=30
 
 # [author name]_[project name] from the github repo link
-# also get rid of - so we can reuse it as the variable name of the module import
-lib_name=`echo $repo_link | sed -r 's!https://git(hub|lab).com/!!g' | sed -r 's!/!_!g' | sed -r 's!-!_!g'`
+# also get rid of - and . so we can reuse it as the variable name of the module import
+lib_name=`echo $repo_link | sed -r 's!https://git(hub|lab).com/!!g' | sed -r 's!/!_!g' | sed -r 's!-!_!g' | sed -r 's!\.!!g'`
 
 test_dir=TEST_REPO_${lib_name}
 test_output_dir=${test_dir}_all_tests
@@ -74,7 +75,8 @@ for rep in $(seq 1 $num_reps); do
 				 --lib-src-dir $test_dir \
 				 --test-gen-mode=$test_gen_mode \
 				 --redo-discovery \
-				 --testing-dir=$cur_test_dir 2> /dev/null
+				 --testing-dir=$cur_test_dir 2> /dev/null \
+				 ${mined_data_file:+ --mined-call-data $mined_data_file}
 
 
 	echo "--- Computing coverage"
@@ -87,7 +89,7 @@ for rep in $(seq 1 $num_reps); do
 
 	# copy over the discovery file
 	mv js_tools/${lib_name}_discovery_${test_gen_mode}.json $cur_test_dir
-done 
+done
 
 # at the end, copy over the api spec file (just the list of all functions the root of the module provides)
 mv js_tools/${lib_name}_output.json $test_output_dir

@@ -3,6 +3,7 @@
 // and then dumps that to a JSON file
 
 let fs = require("fs");
+const { type } = require("os");
 
 const DEFAULT_MAX_ARGS = 5;
 
@@ -66,6 +67,18 @@ fn_names.forEach( name => {
 	fn_info[name + ", " + default_acc_path] = cur_fn_info;
 });
 
+
+// now, add the module itself as a function (if it is a function)
+if (typeof lib === 'function') {
+	let cur_fn_info = {};
+	// name is the empty string
+	let name = "";
+	cur_fn_info["num_args"] = DEFAULT_MAX_ARGS;
+	cur_fn_info["used_default_args"] = true;
+	cur_fn_info["name"] = name;
+	cur_fn_info["sigs"] = []; // start with no discovered signatures
+	fn_info[name + ", " + default_acc_path] = cur_fn_info;
+}
 
 // set up output json object
 let output_obj = {

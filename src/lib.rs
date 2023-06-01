@@ -102,7 +102,7 @@ impl TestGenMode {
         match self {
             // OGNessie doesn't generate calls to no-name functions (like modules that need to be immediately invoked)
             Self::OGNessie => !fct_name.is_empty(),
-            _ => true
+            _ => true,
         }
     }
 }

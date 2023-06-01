@@ -73,6 +73,20 @@ pub fn run_discovery_phase(
             let (fct_result, _cb_arg_pos) = test_results.get(&cur_fct_id).unwrap();
             // if there was no execution error, then the generated signature is valid
             if fct_result != &FunctionCallResult::ExecutionError {
+                let args = args
+                    .iter()
+                    .map(|arg| match arg {
+                        FunctionArgument {
+                            arg_type: ArgType::CallbackType,
+                            arg_val: _,
+                        } => FunctionArgument {
+                            arg_type: ArgType::CallbackType,
+                            arg_val: None,
+                        },
+                        _ => arg.clone(),
+                    })
+                    .collect();
+                println!("fuck: {:?}", args);
                 func_desc.add_sig(FunctionSignature::try_from((&args, *fct_result)).unwrap());
             }
 

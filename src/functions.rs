@@ -156,9 +156,9 @@ impl std::default::Default for FunctionSignature {
 #[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct FunctionArgument {
     /// Type of the argument.
-    arg_type: ArgType,
+    pub(crate) arg_type: ArgType,
     /// Optional value of the argument.
-    arg_val: Option<ArgVal>,
+    pub(crate) arg_val: Option<ArgVal>,
 }
 
 impl FunctionArgument {
