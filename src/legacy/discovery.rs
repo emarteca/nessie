@@ -86,7 +86,6 @@ pub fn run_discovery_phase(
                         _ => arg.clone(),
                     })
                     .collect();
-                println!("fuck: {:?}", args);
                 func_desc.add_sig(FunctionSignature::try_from((&args, *fct_result)).unwrap());
             }
 

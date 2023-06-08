@@ -128,8 +128,6 @@ fn main() {
             })
         });
 
-    println!("REEEEEEE: {:?}", mined_call_data);
-
     let test_file_prefix = consts::setup::TEST_FILE_PREFIX;
 
     // setup the initial test gen database.

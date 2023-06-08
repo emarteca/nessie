@@ -75,18 +75,29 @@ for rep in $(seq 1 $num_reps); do
 				 --lib-src-dir $test_dir \
 				 --test-gen-mode=$test_gen_mode \
 				 --redo-discovery \
-				 --testing-dir=$cur_test_dir 2> /dev/null \
-				 ${mined_data_file:+ --mined-call-data $mined_data_file}
-
+				 --testing-dir=$cur_test_dir \
+				 ${mined_data_file:+ --mined-call-data $mined_data_file} \
+				 2> /dev/null
 
 	echo "--- Computing coverage"
 	# compute the coverage, ignoring the test files
-	timeout $TIMEOUT_SECONDS nyc --include=$test_dir/* --exclude=$test_output_dir/**/*.js mocha $cur_test_dir/metatest.js > /dev/null
-	nyc report --reporter=json
+	timeout $TIMEOUT_SECONDS nyc --include=$test_dir/* --exclude=$test_output_dir/**/*.js mocha $cur_test_dir/metatest.js > temp.out
 
-	# capture the output
-	node evaluation/csv_from_coverage.js --input_file coverage/coverage-final.json --include_branch_coverage >> ${test_output_dir}/coverage.csv
+	# extract the coverage
+	rel_out=`grep "All files" temp.out`
+	python3 -c "
+all_cov = '$rel_out'.split('|')
+# coverage values are: 1: stmt; 2: branch; 3: fct
+stmt_cov = 'NaN'
+branch_cov = 'NaN'
+if len(all_cov) > 2:
+	stmt_cov = float(all_cov[1])
+	branch_cov = float(all_cov[2])
+print(str(stmt_cov) + ', ' + str(branch_cov))
+" >> ${test_output_dir}/coverage.csv
 
+	rm temp.out
+	
 	# copy over the discovery file
 	mv js_tools/${lib_name}_discovery_${test_gen_mode}.json $cur_test_dir
 done
