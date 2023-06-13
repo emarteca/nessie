@@ -21,21 +21,25 @@ def diagnose_diff( diff_string):
 	commit_newv = "" if len(split_out) == 1 and not split_out[0].startswith("< ") else split_out[0]
 	commit_oldv = "" if len(split_out) == 1 and not split_out[0].startswith("> ") else split_out[0] if len(split_out) == 1 else split_out[1]
     # get rid of the json noise
-	commit_newv.replace("> [", "> ")
-	commit_newv.replace("> {", "> ")
-	commit_newv.replace("< [", "< ")
-	commit_newv.replace("< {", "< ")
-	commit_oldv.replace("> [", "> ")
-	commit_oldv.replace("> {", "> ")
-	commit_oldv.replace("< [", "< ")
-	commit_oldv.replace("< {", "< ")
+	commit_newv = commit_newv.replace("> [", "> ")
+	commit_newv = commit_newv.replace("> {", "> ")
+	commit_newv = commit_newv.replace("> \"", "> ")
+	commit_newv = commit_newv.replace("< [", "< ")
+	commit_newv = commit_newv.replace("< {", "< ")
+	commit_newv = commit_newv.replace("< \"", "< ")
+	commit_oldv = commit_oldv.replace("> [", "> ")
+	commit_oldv = commit_oldv.replace("> {", "> ")
+	commit_oldv = commit_oldv.replace("> \"", "> ")
+	commit_oldv = commit_oldv.replace("< [", "< ")
+	commit_oldv = commit_oldv.replace("< {", "< ")
+	commit_oldv = commit_oldv.replace("< \"", "< ")
 
 	if commit_newv.startswith("< done_") and commit_oldv.startswith("> error_"):
-		return( "Call_fails_oldv" + ": " + commit_newv.split(".")[1].split("\n")[0]) # first "." is base.methodName
+		return( "Call_fails_oldv" + ": " + commit_newv.split("_")[1].split("\n")[0]) # first "." is base.methodName
 	elif commit_newv.startswith("< done_") and commit_oldv.startswith("> error_"):
-		return( "Call_fails_newv" + ": " + commit_oldv.split(".")[1].split("\n")[0])
+		return( "Call_fails_newv" + ": " + commit_oldv.split("_")[1].split("\n")[0])
 	elif commit_newv.startswith("< done_") and commit_oldv.startswith("> done_"):
-		return( "Diff_internal_name" + ": " + commit_oldv.split(".")[1].split("\n")[0])
+		return( "Diff_internal_name" + ": " + commit_oldv.split("_")[1].split("\n")[0])
 	elif commit_newv.startswith("< ret_val_") and commit_oldv.startswith("> ret_val_"):
 		return( "Diff_return_value")
 	# ordering is important here: if the difference is not a return value (i.e. check after return)
@@ -44,26 +48,28 @@ def diagnose_diff( diff_string):
 	elif commit_newv.startswith("< after_") and commit_oldv.startswith("> after_") and commit_newv.split(": ")[1].startswith("undefined"):
 		return( "API_func_no_longer_exists")
 	elif commit_newv.startswith("< before_") and commit_oldv.startswith("> before_"):
-		start_of_arg = commit_newv.split(": ")[1]
+		start_of_arg = commit_newv.split("\":\"")[1]
 		if start_of_arg.startswith("class ") or start_of_arg.startswith("function ") or start_of_arg.startswith("async ") or start_of_arg.startswith("("):
 			return("Function_arg_impl_diff")
 		return( "Diff_API_argument_value")
 	elif commit_newv.startswith("< in_") and commit_oldv.startswith("> in_"):
-		start_of_arg = commit_newv.split(": ")[1]
+		start_of_arg = commit_newv.split("\":\"")[1]
 		if start_of_arg.startswith("class ") or start_of_arg.startswith("function ") or start_of_arg.startswith("async ") or start_of_arg.startswith("("):
 			return("Function_arg_impl_diff")
 		return( "Diff_callback_argument_value")
 	elif commit_newv.startswith("< callback_exec_"):
 		return( "Callback_called_newv_notcalled_oldv" + ": " + commit_newv.split("< callback_exec_")[1].split("\n")[0]) # name of method
-	elif commit_newv.startswith("< async_error_in_test"):
+	elif commit_newv.startswith("< {\\\"async_error_in_test"):
 		return( "Internal_async_error_newv")
 	elif commit_oldv.startswith("> callback_exec_ "):
 		return( "Callback_notcalled_newv_called_oldv" + ": " + commit_oldv.split("> callback_exec_")[1].split("\n")[0]) # name of method
-	elif commit_oldv.startswith("> async_error_in_test"):
+	elif commit_oldv.startswith("> {\\\"async_error_in_test"):
 		return( "Internal_async_error_oldv")	
 	elif commit_newv.startswith("<     ✓") and commit_oldv.startswith(">     ✓"): # timing artifact: meaningless diff
 		return( None)
 	elif commit_newv.startswith("< \n<   test") or commit_oldv.startswith("> \n>   test"): # whitespace artifact on test completion: meaningless diff
+		return( None)
+	elif commit_newv.find(" passing (") != -1 and commit_oldv.find(" passing (") != -1: # number of passing tests; difference in suite runtime
 		return( None)
 	elif commit_newv.find("Cannot find module '.") != -1: # this indicates a local module dependency that is not available in the newer commit 
 		return( "Local_file_renamed_or_removed")		  # happens when a file is renamed or deleted. Will not happen with commit_oldv since the tests are gen'd for this commit
@@ -154,11 +160,12 @@ while len(commits) > 1:
 	for cur_commit_iter in range( args.numiters):
 		if nodiff_log and nodiff_watch:
 			continue
-		cur_commit_watch_filename = fswatch_prefix + "_" + cur_commit + "_" + cur_commit + "_" + str(cur_commit_iter) + ".log"
-		cur_commit_log_filename = log_prefix + "_" + cur_commit + "_" + cur_commit + "_" + str(cur_commit_iter) + ".log"
+		cur_commit_watch_filename = fswatch_prefix + "_" + cur_commit + "_" + cur_commit + ("" if args.numiters == 1 else "_" + str(cur_commit_iter)) + ".log"
+		cur_commit_log_filename = log_prefix + "_" + cur_commit + "_" + cur_commit + ("" if args.numiters == 1 else "_" + str(cur_commit_iter)) + ".log"
 		for comp_commit_iter in range( args.numiters):
-			comp_commit_watch_filename = fswatch_prefix + "_" + cur_commit + "_" + comp_commit + "_" + str(comp_commit_iter) + ".log"
-			comp_commit_log_filename = log_prefix + "_" + cur_commit + "_" + comp_commit + "_" + str(comp_commit_iter) + ".log"
+			comp_commit_watch_filename = fswatch_prefix + "_" + cur_commit + "_" + comp_commit + ("" if args.numiters == 1 else "_" + str(comp_commit_iter)) + ".log"
+			comp_commit_log_filename = log_prefix + "_" + cur_commit + "_" + comp_commit + ("" if args.numiters == 1 else "_" + str(comp_commit_iter)) + ".log"
+			print(comp_commit_log_filename)
 			if not nodiff_log:	
 				(difflog_err, difflog_out, difflog_retcode) = run_command( "diff " + comp_commit_log_filename + " " + cur_commit_log_filename)
 				if difflog_retcode == 0:
