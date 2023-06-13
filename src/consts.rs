@@ -11,6 +11,9 @@ pub const TEST_TIMEOUT_SECONDS: u64 = 30;
 /// in a nested way, what do we do? `false`: error, or `true`: just return a fresh test
 pub const FRESH_TEST_IF_CANT_EXTEND: bool = true;
 
+/// Max number of broken tests generated before it bails out
+pub const MAX_NUM_BROKEN_TESTS: u64 = 5000;
+
 // restrictions on generated values
 /// Allow generation of multiple callback arguments to the same function?
 pub const ALLOW_MULTIPLE_CALLBACK_ARGS: bool = false;

@@ -20,7 +20,9 @@ pub fn run_testgen_phase<'cxt>(
     test_gen_mode: TestGenMode,
 ) -> Result<(), DFError> {
     let mut cur_test_id = 1;
-    while cur_test_id <= num_tests.try_into().unwrap() {
+    let mut num_errors = 0;
+    while cur_test_id <= num_tests.try_into().unwrap() && num_errors < consts::MAX_NUM_BROKEN_TESTS
+    {
         // get a random extension type
         let ext_type: ExtensionType = rand::thread_rng().gen();
 
@@ -45,6 +47,7 @@ pub fn run_testgen_phase<'cxt>(
                     "Execution error in generating test {:?} -- retrying",
                     cur_test_id
                 );
+                num_errors += 1;
                 continue;
             }
         };
@@ -52,8 +55,8 @@ pub fn run_testgen_phase<'cxt>(
         // after running the test, reprint file without all the instrumentation
         // and as part of a mocha test suite
         cur_test.write_test_to_file(
-            false, /* no instrumentation */
-            true,  /* as part of a mocha test suite */
+            true, /* instrumentation? */
+            true, /* as part of a mocha test suite */
         )?;
 
         testgen_db.set_cur_test_index(cur_test_id);

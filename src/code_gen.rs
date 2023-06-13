@@ -115,9 +115,12 @@ impl Test {
     pub(crate) fn get_code(&self, print_instrumented: bool, print_as_test_fct: bool) -> String {
         let setup_code = self.js_for_basic_cjs_import.clone();
         let (test_header, test_footer) = if print_instrumented {
-            (get_instrumented_header(), get_instrumented_footer())
+            (
+                get_instrumented_header(self.get_id(), print_as_test_fct),
+                get_instrumented_footer(),
+            )
         } else {
-            ("", "")
+            ("".to_string(), "")
         };
 
         let (test_fct_header, test_fct_footer) = if print_as_test_fct {
@@ -138,11 +141,11 @@ impl Test {
 
         [
             test_header,
-            &setup_code,
-            test_fct_header,
-            &test_body,
-            test_fct_footer,
-            test_footer,
+            setup_code,
+            test_fct_header.to_string(),
+            test_body,
+            test_fct_footer.to_string(),
+            test_footer.to_string(),
         ]
         .join("\n")
     }
@@ -331,20 +334,29 @@ pub fn basic_callback_with_id(cur_call_uniq_id: String) -> String {
 /// onto an array.
 /// This instrumentation allows us to track what's being printed and
 /// in what order.
-pub fn get_instrumented_header() -> &'static str {
-    r#"
-let orig_log = console.log;
+/// If it's part of a test suite, then we want to print the output as it
+/// is ongoing, b/c the hack of catching the end of the process event
+/// doesn't work -- test suite is one process.
+pub fn get_instrumented_header(cur_test_id: usize, print_as_test_fct: bool) -> String {
+    "if (!process.orig_log)
+        process.orig_log = console.log;
 let output_log = [];
-console.log = function(e) {
-	output_log.push(e);
-}
+console.log = function(e) {"
+        .to_owned()
+        + &if print_as_test_fct {
+            "\ne[\"test_id\"] = ".to_owned() + &cur_test_id.to_string() + ";\n"
+        } else {
+            "".to_string()
+        }
+        + &"\toutput_log.push(e);".to_string()
+        + &"}
 function getTypeDiffObjFromPromise(val) {
-    if (val.toString() === "[object Promise]") {
-        return "DIFFTYPE_Promise";
+    if (val.toString() === \"[object Promise]\") {
+        return \"DIFFTYPE_Promise\";
     }
     return typeof val;
-}
-"#
+}\n"
+        .to_string()
 }
 
 /// Returns a string of JS code that prints the global array that
@@ -354,7 +366,7 @@ function getTypeDiffObjFromPromise(val) {
 pub fn get_instrumented_footer() -> &'static str {
     r#"
 process.on("exit", function f() {
-	orig_log(JSON.stringify(output_log));
+	process.orig_log(JSON.stringify(output_log).replaceAll("},", "},\n"));
 })"#
 }
 
