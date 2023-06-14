@@ -55,6 +55,8 @@ pub struct FunctionCall {
     acc_path: Option<AccessPathModuleCentred>,
     /// Optional variable representing the receiver (if None, it's the module import)
     pub(crate) receiver: Option<ArgVal>,
+    /// is it a constructor
+    pub(crate) is_constructor: bool,
 }
 
 impl FunctionCall {
@@ -66,6 +68,7 @@ impl FunctionCall {
         parent_call_id: Option<ExtensionPointID>,
         acc_path: Option<AccessPathModuleCentred>,
         receiver: Option<ArgVal>,
+        is_constructor: bool,
     ) -> Self {
         Self {
             name,
@@ -74,12 +77,18 @@ impl FunctionCall {
             parent_call_id: parent_call_id.map(|id| id.to_string()),
             acc_path,
             receiver,
+            is_constructor,
         }
     }
 
     /// Getter for the access path representation of the function being called.
     pub fn get_acc_path(&self) -> &Option<AccessPathModuleCentred> {
         &self.acc_path
+    }
+
+    /// Getter for if it's a constructor
+    pub fn is_constructor(&self) -> bool {
+        self.is_constructor
     }
 
     /// Setter for the access path representation of the function being called.
@@ -469,8 +478,14 @@ impl<'cxt> Test {
 
         self.fct_tree
             .iter()
-            .map(|node| (self.get_uniq_id_for_call(node), node.get().get_acc_path()))
-            .filter(|(uniq_id, _)| {
+            .map(|node| {
+                (
+                    self.get_uniq_id_for_call(node),
+                    node.get().get_acc_path(),
+                    node.get().is_constructor(),
+                )
+            })
+            .filter(|(uniq_id, _, _)| {
                 // earlier than current node (alphabetical sort is fine)
                 uniq_id < &ext_node_uniq_id
                 &&
@@ -480,18 +495,24 @@ impl<'cxt> Test {
                 // only the returns from outermost nested functions are available
                 uniq_id.matches('_').count() == 0
             })
-            .map(|(id, opt_fct_acc_path_rep)| match opt_fct_acc_path_rep {
-                Some(fct_acc_path_rep) => ArgValAPTracked {
-                    val: ArgVal::Variable(ret_base_var_name.clone() + "_" + &id),
-                    acc_path: Some(AccessPathModuleCentred::ReturnPath(Box::new(
-                        fct_acc_path_rep.clone(),
-                    ))),
+            .map(
+                |(id, opt_fct_acc_path_rep, is_constructor)| match opt_fct_acc_path_rep {
+                    Some(fct_acc_path_rep) => ArgValAPTracked {
+                        val: ArgVal::Variable(ret_base_var_name.clone() + "_" + &id),
+                        acc_path: Some((if is_constructor {
+                            AccessPathModuleCentred::InstancePath
+                        } else {
+                            AccessPathModuleCentred::ReturnPath
+                        })(Box::new(
+                            fct_acc_path_rep.clone(),
+                        ))),
+                    },
+                    None => ArgValAPTracked {
+                        val: ArgVal::Variable(ret_base_var_name.clone() + "_" + &id),
+                        acc_path: None,
+                    },
                 },
-                None => ArgValAPTracked {
-                    val: ArgVal::Variable(ret_base_var_name.clone() + "_" + &id),
-                    acc_path: None,
-                },
-            })
+            )
             .collect::<Vec<ArgValAPTracked>>()
     }
 
@@ -516,7 +537,7 @@ impl<'cxt> Test {
 
 pub type TestDiagnostics = (
     HashMap<ExtensionPointID, (FunctionCallResult, Option<String>)>,
-    HashMap<AccessPathModuleCentred, Vec<String>>,
+    HashMap<AccessPathModuleCentred, Vec<(String, bool)>>,
 );
 
 /// Given the output of running a test, this function parses the output and
@@ -605,7 +626,7 @@ fn diagnose_test_correctness(test: &Test, output_json: &Value) -> TestDiagnostic
 /// properties, and then parsing that).
 fn get_function_props_for_acc_paths(
     output_vec: &[Value],
-) -> HashMap<AccessPathModuleCentred, Vec<String>> {
+) -> HashMap<AccessPathModuleCentred, Vec<(String, bool)>> {
     let mut ret_map = HashMap::new();
     // `output_vec` is a list of JSON objects
     for val in output_vec.iter() {
@@ -619,7 +640,16 @@ fn get_function_props_for_acc_paths(
                             val_vec
                                 .iter()
                                 .filter_map(|obj| match obj {
-                                    Value::String(s) => Some(s.clone()),
+                                    Value::Array(arr) => {
+                                        let acc_path = arr[0].clone();
+                                        let is_constructor = arr[1].clone();
+                                        match (acc_path, is_constructor) {
+                                            (Value::String(s), Value::Bool(b)) => {
+                                                Some((s.clone(), b))
+                                            }
+                                            _ => None,
+                                        }
+                                    }
                                     _ => None,
                                 })
                                 .collect(),

@@ -50,8 +50,9 @@ pub fn run_discovery_phase(
                 FunctionSignature::new(&args, None),
                 None,
                 None,
-                None, // no access path specified (none needed for this legacy code)
-                None, // default receiver (the module import)
+                None,  // no access path specified (none needed for this legacy code)
+                None,  // default receiver (the module import)
+                false, // default: not a constructor (no constructor handling in this legacy code)
             );
 
             let (cur_fct_id, mut cur_test) = Test::test_one_call(

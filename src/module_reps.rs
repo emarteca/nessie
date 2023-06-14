@@ -11,6 +11,7 @@ use crate::consts::DEFAULT_MAX_ARG_LENGTH;
 use crate::errors::*;
 use crate::functions::*;
 use crate::tests::{ExtensionPointID, Test};
+use crate::TestGenMode;
 
 /// Serializable representation of the module,
 /// at the `api_info` stage (i.e., only statically looked at the properties of
@@ -39,6 +40,8 @@ struct ModFctAPIJSON {
     used_default_args: Option<bool>,
     // Signatures
     sigs: Vec<FunctionSignature>,
+    // is constructor?
+    is_constructor: bool,
 }
 
 /// Module class:
@@ -103,15 +106,24 @@ impl NpmModule {
         &mut self.fns
     }
 
+    /// Ignore constructors if they're not supported in the provided mode
+    pub fn constructor_support(&mut self, test_gen_mode: &TestGenMode) {
+        if !test_gen_mode.supports_constructors() {
+            for (_, fct) in self.fns.iter_mut() {
+                fct.is_constructor = false;
+            }
+        }
+    }
+
     pub fn add_fcts_rooted_in_ret_vals(
         &mut self,
-        accpath_fct_props: &HashMap<AccessPathModuleCentred, Vec<String>>,
+        accpath_fct_props: &HashMap<AccessPathModuleCentred, Vec<(String, bool)>>,
     ) {
         // iterate through all the new functions
         // add them as empty `ModuleFunction`s to the module function list
         let fns = self.get_mut_fns();
-        for (accpath, fct_prop_names) in accpath_fct_props.iter() {
-            for name in fct_prop_names.iter() {
+        for (accpath, fct_prop_names_and_constr) in accpath_fct_props.iter() {
+            for (name, is_constructor) in fct_prop_names_and_constr.iter() {
                 fns.insert(
                     (accpath.clone(), name.to_string()),
                     ModuleFunction {
@@ -122,6 +134,7 @@ impl NpmModule {
                             "then" | "catch" => Some(1),
                             _ => None,
                         },
+                        is_constructor: *is_constructor,
                     },
                 );
             }
@@ -260,6 +273,8 @@ pub struct ModuleFunction {
     /// this info couldn't be found, e.g., if the signature has
     /// the spread args).
     num_api_args: Option<usize>,
+    /// is constructor?
+    is_constructor: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
@@ -420,6 +435,10 @@ impl ModuleFunction {
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
+
+    pub fn get_is_constructor(&self) -> bool {
+        self.is_constructor
+    }
 }
 
 /// Convert `ModFctAPIJSON` into a `ModuleFunction`.
@@ -434,6 +453,7 @@ impl TryFrom<&ModFctAPIJSON> for ModuleFunction {
                 Some(true) => None,
                 _ => Some(mod_fct_api.num_args),
             },
+            is_constructor: mod_fct_api.is_constructor,
         })
     }
 }
@@ -454,6 +474,7 @@ impl From<&ModuleFunction> for ModFctAPIJSON {
                 .iter()
                 .cloned()
                 .collect::<Vec<FunctionSignature>>(),
+            is_constructor: mod_fct.is_constructor,
         }
     }
 }

@@ -205,6 +205,7 @@ impl Test {
         let cur_call_node_id = self.fct_tree.get_node_id(cur_root).unwrap();
 
         let cur_node_call = cur_root.get();
+        let cur_call_is_constructor = cur_node_call.is_constructor;
 
         let indents = "\t".repeat(num_tabs);
         let ret_val_basename = "ret_val_".to_owned() + base_var_name + "_" + &cur_call_uniq_id;
@@ -212,7 +213,11 @@ impl Test {
             .get_acc_path()
             .as_ref()
             .map(|fct_acc_path_rep| {
-                AccessPathModuleCentred::ReturnPath(Box::new(fct_acc_path_rep.clone()))
+                (if cur_call_is_constructor {
+                    AccessPathModuleCentred::InstancePath
+                } else {
+                    AccessPathModuleCentred::ReturnPath
+                })(Box::new(fct_acc_path_rep.clone()))
             });
         let extra_cb_code = if include_basic_callback {
             basic_callback_with_id(cur_call_uniq_id.clone())
@@ -286,6 +291,7 @@ impl Test {
             cur_call_uniq_id,
             indents,
             print_instrumented,
+            cur_node_call.is_constructor,
         )
     }
 }
@@ -355,6 +361,9 @@ function getTypeDiffObjFromPromise(val) {
         return \"DIFFTYPE_Promise\";
     }
     return typeof val;
+}
+function get_is_constructor(val) {
+    return !!val && !!val.prototype && !!val.prototype.constructor
 }\n"
         .to_string()
 }
@@ -386,6 +395,7 @@ pub fn get_function_call_code(
     cur_call_uniq_id: String,
     indents: String,
     print_instrumented: bool,
+    is_constructor: bool,
 ) -> String {
     // print the arguments to the specified signature
     let print_args = |title: String| {
@@ -440,6 +450,7 @@ pub fn get_function_call_code(
         &("\t".to_owned()
             + &ret_val_basename
             + " = "
+            + if is_constructor { " new " } else { "" }
             + base_var_name
             + if fct_name.is_empty() { "" } else { "." }
             + fct_name
@@ -466,11 +477,17 @@ pub fn get_function_call_code(
                 + ").filter((p) => typeof "
                 + &ret_val_basename
                 + "[p] === \"function\")"
+                + ".map((p) => [p, get_is_constructor("
+                + &ret_val_basename
+                + "[p])])"
                 // NOTE: the next lines get more properties; including `toString` etc. 
                 // uncomment if you want the prototype properties too
                 + ".concat(Object.getOwnPropertyNames(Object.getPrototypeOf("
                 + &ret_val_basename
-                + ")))"
+                + ")).map((p) => [p, get_is_constructor("
+                + &ret_val_basename
+                + "[p])])"
+                + ")"
                 + "});"
                 // special case for promises: we only want `then` and `catch`
                 + "\n\t} else if (getTypeDiffObjFromPromise("
@@ -482,19 +499,23 @@ pub fn get_function_call_code(
                     .unwrap()
                     .to_string()
                     .replace('\"', "\\\"")
-                + "\": [\"then\", \"catch\"]});"
+                + "\": [[\"then\", false], [\"catch\", false]]});"
             + "\n\t}"
             // if the return value itself is a function, then add it as a potential callee (empty fct name)
+            // and check if it is a constructor
             + "\t if(getTypeDiffObjFromPromise("
             + &ret_val_basename
-            + ") == \"object\"){"
+            + ") == \"function\"){"
+            + "\n\t\tis_constructor = get_is_constructor("
+            + &ret_val_basename
+            + ");"
             + "\n\t\tconsole.log({\""
             + &ret_val_acc_path
                 .as_ref()
                 .unwrap()
                 .to_string()
                 .replace('\"', "\\\"")
-            + "\": [\"\"]});"
+            + "\": [[\"\", is_constructor]]});"
             + "\n\t}"
         } else {
             String::new()

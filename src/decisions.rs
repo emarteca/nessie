@@ -421,6 +421,7 @@ impl<'cxt> TestGenDB {
                 let ext_fct = ext_fct.unwrap(); // if we can nest, outer fct exists
                 let fct_name = nested_ext.fct_name.clone();
                 let fct_sig = nested_ext.sig.clone();
+                let fct_is_constructor = false; /* we didn't mine nested instanceof */
                 let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
                     Box::new(module_root_path),
                     FieldNameType::StringField(fct_name.clone()),
@@ -432,6 +433,7 @@ impl<'cxt> TestGenDB {
                     None,                   /* parent call node ID */
                     Some(fct_acc_path_rep), /* access path rep of the call */
                     None, /* receiver of the call -- it's the module import by default */
+                    fct_is_constructor,
                 );
                 ret_call.init_args_with_random(
                     self,
@@ -518,6 +520,7 @@ impl<'cxt> TestGenDB {
                     .unwrap();
 
                 let fct_name = rand_call.get_fct_name();
+                let fct_is_constructor = false; /* we didn't mine instanceof */
 
                 let fct_sig: FunctionSignature = FunctionSignature::new(
                     &rand_call
@@ -544,6 +547,7 @@ impl<'cxt> TestGenDB {
                     None, /* parent call node ID */
                     Some(rand_call_acc_path), /* access path rep of the call */
                     Some(rand_base_var.clone()), /* receiver of the call */
+                    fct_is_constructor,
                 );
                 ret_call.init_args_with_random(
                     self,
@@ -615,6 +619,7 @@ impl<'cxt> TestGenDB {
         let fct_call_receiver = receivers.choose(&mut rand::thread_rng());
         let fct_name = fct_name.clone();
         let fct_to_call = &mod_rep.get_fns()[&(fct_receiver_acc_path.clone(), fct_name.clone())];
+        let fct_is_constructor = fct_to_call.get_is_constructor();
         let fct_acc_path_rep = AccessPathModuleCentred::FieldAccPath(
             Box::new(fct_receiver_acc_path.clone()),
             FieldNameType::StringField(fct_name.clone()),
@@ -660,6 +665,7 @@ impl<'cxt> TestGenDB {
             None,                   /* parent call node ID */
             Some(fct_acc_path_rep), /* access path rep of the fct being called */
             fct_call_receiver.cloned(),
+            fct_is_constructor,
         );
         // init the call with random values of the types specified in `random_sig`
         ret_call.init_args_with_random(

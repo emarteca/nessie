@@ -226,6 +226,10 @@ fn main() {
     // at this point, the mod_rep has the results from the API listing phase, or
     // a previously run's API discovery if applicable
 
+    // if we're in a mode that doesn't support constructors, go through all the functions in the mod_rep and
+    // make them not constructors
+    mod_rep.constructor_support(&test_gen_mode);
+
     let num_tests = opt.num_tests;
     if !opt.skip_testgen {
         run_testgen_phase(&mut mod_rep, &mut testgen_db, num_tests, test_gen_mode)

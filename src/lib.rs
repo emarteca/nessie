@@ -70,6 +70,15 @@ impl TestGenMode {
         true
     }
 
+    /// Do we support constructors?
+    /// Only OGNessie does not
+    pub fn supports_constructors(&self) -> bool {
+        match self {
+            Self::OGNessie => false,
+            _ => true,
+        }
+    }
+
     /// Does this test gen mode generate chained method calls on the return values
     /// of previous function calls?
     pub fn chains_methods_on_retvals(&self) -> bool {

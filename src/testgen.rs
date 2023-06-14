@@ -62,6 +62,7 @@ pub fn run_testgen_phase<'cxt>(
         testgen_db.set_cur_test_index(cur_test_id);
         if test_gen_mode.chains_methods_on_retvals() {
             mod_rep.add_fcts_rooted_in_ret_vals(&test_results.1);
+            mod_rep.constructor_support(&test_gen_mode);
         }
         if test_gen_mode.discovers_during_testgen() {
             mod_rep.add_function_sigs_from_test(&cur_test, &test_results.0);
