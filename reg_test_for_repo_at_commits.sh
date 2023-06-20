@@ -46,20 +46,20 @@ test_dir=TEST_REPO_${lib_name}
 test_output_dir=${test_dir}_all_tests
 
 # get rid of the old testing dir if it's there already
-if [ -d $test_output_dir ]; then
-	rm -rf $test_output_dir
-fi
-mkdir $test_output_dir
+# if [ -d $test_output_dir ]; then
+# 	rm -rf $test_output_dir
+# fi
+# mkdir $test_output_dir
 
-# clone the project
+# # clone the project
 
-if [ ! -d $test_dir ]; then
-	mkdir $test_dir
-	echo "Cloning repo: " $repo_link
-	git clone $repo_link $test_dir
-else
-	echo "This repo has already been cloned, reusing source dir: " $test_dir
-fi
+# if [ ! -d $test_dir ]; then
+# 	mkdir $test_dir
+# 	echo "Cloning repo: " $repo_link
+# 	git clone $repo_link $test_dir
+# else
+# 	echo "This repo has already been cloned, reusing source dir: " $test_dir
+# fi
 
 # read commits in from file into an array
 readarray -t commits < $commit_list_file
@@ -74,41 +74,41 @@ while (( $i < $num_commit_pairs )); do
 
     echo "Checking out repo at commit: " $next_commit
     
-    cd $test_dir
-    checkoutAndSetup $next_commit 
-    # now, move back to our source dir and run the test generator
-    cd $cur_dir
+    # cd $test_dir
+    # checkoutAndSetup $next_commit 
+    # # now, move back to our source dir and run the test generator
+    # cd $cur_dir
 
 	cur_test_dir=${test_output_dir}/tests_commit_${commit}
     cur_output_file=${test_output_dir}/${lib_name}_${num_tests}_${commit}_${nextCommit}_seqDiffs.out
 
-	mkdir $cur_test_dir
+	# mkdir $cur_test_dir
 
-	echo "--- Generating tests"
-	cargo run -- --lib-name $lib_name \
-				 --num-tests $num_tests \
-				 --lib-src-dir $test_dir \
-				 --test-gen-mode=$test_gen_mode \
-				 --redo-discovery \
-				 --testing-dir=$cur_test_dir \
-				 ${mined_data_file:+ --mined-call-data $mined_data_file} \
-				 2> /dev/null
+	# echo "--- Generating tests"
+	# cargo run -- --lib-name $lib_name \
+	# 			 --num-tests $num_tests \
+	# 			 --lib-src-dir $test_dir \
+	# 			 --test-gen-mode=$test_gen_mode \
+	# 			 --redo-discovery \
+	# 			 --testing-dir=$cur_test_dir \
+	# 			 ${mined_data_file:+ --mined-call-data $mined_data_file} \
+	# 			 2> /dev/null
 
-	echo "--- Running tests for commit: " $commit
-	# run the test suite, capture the output
-	timeout $TIMEOUT_SECONDS mocha $cur_test_dir/metatest.js > ${test_output_dir}/testlog_test${lib_name}_${next_commit}_${commit}.log
+	# echo "--- Running tests for commit: " $commit
+	# # run the test suite, capture the output
+	# timeout $TIMEOUT_SECONDS mocha $cur_test_dir/metatest.js > ${test_output_dir}/testlog_test${lib_name}_${next_commit}_${commit}.log
 
-    echo "--- Next commit: checking out repo at commit: " $commit
+    # echo "--- Next commit: checking out repo at commit: " $commit
     
-    cd $test_dir
-    checkoutAndSetup $next_commit 
-    # now, move back to our source dir and run the tests again
-    cd $cur_dir
+    # cd $test_dir
+    # checkoutAndSetup $next_commit 
+    # # now, move back to our source dir and run the tests again
+    # cd $cur_dir
 
-    echo "--- Running tests for commit: " $commit
+    # echo "--- Running tests for commit: " $commit
 
-	# run the test suite, capture the output
-	timeout $TIMEOUT_SECONDS mocha $cur_test_dir/metatest.js > ${test_output_dir}/testlog_test${lib_name}_${next_commit}_${next_commit}.log
+	# # run the test suite, capture the output
+	# timeout $TIMEOUT_SECONDS mocha $cur_test_dir/metatest.js > ${test_output_dir}/testlog_test${lib_name}_${next_commit}_${next_commit}.log
 
     python3 diff_analysis.py --commit_pair ${commit}_${next_commit} --libname $lib_name --numiters $num_reps --diagnose_diffs True --data_dir ${test_output_dir} --outputfile temp.json >> $cur_output_file
 

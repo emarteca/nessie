@@ -4,6 +4,7 @@ import subprocess
 import re
 import json
 import numpy as np
+import sys
 
 def run_command( command, timeout=None):
 	try:
@@ -18,9 +19,22 @@ def run_command( command, timeout=None):
 def diagnose_diff( diff_string):
     # [commit_newv, commit_oldv] = diff_string.split("\n---\n")
 	split_out = diff_string.split("\n---\n")
-	commit_newv = "" if len(split_out) == 1 and not split_out[0].startswith("< ") else split_out[0]
-	commit_oldv = "" if len(split_out) == 1 and not split_out[0].startswith("> ") else split_out[0] if len(split_out) == 1 else split_out[1]
-    # get rid of the json noise
+	commit_newv_s = ("" if len(split_out) == 1 and not split_out[0].startswith("< ") else split_out[0]).split("\n")
+	commit_oldv_s = ("" if len(split_out) == 1 and not split_out[0].startswith("> ") else split_out[0] if len(split_out) == 1 else split_out[1]).split("\n")
+
+	diffs = []
+	for i in range(max(len(commit_newv_s), len(commit_oldv_s)) - 1):
+		commit_newv = "" if i >= len(commit_newv_s) else commit_newv_s[i]
+		commit_oldv = "" if i >= len(commit_oldv_s) else commit_oldv_s[i]
+		cur_diff = diagnose_one_diff(commit_newv, commit_oldv)
+		if not (cur_diff is None):
+			diffs += [cur_diff]
+	return diffs
+
+def diagnose_one_diff(commit_newv, commit_oldv):	
+	# get rid of the json noise
+	commit_newv = commit_newv.strip()
+	commit_oldv = commit_oldv.strip()
 	commit_newv = commit_newv.replace("> [", "> ")
 	commit_newv = commit_newv.replace("> {", "> ")
 	commit_newv = commit_newv.replace("> \"", "> ")
@@ -33,10 +47,27 @@ def diagnose_diff( diff_string):
 	commit_oldv = commit_oldv.replace("< [", "< ")
 	commit_oldv = commit_oldv.replace("< {", "< ")
 	commit_oldv = commit_oldv.replace("< \"", "< ")
+	# end of the output list -- not relevant diff
+	if commit_newv.endswith("]"):
+		commit_newv = commit_newv[:len(commit_newv) - 1]
+	if commit_oldv.endswith("]"):
+		commit_oldv = commit_oldv[:len(commit_oldv) - 1]
+	if commit_newv.endswith(","):
+		commit_newv = commit_newv[:len(commit_newv) - 1]
+	if commit_oldv.endswith(","):
+		commit_oldv = commit_oldv[:len(commit_oldv) - 1]
 
-	if commit_newv.startswith("< done_") and commit_oldv.startswith("> error_"):
-		return( "Call_fails_oldv" + ": " + commit_newv.split("_")[1].split("\n")[0]) # first "." is base.methodName
-	elif commit_newv.startswith("< done_") and commit_oldv.startswith("> error_"):
+	# if theyre the same, then it's part of a multiline commit that's not relevant now
+	if commit_oldv.startswith("> ") and commit_newv.startswith("< ") and commit_oldv[1:] == commit_newv[1:]:
+		return(None)
+
+	if commit_oldv.startswith("> error_"):
+		return( "Call_fails_oldv" + ": " + commit_oldv.split("_")[1].split("\n")[0]) # first "." is base.methodName
+	elif commit_newv.startswith("< error_"):
+		return( "Call_fails_newv" + ": " + commit_newv.split("_")[1].split("\n")[0])
+	elif (commit_newv.startswith("< done_") or commit_newv.startswith("< ret_val")) and commit_oldv == "":
+		return( "Call_fails_oldv" + ": " + commit_newv.split("_")[1].split("\n")[0])
+	elif (commit_oldv.startswith("> done_") or commit_oldv.startswith("> ret_val")) and commit_newv == "":
 		return( "Call_fails_newv" + ": " + commit_oldv.split("_")[1].split("\n")[0])
 	elif commit_newv.startswith("< done_") and commit_oldv.startswith("> done_"):
 		return( "Diff_internal_name" + ": " + commit_oldv.split("_")[1].split("\n")[0])
@@ -48,21 +79,25 @@ def diagnose_diff( diff_string):
 	elif commit_newv.startswith("< after_") and commit_oldv.startswith("> after_") and commit_newv.split(": ")[1].startswith("undefined"):
 		return( "API_func_no_longer_exists")
 	elif commit_newv.startswith("< before_") and commit_oldv.startswith("> before_"):
-		start_of_arg = commit_newv.split("\":\"")[1]
+		start_of_arg = commit_newv.split("\":")[1]
 		if start_of_arg.startswith("class ") or start_of_arg.startswith("function ") or start_of_arg.startswith("async ") or start_of_arg.startswith("("):
 			return("Function_arg_impl_diff")
 		return( "Diff_API_argument_value")
 	elif commit_newv.startswith("< in_") and commit_oldv.startswith("> in_"):
-		start_of_arg = commit_newv.split("\":\"")[1]
+		start_of_arg = commit_newv.split("\":")[1]
 		if start_of_arg.startswith("class ") or start_of_arg.startswith("function ") or start_of_arg.startswith("async ") or start_of_arg.startswith("("):
 			return("Function_arg_impl_diff")
 		return( "Diff_callback_argument_value")
 	elif commit_newv.startswith("< callback_exec_"):
 		return( "Callback_called_newv_notcalled_oldv" + ": " + commit_newv.split("< callback_exec_")[1].split("\n")[0]) # name of method
+	elif commit_newv.startswith("< in_cb_"):
+		return( "Callback_called_newv_notcalled_oldv: " + " ARG_CASE")
 	elif commit_newv.startswith("< {\\\"async_error_in_test"):
 		return( "Internal_async_error_newv")
-	elif commit_oldv.startswith("> callback_exec_ "):
+	elif commit_oldv.startswith("> callback_exec_"):
 		return( "Callback_notcalled_newv_called_oldv" + ": " + commit_oldv.split("> callback_exec_")[1].split("\n")[0]) # name of method
+	elif commit_oldv.startswith("> in_cb_"):
+		return( "Callback_notcalled_newv_called_oldv: " + " ARG_CASE")
 	elif commit_oldv.startswith("> {\\\"async_error_in_test"):
 		return( "Internal_async_error_oldv")	
 	elif commit_newv.startswith("<     ✓") and commit_oldv.startswith(">     ✓"): # timing artifact: meaningless diff
@@ -70,6 +105,13 @@ def diagnose_diff( diff_string):
 	elif commit_newv.startswith("< \n<   test") or commit_oldv.startswith("> \n>   test"): # whitespace artifact on test completion: meaningless diff
 		return( None)
 	elif commit_newv.find(" passing (") != -1 and commit_oldv.find(" passing (") != -1: # number of passing tests; difference in suite runtime
+		return( None)
+	elif commit_newv.startswith("< before_") or commit_oldv.startswith("> before_") or commit_newv.startswith("< after_") or commit_oldv.startswith("> after_"): # arg values outside call: ignore
+		return( None)
+	# test id spam
+	elif commit_oldv.startswith("> test_id") and commit_newv == "":
+		return( None)
+	elif commit_newv.startswith("< test_id") and commit_oldv == "":
 		return( None)
 	elif commit_newv.find("Cannot find module '.") != -1: # this indicates a local module dependency that is not available in the newer commit 
 		return( "Local_file_renamed_or_removed")		  # happens when a file is renamed or deleted. Will not happen with commit_oldv since the tests are gen'd for this commit
@@ -99,7 +141,7 @@ def prune_until_equal( to_prune, elt1, elt2):
 
 def diagnose_all_diffs( diff_output):
 	diffs = [l for l in re.compile("(^|\n)[0-9]+.*\n").split( diff_output) if len(l) > 0 and not l.isspace()]
-	diagnosed = [ diagnose_diff(d) for d in diffs]
+	diagnosed = [ subd for d in diffs for subd in diagnose_diff(d)]
 	# if the only diff is an equal number of Internal_async_error_newv and Internal_async_error_oldv
 	# then this is indicative of a diff only due to the ordering of async executions 
 	# so, we remove matching internal async error counts	

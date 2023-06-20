@@ -60,6 +60,7 @@ fn_names.forEach( name => {
 	cur_fn_info["num_args"] = lib[name] ? lib[name].length : 2; // if the function doesn't exist on the lib then give it 2 args 
 	cur_fn_info["name"] = name;
 	cur_fn_info["sigs"] = []; // start with no discovered signatures
+	cur_fn_info["is_constructor"] = !!lib[name] && !!lib[name].prototype && !!lib[name].prototype.constructor
 	if(lib[name].toString().indexOf("...args") > -1) {
 		cur_fn_info["num_args"] = DEFAULT_MAX_ARGS;
 		cur_fn_info["used_default_args"] = true;
@@ -77,6 +78,7 @@ if (typeof lib === 'function') {
 	cur_fn_info["used_default_args"] = true;
 	cur_fn_info["name"] = name;
 	cur_fn_info["sigs"] = []; // start with no discovered signatures
+	cur_fn_info["is_constructor"] = !!lib && !!lib.prototype && !!lib.prototype.constructor
 	fn_info[name + ", " + default_acc_path] = cur_fn_info;
 }
 
