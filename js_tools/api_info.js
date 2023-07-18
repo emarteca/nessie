@@ -3,6 +3,7 @@
 // and then dumps that to a JSON file
 
 let fs = require("fs");
+const { type } = require("os");
 
 const DEFAULT_MAX_ARGS = 5;
 
@@ -42,22 +43,44 @@ if(args["import_code_file"] != "") {
 
 // import the lib, then get info required
 const lib = eval(lib_require);
-let fn_names = Object.getOwnPropertyNames(lib).filter((p) => typeof lib[p] === 'function');
-
+let fn_names = [];
+for(p of Object.getOwnPropertyNames(lib)) {
+	try {
+		if (typeof lib[p] === 'function') {
+			fn_names.push(p);
+		}
+	} catch(e) {}
+}
 
 // for each function in the lib, get the number of arguments
 let fn_info = {};
+let default_acc_path = "(module " + libname + ")"; // module import
 fn_names.forEach( name => {
 	let cur_fn_info = {};
 	cur_fn_info["num_args"] = lib[name] ? lib[name].length : 2; // if the function doesn't exist on the lib then give it 2 args 
 	cur_fn_info["name"] = name;
+	cur_fn_info["sigs"] = []; // start with no discovered signatures
+	cur_fn_info["is_constructor"] = !!lib[name] && !!lib[name].prototype && !!lib[name].prototype.constructor
 	if(lib[name].toString().indexOf("...args") > -1) {
 		cur_fn_info["num_args"] = DEFAULT_MAX_ARGS;
 		cur_fn_info["used_default_args"] = true;
 	}
-	fn_info[name] = cur_fn_info;
+	fn_info[name + ", " + default_acc_path] = cur_fn_info;
 });
 
+
+// now, add the module itself as a function (if it is a function)
+if (typeof lib === 'function') {
+	let cur_fn_info = {};
+	// name is the empty string
+	let name = "";
+	cur_fn_info["num_args"] = DEFAULT_MAX_ARGS;
+	cur_fn_info["used_default_args"] = true;
+	cur_fn_info["name"] = name;
+	cur_fn_info["sigs"] = []; // start with no discovered signatures
+	cur_fn_info["is_constructor"] = !!lib && !!lib.prototype && !!lib.prototype.constructor
+	fn_info[name + ", " + default_acc_path] = cur_fn_info;
+}
 
 // set up output json object
 let output_obj = {

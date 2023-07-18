@@ -6,6 +6,7 @@ use crate::decisions::TestGenDB;
 use crate::errors::*;
 use crate::module_reps::*;
 use crate::tests::*;
+use crate::TestGenMode;
 
 use rand::Rng;
 use std::convert::TryInto;
@@ -16,9 +17,12 @@ pub fn run_testgen_phase<'cxt>(
     mod_rep: &'cxt mut NpmModule,
     testgen_db: &'cxt mut TestGenDB,
     num_tests: i32,
+    test_gen_mode: TestGenMode,
 ) -> Result<(), DFError> {
     let mut cur_test_id = 1;
-    while cur_test_id <= num_tests.try_into().unwrap() {
+    let mut num_errors = 0;
+    while cur_test_id <= num_tests.try_into().unwrap() && num_errors < consts::MAX_NUM_BROKEN_TESTS
+    {
         // get a random extension type
         let ext_type: ExtensionType = rand::thread_rng().gen();
 
@@ -28,6 +32,7 @@ pub fn run_testgen_phase<'cxt>(
             ext_type,
             cur_test_id,
             consts::FRESH_TEST_IF_CANT_EXTEND,
+            &test_gen_mode,
         )?;
 
         // if there's an error in a test execution (e.g., timeout), just keep going with the
@@ -42,6 +47,7 @@ pub fn run_testgen_phase<'cxt>(
                     "Execution error in generating test {:?} -- retrying",
                     cur_test_id
                 );
+                num_errors += 1;
                 continue;
             }
         };
@@ -49,15 +55,22 @@ pub fn run_testgen_phase<'cxt>(
         // after running the test, reprint file without all the instrumentation
         // and as part of a mocha test suite
         cur_test.write_test_to_file(
-            false, /* no instrumentation */
-            true,  /* as part of a mocha test suite */
+            true, /* instrumentation? */
+            true, /* as part of a mocha test suite */
         )?;
 
         testgen_db.set_cur_test_index(cur_test_id);
-        testgen_db.add_extension_points_for_test(&cur_test, &test_results);
+        if test_gen_mode.chains_methods_on_retvals() {
+            mod_rep.add_fcts_rooted_in_ret_vals(&test_results.1);
+            mod_rep.constructor_support(&test_gen_mode);
+        }
+        if test_gen_mode.discovers_during_testgen() {
+            mod_rep.add_function_sigs_from_test(&cur_test, &test_results.0);
+        }
+        testgen_db.add_extension_points_for_test(&cur_test, &test_results.0);
         println!("Test: {:?} of {:?}", cur_test_id, num_tests);
 
-        cur_test_id = cur_test_id + 1;
+        cur_test_id += 1;
     }
     // print the runner for the mocha test suite
     write_meta_test(testgen_db.test_dir_path.clone(), num_tests)?;
@@ -69,7 +82,9 @@ pub fn write_meta_test(test_dir: String, num_tests: i32) -> Result<(), DFError> 
     let meta_test_code = code_gen::get_meta_test_code(num_tests);
     let meta_test_file = PathBuf::from(test_dir + "/metatest.js");
     if matches!(std::fs::write(&meta_test_file, meta_test_code), Err(_)) {
-        return Err(DFError::WritingTestError);
+        return Err(DFError::WritingTestError(
+            meta_test_file.to_string_lossy().to_string(),
+        ));
     }
     Ok(())
 }

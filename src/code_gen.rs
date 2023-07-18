@@ -1,7 +1,7 @@
 //! Functionality for generating the code for the generated tests.
 
 use crate::functions::*;
-use crate::module_reps::NpmModule;
+use crate::module_reps::{AccessPathModuleCentred, NpmModule};
 use crate::tests::{FunctionCall, Test};
 
 /// Code generation for `Callback` objects.
@@ -76,7 +76,7 @@ impl Callback {
                 [
                     "\tconsole.log({\"callback_exec_",
                     &match context_uniq_id {
-                        Some(str_id) => str_id.clone(),
+                        Some(str_id) => str_id,
                         None => String::new(),
                     },
                     "\": ",
@@ -93,15 +93,15 @@ impl Callback {
             // extra code for the callback body (if there's a nested function it
             // is included here)
             &match extra_body_code {
-                Some(str) => str.clone(),
+                Some(str) => str,
                 None => String::new(),
             },
             "}",
         ]
         .join("\n");
         cb_code
-            .split("\n")
-            .filter(|line| line.len() > 0)
+            .split('\n')
+            .filter(|line| !line.is_empty())
             .collect::<Vec<&str>>()
             .join("\n\t")
     }
@@ -115,9 +115,12 @@ impl Test {
     pub(crate) fn get_code(&self, print_instrumented: bool, print_as_test_fct: bool) -> String {
         let setup_code = self.js_for_basic_cjs_import.clone();
         let (test_header, test_footer) = if print_instrumented {
-            (get_instrumented_header(), get_instrumented_footer())
+            (
+                get_instrumented_header(self.get_id(), print_as_test_fct),
+                get_instrumented_footer(),
+            )
         } else {
-            ("", "")
+            ("".to_string(), "")
         };
 
         let (test_fct_header, test_fct_footer) = if print_as_test_fct {
@@ -138,11 +141,11 @@ impl Test {
 
         [
             test_header,
-            &setup_code,
-            test_fct_header,
-            &test_body,
-            test_fct_footer,
-            test_footer,
+            setup_code,
+            test_fct_header.to_string(),
+            test_body,
+            test_fct_footer.to_string(),
+            test_footer.to_string(),
         ]
         .join("\n")
     }
@@ -202,9 +205,20 @@ impl Test {
         let cur_call_node_id = self.fct_tree.get_node_id(cur_root).unwrap();
 
         let cur_node_call = cur_root.get();
+        let cur_call_is_constructor = cur_node_call.is_constructor;
 
         let indents = "\t".repeat(num_tabs);
         let ret_val_basename = "ret_val_".to_owned() + base_var_name + "_" + &cur_call_uniq_id;
+        let ret_val_acc_path = cur_node_call
+            .get_acc_path()
+            .as_ref()
+            .map(|fct_acc_path_rep| {
+                (if cur_call_is_constructor {
+                    AccessPathModuleCentred::InstancePath
+                } else {
+                    AccessPathModuleCentred::ReturnPath
+                })(Box::new(fct_acc_path_rep.clone()))
+            });
         let extra_cb_code = if include_basic_callback {
             basic_callback_with_id(cur_call_uniq_id.clone())
         } else {
@@ -259,16 +273,25 @@ impl Test {
                 .collect::<Vec<String>>()
                 .join(", ")
         };
+        assert!(matches!(
+            cur_node_call.receiver,
+            None | Some(ArgVal::Variable(_))
+        )); // receiver needs to be a variable
+        let fct_call_base_var = match &cur_node_call.receiver {
+            Some(rec) => rec.get_string_rep(None, None, print_instrumented),
+            None => base_var_name.to_string(),
+        };
         get_function_call_code(
             &cur_node_call.sig,
             cur_node_call.get_name(),
             args_rep,
-            ret_val_basename,
+            (ret_val_basename, ret_val_acc_path),
             extra_cb_code,
-            base_var_name,
+            &fct_call_base_var,
             cur_call_uniq_id,
             indents,
             print_instrumented,
+            cur_node_call.is_constructor,
         )
     }
 }
@@ -317,13 +340,32 @@ pub fn basic_callback_with_id(cur_call_uniq_id: String) -> String {
 /// onto an array.
 /// This instrumentation allows us to track what's being printed and
 /// in what order.
-pub fn get_instrumented_header() -> &'static str {
-    r#"
-let orig_log = console.log;
+/// If it's part of a test suite, then we want to print the output as it
+/// is ongoing, b/c the hack of catching the end of the process event
+/// doesn't work -- test suite is one process.
+pub fn get_instrumented_header(cur_test_id: usize, print_as_test_fct: bool) -> String {
+    "if (!process.orig_log)
+        process.orig_log = console.log;
 let output_log = [];
-console.log = function(e) {
-	output_log.push(e);
-}"#
+console.log = function(e) {"
+        .to_owned()
+        + &if print_as_test_fct {
+            "\ne[\"test_id\"] = ".to_owned() + &cur_test_id.to_string() + ";\n"
+        } else {
+            "".to_string()
+        }
+        + &"\toutput_log.push(e);".to_string()
+        + &"}
+function getTypeDiffObjFromPromise(val) {
+    if (val.toString() === \"[object Promise]\") {
+        return \"DIFFTYPE_Promise\";
+    }
+    return typeof val;
+}
+function get_is_constructor(val) {
+    return !!val && !!val.prototype && !!val.prototype.constructor
+}\n"
+        .to_string()
 }
 
 /// Returns a string of JS code that prints the global array that
@@ -333,7 +375,7 @@ console.log = function(e) {
 pub fn get_instrumented_footer() -> &'static str {
     r#"
 process.on("exit", function f() {
-	orig_log(JSON.stringify(output_log));
+	process.orig_log(JSON.stringify(output_log).replaceAll("},", "},\n"));
 })"#
 }
 
@@ -347,12 +389,13 @@ pub fn get_function_call_code(
     cur_node_call_sig: &FunctionSignature,
     fct_name: &str,
     args_rep: String,
-    ret_val_basename: String,
+    (ret_val_basename, ret_val_acc_path): (String, Option<AccessPathModuleCentred>),
     extra_cb_code: String,
     base_var_name: &str,
     cur_call_uniq_id: String,
     indents: String,
     print_instrumented: bool,
+    is_constructor: bool,
 ) -> String {
     // print the arguments to the specified signature
     let print_args = |title: String| {
@@ -407,19 +450,82 @@ pub fn get_function_call_code(
         &("\t".to_owned()
             + &ret_val_basename
             + " = "
+            + if is_constructor { " new " } else { "" }
             + base_var_name
-            + "."
-            + &fct_name
+            + if fct_name.is_empty() { "" } else { "." }
+            + fct_name
             + "("
             + &args_rep
             + ");"),
         &print_args("after_cb".to_string()),
+        // print the list of function properties on the acc path if it's an Object type
+        // note: we're deliberately ignoring primitives, can explicitly code those cases
+        // in if we want (eg for promise chains), but if you want to test all function props
+        // on an acc path regardless of type just remove the if statement
+        &(if print_instrumented && ret_val_acc_path.is_some() {
+            "\tif (getTypeDiffObjFromPromise(".to_owned()
+                + &ret_val_basename
+                + ") == \"object\"){"
+                + "\n\t\tconsole.log({\""
+                + &ret_val_acc_path
+                    .as_ref()
+                    .unwrap()
+                    .to_string()
+                    .replace('\"', "\\\"")
+                + "\": Object.getOwnPropertyNames("
+                + &ret_val_basename
+                + ").filter((p) => typeof "
+                + &ret_val_basename
+                + "[p] === \"function\")"
+                + ".map((p) => [p, get_is_constructor("
+                + &ret_val_basename
+                + "[p])])"
+                // NOTE: the next lines get more properties; including `toString` etc. 
+                // uncomment if you want the prototype properties too
+                + ".concat(Object.getOwnPropertyNames(Object.getPrototypeOf("
+                + &ret_val_basename
+                + ")).map((p) => [p, get_is_constructor("
+                + &ret_val_basename
+                + "[p])])"
+                + ")"
+                + "});"
+                // special case for promises: we only want `then` and `catch`
+                + "\n\t} else if (getTypeDiffObjFromPromise("
+                + &ret_val_basename
+                + ") == \"DIFFTYPE_Promise\"){"
+                + "\n\t\tconsole.log({\""
+                + &ret_val_acc_path
+                    .as_ref()
+                    .unwrap()
+                    .to_string()
+                    .replace('\"', "\\\"")
+                + "\": [[\"then\", false], [\"catch\", false]]});"
+            + "\n\t}"
+            // if the return value itself is a function, then add it as a potential callee (empty fct name)
+            // and check if it is a constructor
+            + "\t if(getTypeDiffObjFromPromise("
+            + &ret_val_basename
+            + ") == \"function\"){"
+            + "\n\t\tis_constructor = get_is_constructor("
+            + &ret_val_basename
+            + ");"
+            + "\n\t\tconsole.log({\""
+            + &ret_val_acc_path
+                .as_ref()
+                .unwrap()
+                .to_string()
+                .replace('\"', "\\\"")
+            + "\": [[\"\", is_constructor]]});"
+            + "\n\t}"
+        } else {
+            String::new()
+        }),
         &(if print_instrumented {
             "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
-                + "\": typeof "
+                + "\": getTypeDiffObjFromPromise("
                 + &ret_val_basename
-                + " == \"function\"? \"[function]\" : "
+                + ") == \"function\"? \"[function]\" : "
                 + &ret_val_basename
                 + ".toString()});"
         } else {
@@ -428,9 +534,22 @@ pub fn get_function_call_code(
         &(if print_instrumented {
             "\tconsole.log({\"".to_owned()
                 + &ret_val_basename
-                + "\": typeof "
+                + "_type\": getTypeDiffObjFromPromise("
                 + &ret_val_basename
-                + "});"
+                + ")});"
+        } else {
+            String::new()
+        }),
+        &(if print_instrumented && ret_val_acc_path.is_some() {
+            "\tconsole.log({\"".to_owned()
+                + &ret_val_basename
+                + "_acc_path\": \""
+                + &ret_val_acc_path
+                    .as_ref()
+                    .unwrap()
+                    .to_string()
+                    .replace('\"', "\\\"")
+                + "\"});"
         } else {
             String::new()
         }),
@@ -453,9 +572,9 @@ pub fn get_function_call_code(
 
     ("\n".to_owned() + &indents)
         + &fct_code
-            .split("\n")
+            .split('\n')
             .into_iter()
-            .filter(|line| line.len() > 0)
+            .filter(|line| !line.is_empty())
             .collect::<Vec<&str>>()
             .join(&("\n".to_owned() + &indents))
 }

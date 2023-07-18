@@ -2,13 +2,15 @@
 //! (arguments, values, signatures).
 
 use crate::errors::*;
+use crate::module_reps::AccessPathModuleCentred;
+
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 /// Representation of a single signature of a module function.
 /// This includes the number and types of arguments, etc.
 /// Note that functions may have multiple valid signatures.
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct FunctionSignature {
     /// list of arguments: their type, and value if tested
     arg_list: Vec<FunctionArgument>,
@@ -33,17 +35,45 @@ impl TryFrom<(&Vec<FunctionArgument>, FunctionCallResult)> for FunctionSignature
     }
 }
 
+impl From<&Vec<ArgType>> for FunctionSignature {
+    fn from(arg_types: &Vec<ArgType>) -> Self {
+        Self {
+            arg_list: arg_types
+                .iter()
+                .map(|ty| FunctionArgument::new(*ty, None))
+                .collect::<Vec<FunctionArgument>>(),
+            call_test_result: None,
+            is_spread_args: false,
+        }
+    }
+}
+
+impl From<Vec<ArgType>> for FunctionSignature {
+    fn from(arg_types: Vec<ArgType>) -> Self {
+        (&arg_types).into()
+    }
+}
+
 impl FunctionSignature {
     /// Constructor.
     pub fn new(
-        arg_list: &Vec<FunctionArgument>,
+        arg_list: &[FunctionArgument],
         call_test_result: Option<FunctionCallResult>,
     ) -> Self {
         Self {
-            arg_list: arg_list.clone(),
+            arg_list: arg_list.to_owned(),
             call_test_result,
             is_spread_args: false,
         }
+    }
+
+    /// Get the abstract (i.e., non-concrete, with no values) signature -- this is the list of
+    /// argument types.
+    pub fn get_abstract_sig(&self) -> Vec<ArgType> {
+        self.arg_list
+            .iter()
+            .map(|arg| arg.get_type())
+            .collect::<Vec<ArgType>>()
     }
 
     /// Get the positions of callback arguments for this function signature.
@@ -105,6 +135,10 @@ impl FunctionSignature {
     pub fn get_call_res(&self) -> Option<FunctionCallResult> {
         self.call_test_result
     }
+
+    pub fn set_call_res(&mut self, res: FunctionCallResult) {
+        self.call_test_result = Some(res);
+    }
 }
 
 /// Default signature is empty, with the spread argument, and untested.
@@ -119,12 +153,12 @@ impl std::default::Default for FunctionSignature {
 }
 
 /// Representation of a function argument: type and optional value.
-#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct FunctionArgument {
     /// Type of the argument.
-    arg_type: ArgType,
+    pub(crate) arg_type: ArgType,
     /// Optional value of the argument.
-    arg_val: Option<ArgVal>,
+    pub(crate) arg_val: Option<ArgVal>,
 }
 
 impl FunctionArgument {
@@ -152,12 +186,11 @@ impl FunctionArgument {
         context_uniq_id: Option<String>,
         print_instrumented: bool,
     ) -> Option<String> {
-        Some(
-            self.arg_val
-                .clone()?
-                .get_string_rep(extra_body_code, context_uniq_id, print_instrumented)
-                .clone(),
-        )
+        Some(self.arg_val.clone()?.get_string_rep(
+            extra_body_code,
+            context_uniq_id,
+            print_instrumented,
+        ))
     }
 
     /// Short string representation of the argument.
@@ -165,7 +198,7 @@ impl FunctionArgument {
     pub fn get_string_rep_arg_val_short(&self) -> Option<String> {
         match self.arg_type {
             ArgType::CallbackType => Some("\"[function]\"".to_string()),
-            _ => self.get_string_rep_arg_val(None, None, false).clone(),
+            _ => self.get_string_rep_arg_val(None, None, false),
         }
     }
 
@@ -175,7 +208,7 @@ impl FunctionArgument {
         if !(arg_val.get_type().can_be_repd_as(self.arg_type)) {
             return Err(TestGenError::ArgTypeValMismatch);
         }
-        self.arg_val = Some(arg_val.clone());
+        self.arg_val = Some(arg_val);
         Ok(())
     }
 
@@ -212,8 +245,12 @@ impl FunctionArgument {
 /// Note: this can be modified for an arbitrary amount of granularity;
 /// so far we have mainly stuck to the default types available in JavaScript,
 /// with the added distinction between generated callbacks and API library functions.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ArgType {
+    /// Null.
+    NullType,
+    /// Boolean.
+    BoolType,
     /// Number.
     NumberType,
     /// String.
@@ -231,16 +268,26 @@ pub enum ArgType {
 }
 
 impl ArgType {
-    // Return `true` if the receiver (`self`) can be represented
-    // by the other type `ot`.
+    /// Return `true` if the receiver (`self`) can be represented
+    /// by the other type `ot`.
     pub fn can_be_repd_as(&self, ot: Self) -> bool {
         *self == ot || ot == Self::AnyType
+    }
+
+    /// Is this a primitive type?
+    pub fn is_not_callback(&self) -> bool {
+        match *self {
+            ArgType::CallbackType | ArgType::LibFunctionType => false,
+            _ => true,
+        }
     }
 }
 
 impl std::fmt::Display for ArgType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match *self {
+            ArgType::NullType => write!(f, "null"),
+            ArgType::BoolType => write!(f, "bool"),
             ArgType::NumberType => write!(f, "num"),
             ArgType::StringType => write!(f, "string"),
             ArgType::ArrayType => write!(f, "array"),
@@ -253,8 +300,12 @@ impl std::fmt::Display for ArgType {
 }
 
 /// Kinds of argument values.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum ArgVal {
+    /// Null.
+    Null,
+    /// Bool.
+    Bool(String),
     /// Number.
     Number(String),
     /// String.
@@ -271,6 +322,12 @@ pub enum ArgVal {
     Variable(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct ArgValAPTracked {
+    pub(crate) val: ArgVal,
+    pub(crate) acc_path: Option<AccessPathModuleCentred>,
+}
+
 impl ArgVal {
     /// Get the string representation of this argument value.
     /// Instrumentation code is passed in and used to instrument callback values.
@@ -281,7 +338,9 @@ impl ArgVal {
         print_instrumented: bool,
     ) -> String {
         match self {
-            Self::Number(s)
+            Self::Null => "null".to_string(),
+            Self::Bool(s)
+            | Self::Number(s)
             | Self::String(s)
             | Self::Array(s)
             | Self::Object(s)
@@ -301,6 +360,8 @@ impl ArgVal {
     /// when passing previous return/callback arg values to later function calls.
     pub fn get_type(&self) -> ArgType {
         match self {
+            Self::Null => ArgType::NullType,
+            Self::Bool(_) => ArgType::BoolType,
             Self::Number(_) => ArgType::NumberType,
             Self::String(_) => ArgType::StringType,
             Self::Array(_) => ArgType::ArrayType,
@@ -325,7 +386,7 @@ impl ArgVal {
 }
 
 /// Kinds of callback value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub enum CallbackVal {
     /// Variable: if the callback is stored as a named function earlier, and represented by name.
     Var(String),
@@ -353,7 +414,7 @@ impl CallbackVal {
 
 /// Representation of a callback function.
 /// This is used to represent the generated callback arguments to library function calls.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct Callback {
     /// Signature of the callback function.
     pub(crate) sig: FunctionSignature,
@@ -386,8 +447,8 @@ impl Callback {
 
     /// Getter for the list of all the arguments to this callback.
     /// This is the list of parameter names in this callback's signature.
-    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
-        let cb_arg_name_base = self.get_cb_arg_name_base(&Some(context_uniq_id.clone()));
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &str) -> Vec<ArgVal> {
+        let cb_arg_name_base = self.get_cb_arg_name_base(&Some(context_uniq_id.to_owned()));
         self.sig
             .get_arg_list()
             .iter()
