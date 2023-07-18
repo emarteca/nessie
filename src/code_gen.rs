@@ -354,8 +354,8 @@ console.log = function(e) {"
         } else {
             "".to_string()
         }
-        + &"\toutput_log.push(e);".to_string()
-        + &"}
+        + "\toutput_log.push(e);"
+        + "}
 function getTypeDiffObjFromPromise(val) {
     if (val.toString() === \"[object Promise]\") {
         return \"DIFFTYPE_Promise\";
@@ -365,7 +365,6 @@ function getTypeDiffObjFromPromise(val) {
 function get_is_constructor(val) {
     return !!val && !!val.prototype && !!val.prototype.constructor
 }\n"
-        .to_string()
 }
 
 /// Returns a string of JS code that prints the global array that
@@ -385,6 +384,7 @@ process.on("exit", function f() {
 /// -- print an error in the catch
 /// Remember that "print" (i.e., `console.log`) has been redefined to push to the
 /// global array on the `process` object.
+#[allow(clippy::too_many_arguments)]
 pub fn get_function_call_code(
     cur_node_call_sig: &FunctionSignature,
     fct_name: &str,

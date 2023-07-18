@@ -152,12 +152,10 @@ impl MinedParam {
     /// Check if a parameter is valid: it must be either a callback, an object, or
     /// an ident (and only one at once).
     pub fn is_valid(&self) -> bool {
-        match (&self.ident, &self.callback, &self.object) {
-            (Some(_), None, None) => true,
-            (None, Some(_), None) => true,
-            (None, None, Some(_)) => true,
-            _ => false,
-        }
+        matches!(
+            (&self.ident, &self.callback, &self.object),
+            (Some(_), None, None) | (None, Some(_), None) | (None, None, Some(_))
+        )
     }
 
     /// Check if the parameter is a callback.
@@ -191,11 +189,8 @@ impl std::fmt::Display for MinedParam {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
-            "{}",
-            format!(
-                "ident: {:?}, object: {:?}, callback: {:?}",
-                self.ident, self.object, self.callback
-            )
+            "ident: {:?}, object: {:?}, callback: {:?}",
+            self.ident, self.object, self.callback
         )
     }
 }
@@ -384,8 +379,8 @@ impl MinedAPICall {
             let mut sig_with_values: Vec<Option<ArgVal>> = Vec::new();
             for (ty, val) in api_call
                 .sig_with_types
-                .split(",")
-                .zip(api_call.sig_with_values.split(","))
+                .split(',')
+                .zip(api_call.sig_with_values.split(','))
             {
                 let opt_ty = match ty {
                     "Object" => Some(ArgType::ObjectType),

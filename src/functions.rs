@@ -97,7 +97,7 @@ impl FunctionSignature {
     ///
     /// Note: this is designed for use in getting the list of all callback arguments in scope
     /// at a given extension point.
-    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &str) -> Vec<ArgVal> {
         self.arg_list
             .iter()
             .filter_map(|arg| match arg.get_arg_val() {
@@ -276,10 +276,7 @@ impl ArgType {
 
     /// Is this a primitive type?
     pub fn is_not_callback(&self) -> bool {
-        match *self {
-            ArgType::CallbackType | ArgType::LibFunctionType => false,
-            _ => true,
-        }
+        !matches!(*self, ArgType::CallbackType | ArgType::LibFunctionType)
     }
 }
 

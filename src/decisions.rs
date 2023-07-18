@@ -154,7 +154,7 @@ impl<'cxt> TestGenDB {
     /// Choose random type for argument of type `arg_type`.
     /// Note: can't have `allow_any` without `allow_cbs`.
     pub fn choose_random_arg_type(&self, allow_cbs: bool, allow_any: bool) -> ArgType {
-        assert!(!(allow_cbs && !allow_any));
+        assert!(!allow_cbs || !allow_any);
         let num_arg_types = 4;
         let max_arg_type_count = num_arg_types
             + if allow_cbs {
@@ -190,7 +190,7 @@ impl<'cxt> TestGenDB {
                     false, false, /* don't allow callbacks or `Any` types: just primitives */
                 )
             } else {
-                arg_type.clone()
+                *arg_type
             });
         }
         randomized_sig
@@ -504,17 +504,17 @@ impl<'cxt> TestGenDB {
             .into_iter()
             .filter(|mined_call| {
                 if let Some(base_path) = mined_call.get_acc_path().get_base_path() {
-                    return ap_receivers.contains_key(&base_path)
+                    return ap_receivers.contains_key(base_path)
                     && test_gen_mode.will_gen_call_for(&mined_call.get_fct_name()) /* check if we're only generating tests for calls to explicitly named fcts */ ;
                 }
                 false
             })
             .collect::<Vec<MinedAPICall>>();
-            if possible_calls.len() > 0 {
+            if !possible_calls.is_empty() {
                 let rand_call = possible_calls.choose(&mut rand::thread_rng()).unwrap();
                 let rand_call_acc_path = rand_call.get_acc_path();
                 let rand_base_var = ap_receivers
-                    .get(&rand_call_acc_path.get_base_path().unwrap())
+                    .get(rand_call_acc_path.get_base_path().unwrap())
                     .unwrap()
                     .choose(&mut rand::thread_rng())
                     .unwrap();

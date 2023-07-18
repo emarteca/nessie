@@ -94,7 +94,7 @@ fn main() {
     let opt = Opt::from_args();
 
     let test_gen_mode = match opt.test_gen_mode {
-        Some(ref mode_str) => TestGenMode::from_str(&mode_str)
+        Some(ref mode_str) => TestGenMode::from_str(mode_str)
             .unwrap_or_else(|_| panic!("invalid test gen mode provided")),
         None => TestGenMode::Head, // default is the current newest version
     };
@@ -132,7 +132,7 @@ fn main() {
 
     // setup the initial test gen database.
     let mut testgen_db = decisions::TestGenDB::new(
-        testing_dir.to_string(),
+        testing_dir,
         test_file_prefix.to_string(),
         mined_data,
         mined_call_data,

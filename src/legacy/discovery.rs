@@ -39,7 +39,7 @@ pub fn run_discovery_phase(
         let mut cur_cb_position = 1;
         for _ in 0..consts::DISCOVERY_PHASE_TESTING_BUDGET {
             let args = gen_args_for_fct_with_cb(
-                &func_desc,
+                func_desc,
                 Some(cur_cb_position - 1),
                 &testgen_db,
                 &mod_rep,
@@ -92,9 +92,8 @@ pub fn run_discovery_phase(
 
             // if we haven't tested the current position with no callbacks, do that
             // else, move to the next position in the arg list and try with a callback arg
-            if cur_cb_position < 0 && args.len() > 0 {
-                cur_cb_position =
-                    (((cur_cb_position * (-1)) + 1) % i32::try_from(args.len()).unwrap()) + 1
+            if cur_cb_position < 0 && !args.is_empty() {
+                cur_cb_position = ((-cur_cb_position + 1) % i32::try_from(args.len()).unwrap()) + 1
             } else {
                 cur_cb_position *= -1
             }
@@ -140,7 +139,7 @@ fn gen_args_for_fct_with_cb(
                 Some(i),
                 &Vec::new(),
                 &Vec::new(),
-                &mod_rep,
+                mod_rep,
                 test_gen_mode,
             ),
         })?;

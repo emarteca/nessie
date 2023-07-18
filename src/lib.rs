@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 #![feature(iter_intersperse)]
+#![allow(deprecated)]
 
 //! Data and feedback directed automated test generator for JavaScript libraries.
 
@@ -73,37 +74,25 @@ impl TestGenMode {
     /// Do we support constructors?
     /// Only OGNessie does not
     pub fn supports_constructors(&self) -> bool {
-        match self {
-            Self::OGNessie => false,
-            _ => true,
-        }
+        !matches!(self, Self::OGNessie)
     }
 
     /// Does this test gen mode generate chained method calls on the return values
     /// of previous function calls?
     pub fn chains_methods_on_retvals(&self) -> bool {
-        match self {
-            Self::ChainedMethods => true,
-            _ => false,
-        }
+        matches!(self, Self::ChainedMethods | Self::Head)
     }
 
     /// Does this test gen mode discover new API signatures during the test generation?
     /// For now, this is just the opposite of `has_discovery`; but let's keep it a
     /// separate method in case this changes.
     pub fn discovers_during_testgen(&self) -> bool {
-        match self {
-            Self::OGNessie | Self::TrackPrimitives => false,
-            _ => true,
-        }
+        !matches!(self, Self::OGNessie | Self::TrackPrimitives)
     }
 
     ///  Does this test gen mode track the types of primitive arguments?
     pub fn tracks_prim_types(&self) -> bool {
-        match self {
-            Self::OGNessie => false,
-            _ => true,
-        }
+        !matches!(self, Self::OGNessie)
     }
 
     /// Check if this testgen mode generates calls for the function of specified name?

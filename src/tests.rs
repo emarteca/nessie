@@ -117,7 +117,7 @@ impl FunctionCall {
     }
 
     /// Get the list of parameter names for all the callback arguments to this function.
-    pub fn get_all_cb_args_vals(&self, context_uniq_id: &String) -> Vec<ArgVal> {
+    pub fn get_all_cb_args_vals(&self, context_uniq_id: &str) -> Vec<ArgVal> {
         self.sig.get_all_cb_args_vals(context_uniq_id)
     }
 
@@ -384,7 +384,7 @@ impl<'cxt> Test {
         let cur_test_file = self.get_file();
         let cur_test = self.get_code(print_instrumented, print_as_test_fct);
         if matches!(std::fs::write(&cur_test_file, cur_test), Err(_)) {
-            return Err(DFError::WritingTestError(self.get_file().to_string()));
+            return Err(DFError::WritingTestError(self.get_file()));
         }
         Ok(cur_test_file)
     }
@@ -392,7 +392,7 @@ impl<'cxt> Test {
     pub fn delete_file(&mut self) -> Result<(), DFError> {
         let cur_test_file = self.get_file();
         if matches!(std::fs::remove_file(&cur_test_file), Err(_)) {
-            return Err(DFError::DeletingTestError(self.get_file().to_string()));
+            return Err(DFError::DeletingTestError(self.get_file()));
         }
         Ok(())
     }
@@ -644,9 +644,7 @@ fn get_function_props_for_acc_paths(
                                         let acc_path = arr[0].clone();
                                         let is_constructor = arr[1].clone();
                                         match (acc_path, is_constructor) {
-                                            (Value::String(s), Value::Bool(b)) => {
-                                                Some((s.clone(), b))
-                                            }
+                                            (Value::String(s), Value::Bool(b)) => Some((s, b)),
                                             _ => None,
                                         }
                                     }

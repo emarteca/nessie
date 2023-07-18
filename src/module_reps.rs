@@ -159,7 +159,7 @@ impl NpmModule {
                 let mut new_sig = rel_fct.sig.clone();
                 new_sig.set_call_res(*fct_result);
                 if let Some(mut_fct_desc) = self.fns.get_mut(&(
-                    (fct_acc_path_rep).clone().get_base_path().unwrap_or_else(|| {
+                    (fct_acc_path_rep).clone().get_base_path().unwrap_or({
                         &base_mod_import
                     }).clone(),
                     fct_name.to_string(),
@@ -402,13 +402,11 @@ impl std::fmt::Display for AccessPathModuleCentred {
         match self {
             Self::RootPath(mod_name) => write!(f, "(module {})", mod_name),
             Self::ReturnPath(rec_ap_box) => write!(f, "(return {})", *rec_ap_box),
-            Self::FieldAccPath(rec_ap_box, field_name) => write!(
-                f,
-                "({})",
-                format!("member {:?} {}", field_name, *rec_ap_box)
-            ),
+            Self::FieldAccPath(rec_ap_box, field_name) => {
+                write!(f, "(member {:?} {})", field_name, *rec_ap_box)
+            }
             Self::ParamPath(rec_ap_box, param_index) => {
-                write!(f, "({})", format!("param {} {}", param_index, *rec_ap_box))
+                write!(f, "(param {} {})", param_index, *rec_ap_box)
             }
             Self::InstancePath(rec_ap_box) => write!(f, "(new {})", *rec_ap_box),
         }
