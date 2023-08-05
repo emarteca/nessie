@@ -27,7 +27,7 @@ cargo run -- --lib-name <name of package to generate tests for>
              [--lib-src-dir <path to directory for the source code of the package>] # optional
              [--testing-dir <path to directory where the generated tests should be written to] # optional
              [--module-import-code <path to file containing custom module import>] # optional
-             [--mined-call-data ]
+             [--mined-call-data <path to JSON file containing mined API call examples>] # optional
              [--mined-data <path to JSON file containing mined function nesting examples] # optional
              [--run-discover] # optional: flag to rerun the API discovery phase even if the discovery file exists
              [--skip-testgen] # optional: skip the test generation phase

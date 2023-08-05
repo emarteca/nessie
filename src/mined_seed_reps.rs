@@ -359,10 +359,12 @@ pub struct MinedAPICall {
 }
 
 impl MinedAPICall {
+    /// Get the signature with types (i.e., ignoring `ArgVal`s).
     pub fn get_sig_with_types(&self) -> &Vec<Option<ArgType>> {
         &self.sig_with_types
     }
 
+    /// Get the signatures with argument values (i.e., not just the types).
     pub fn get_sig_with_vals(&self) -> &Vec<Option<ArgVal>> {
         &self.sig_with_values
     }
@@ -437,14 +439,17 @@ impl MinedAPICall {
         ret_map
     }
 
+    /// Get the name of the package in which this API call is rooted.
     pub fn get_pkg(&self) -> String {
         self.pkg.clone()
     }
 
+    /// Get the access path corresponding to the API call.
     pub fn get_acc_path(&self) -> AccessPathModuleCentred {
         self.acc_path.clone()
     }
 
+    /// Get the name of the function, or empty string if there is not one (e.g., an anonymous function)
     pub fn get_fct_name(&self) -> String {
         match &self.acc_path {
             AccessPathModuleCentred::FieldAccPath(_, FieldNameType::StringField(fct_name)) => {

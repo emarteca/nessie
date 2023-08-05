@@ -115,6 +115,11 @@ impl NpmModule {
         }
     }
 
+    /// Add list of function properties to the list of discovered functions.
+    /// Note that these are just the names of the functions, and there are not
+    /// yet any associated signatures.
+    /// Note: heuristic in place for promise support: we know `then` and `catch`
+    /// are one-argument functions.
     pub fn add_fcts_rooted_in_ret_vals(
         &mut self,
         accpath_fct_props: &HashMap<AccessPathModuleCentred, Vec<(String, bool)>>,
@@ -141,6 +146,8 @@ impl NpmModule {
         }
     }
 
+    /// Add the function signatures revealed/discovered from the test execution and extension 
+    /// points specified.
     pub fn add_function_sigs_from_test(
         &mut self,
         test: &Test,
